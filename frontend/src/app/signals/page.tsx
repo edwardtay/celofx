@@ -1,6 +1,7 @@
 "use client";
 
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { SignalFeed } from "@/components/signals/signal-feed";
 import { useSignals } from "@/hooks/use-signals";
 
@@ -31,6 +32,7 @@ export default function SignalsPage() {
           <SignalFeed signals={signals ?? []} />
         )}
       </main>
+      <Footer />
     </div>
   );
 }

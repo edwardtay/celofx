@@ -1,6 +1,7 @@
 "use client";
 
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import { AgentIdentityCard } from "@/components/agent/agent-identity-card";
 import { ReputationDisplay } from "@/components/agent/reputation-display";
 import { ReputationForm } from "@/components/agent/reputation-form";
@@ -29,6 +30,7 @@ export default function AgentPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

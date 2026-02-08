@@ -21,8 +21,19 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: siteConfig.name,
-  description: siteConfig.description,
+  title: "AAA — Alpha Acceleration Agent",
+  description: "Cross-market alpha analyst scanning crypto, stocks, forex, and commodities. Registered on-chain via ERC-8004, monetized via x402 micropayments on Celo.",
+  openGraph: {
+    title: "AAA — Alpha Acceleration Agent",
+    description: "AI-powered cross-market trading signals. Verifiable identity via ERC-8004, pay-per-signal via x402 on Celo.",
+    siteName: "$AAA",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "AAA — Alpha Acceleration Agent",
+    description: "AI-powered cross-market trading signals. ERC-8004 + x402 on Celo.",
+  },
 };
 
 export default function RootLayout({
