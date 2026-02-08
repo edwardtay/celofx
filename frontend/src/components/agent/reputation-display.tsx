@@ -49,10 +49,14 @@ export function ReputationDisplay() {
   const isLoading = summaryLoading || feedbackLoading;
 
   // Parse on-chain summary: [count, summaryValue, summaryValueDecimals]
-  const count = summary ? Number((summary as [bigint, bigint, number])[0]) : 3;
-  const summaryValue = summary ? Number((summary as [bigint, bigint, number])[1]) : 250;
+  const onChainCount = summary ? Number((summary as [bigint, bigint, number])[0]) : 0;
+  const summaryValue = summary ? Number((summary as [bigint, bigint, number])[1]) : 0;
   const summaryDecimals = summary ? Number((summary as [bigint, bigint, number])[2]) : 0;
-  const avgValue = count > 0 ? summaryValue / Math.pow(10, summaryDecimals) / count : 0;
+  const hasOnChainData = onChainCount > 0;
+  const count = hasOnChainData ? onChainCount : seedFeedback.length;
+  const avgValue = hasOnChainData
+    ? summaryValue / Math.pow(10, summaryDecimals) / onChainCount
+    : seedFeedback.reduce((sum, f) => sum + f.value, 0) / seedFeedback.length;
   const avgStars = Math.round(avgValue / 20); // Convert 0-100 back to 1-5
 
   // Parse on-chain feedback: [clients[], indexes[], values[], decimals[], tag1s[], tag2s[], revoked[]]
@@ -82,7 +86,7 @@ export function ReputationDisplay() {
           {!isLoading && (
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="font-mono">
-                {avgStars || "4.2"}/5
+                {avgStars > 0 ? avgStars : "4.2"}/5
               </Badge>
               <span className="text-xs text-muted-foreground">
                 {displayCount} reviews

@@ -25,20 +25,26 @@ export function TopSignals() {
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, 3);
 
+  if (topSignals.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+        <p className="text-sm">No signals yet. Click &quot;Run Analysis&quot; above to generate signals.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       {topSignals.map((signal) => (
         <SignalCard key={signal.id} signal={signal} />
       ))}
-      {topSignals.length > 0 && (
-        <Link
-          href="/signals"
-          className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
-        >
-          View all signals
-          <ArrowRight className="size-3.5" />
-        </Link>
-      )}
+      <Link
+        href="/signals"
+        className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+      >
+        View all signals
+        <ArrowRight className="size-3.5" />
+      </Link>
     </div>
   );
 }

@@ -103,15 +103,26 @@ export function AgentIdentityCard() {
           </div>
         </div>
 
-        <a
-          href={`https://celoscan.io/address/${IDENTITY_REGISTRY_ADDRESS}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          View on Celoscan
-          <ExternalLink className="size-3" />
-        </a>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={`https://celoscan.io/address/${IDENTITY_REGISTRY_ADDRESS}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            View Registry
+            <ExternalLink className="size-3" />
+          </a>
+          <a
+            href="https://celoscan.io/tx/0xea64b5d790028208b285bb05a00cb506b44f7fa6d10099cff6671bd42e9a3ab6"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Registration Tx
+            <ExternalLink className="size-3" />
+          </a>
+        </div>
       </CardContent>
     </Card>
   );

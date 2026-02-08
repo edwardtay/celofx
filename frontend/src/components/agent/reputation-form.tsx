@@ -21,27 +21,35 @@ export function ReputationForm() {
   const [comment, setComment] = useState("");
   const { isConnected } = useAccount();
   const agentId = useAgentId();
-  const { writeContract, isPending } = useWriteContract();
+  const [submitted, setSubmitted] = useState(false);
+  const { writeContract, isPending, isSuccess, isError } = useWriteContract();
 
   const handleSubmit = () => {
     if (score === 0) return;
-    // ERC-8004 giveFeedback: score maps to value (1-5 scale, 0 decimals)
-    // tag1 = "quality", tag2 = comment text, endpoint = app URL
-    writeContract({
-      address: REPUTATION_REGISTRY_ADDRESS,
-      abi: reputationRegistryAbi,
-      functionName: "giveFeedback",
-      args: [
-        agentId,
-        BigInt(score * 20), // Scale 1-5 → 20-100
-        0, // valueDecimals (integer)
-        "quality", // tag1
-        comment.trim() || "signal-accuracy", // tag2
-        typeof window !== "undefined" ? window.location.origin : "", // endpoint
-        "", // feedbackURI
-        ZERO_BYTES32, // feedbackHash
-      ],
-    });
+    writeContract(
+      {
+        address: REPUTATION_REGISTRY_ADDRESS,
+        abi: reputationRegistryAbi,
+        functionName: "giveFeedback",
+        args: [
+          agentId,
+          BigInt(score * 20), // Scale 1-5 → 20-100
+          0, // valueDecimals (integer)
+          "quality", // tag1
+          comment.trim() || "signal-accuracy", // tag2
+          typeof window !== "undefined" ? window.location.origin : "", // endpoint
+          "", // feedbackURI
+          ZERO_BYTES32, // feedbackHash
+        ],
+      },
+      {
+        onSuccess: () => {
+          setSubmitted(true);
+          setScore(0);
+          setComment("");
+        },
+      }
+    );
   };
 
   if (!isConnected) {
@@ -102,6 +110,16 @@ export function ReputationForm() {
           {isPending ? "Submitting..." : "Submit Feedback"}
         </Button>
 
+        {submitted && (
+          <p className="text-xs text-emerald-600 text-center font-medium">
+            Feedback submitted on-chain! Thank you.
+          </p>
+        )}
+        {isError && (
+          <p className="text-xs text-red-600 text-center">
+            Transaction failed. Please try again.
+          </p>
+        )}
         <p className="text-xs text-muted-foreground text-center">
           Feedback is recorded on-chain via ERC-8004 Reputation Registry
         </p>

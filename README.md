@@ -2,6 +2,8 @@
 
 Cross-market alpha analyst that scans crypto, stocks, forex, and commodities to surface high-conviction trading signals. Registered on-chain via ERC-8004, monetized via x402 micropayments, built on Celo.
 
+**Live**: [aaa-agent-steel.vercel.app](https://aaa-agent-steel.vercel.app)
+
 ## What It Does
 
 $AAA is an AI-powered trading signal agent that:
@@ -61,6 +63,10 @@ The premium endpoint uses `@x402/core/http` for standards-compliant header encod
 
 **Identity**: Agent is registered on the ERC-8004 Identity Registry with a metadata URI following the `registration-v1` schema. The frontend reads `tokenURI(agentId)` and `ownerOf(agentId)` to display the agent's on-chain profile.
 
+- **Agent ID**: 4
+- **Registration Tx**: [celoscan.io/tx/0xea64b5d...](https://celoscan.io/tx/0xea64b5d790028208b285bb05a00cb506b44f7fa6d10099cff6671bd42e9a3ab6)
+- **Metadata URI**: [agent-metadata.json](https://aaa-agent-steel.vercel.app/agent-metadata.json)
+
 **Reputation**: Users submit feedback via `giveFeedback(agentId, value, valueDecimals, tag1, tag2, endpoint, feedbackURI, feedbackHash)`. The value uses a 0-100 scale (mapped from 1-5 stars). Aggregate scores are read via `getSummary()` and individual feedback via `readAllFeedback()`.
 
 ## Pages
@@ -98,7 +104,7 @@ pnpm dev
 
 ```
 NEXT_PUBLIC_WC_PROJECT_ID=       # WalletConnect project ID
-NEXT_PUBLIC_AGENT_ID=1           # ERC-8004 agent ID
+NEXT_PUBLIC_AGENT_ID=4           # ERC-8004 agent ID
 ANTHROPIC_API_KEY=               # Claude API key (for /api/agent/analyze)
 AGENT_WALLET_ADDRESS=            # Wallet address for x402 payments
 FINNHUB_API_KEY=                 # Optional: Finnhub for stock data

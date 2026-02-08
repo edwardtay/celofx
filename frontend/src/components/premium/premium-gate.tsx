@@ -105,7 +105,7 @@ export function PremiumGate({
             {error}
           </div>
         )}
-        <Button onClick={handleUnlock} disabled={loading} className="gap-1.5">
+        <Button onClick={handleUnlock} disabled={loading || !walletClient} className="gap-1.5">
           {loading ? (
             <>
               <Loader2 className="size-4 animate-spin" />
@@ -118,6 +118,11 @@ export function PremiumGate({
             </>
           )}
         </Button>
+        {!walletClient && (
+          <p className="text-xs text-amber-600">
+            Connect your wallet on Celo to unlock
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           Payment settled on-chain via x402 protocol (HTTP 402)
         </p>

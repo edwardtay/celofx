@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Menu, X } from "lucide-react";
 
 const navLinks = [
   { href: "/", label: "Dashboard" },
@@ -15,20 +17,51 @@ const navLinks = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-card">
-      <div className="flex items-center gap-8">
-        <Link href="/" className="font-display text-xl tracking-tight">
-          {siteConfig.name}
-        </Link>
-        <nav className="hidden md:flex items-center gap-1">
+    <header className="border-b border-border bg-card">
+      <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="font-display text-xl tracking-tight">
+            {siteConfig.name}
+          </Link>
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "px-3 py-1.5 text-sm rounded-md transition-colors",
+                  pathname === link.href
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+        </div>
+        <div className="flex items-center gap-3">
+          <ConnectButton showBalance={false} />
+          <button
+            className="md:hidden p-1.5 rounded-md hover:bg-accent"
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+        </div>
+      </div>
+      {mobileOpen && (
+        <nav className="md:hidden px-6 pb-3 flex flex-col gap-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
+              onClick={() => setMobileOpen(false)}
               className={cn(
-                "px-3 py-1.5 text-sm rounded-md transition-colors",
+                "px-3 py-2 text-sm rounded-md transition-colors",
                 pathname === link.href
                   ? "bg-accent text-accent-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
@@ -38,8 +71,7 @@ export function Navbar() {
             </Link>
           ))}
         </nav>
-      </div>
-      <ConnectButton showBalance={false} />
+      )}
     </header>
   );
 }
