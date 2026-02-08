@@ -6,7 +6,7 @@ import {
 import { getPremiumSignals } from "@/lib/signal-store";
 import type { MarketType } from "@/lib/types";
 
-const payTo = (process.env.AGENT_WALLET_ADDRESS ||
+const payTo = (process.env.AGENT_WALLET_ADDRESS?.trim() ||
   "0x0000000000000000000000000000000000000001") as `0x${string}`;
 
 // cUSD on Celo Mainnet

@@ -16,8 +16,8 @@ export async function POST() {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured" },
-      { status: 500 }
+      { error: "API key not configured. Set ANTHROPIC_API_KEY in environment." },
+      { status: 503 }
     );
   }
 
