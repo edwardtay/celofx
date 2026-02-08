@@ -3,6 +3,7 @@ import { Footer } from "@/components/footer";
 import { MarketOverview } from "@/components/dashboard/market-overview";
 import { TopSignals } from "@/components/dashboard/top-signals";
 import { AgentStatus } from "@/components/dashboard/agent-status";
+import { ReputationBadge } from "@/components/dashboard/reputation-badge";
 import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -11,11 +12,14 @@ export default function Home() {
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-1 px-6 py-6 max-w-6xl mx-auto w-full space-y-6">
-        <div>
-          <h1 className="text-2xl font-display tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Real-time alpha across crypto, stocks, forex, and commodities
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-display tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Real-time alpha across crypto, stocks, forex, and commodities
+            </p>
+          </div>
+          <ReputationBadge />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
