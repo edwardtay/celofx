@@ -1,17 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { Activity, Loader2, Zap, CheckCircle2, AlertCircle } from "lucide-react";
+
+const SCAN_STEPS = [
+  "Scanning crypto markets...",
+  "Scanning stock markets...",
+  "Scanning forex pairs...",
+  "Scanning commodities...",
+  "Generating signals...",
+];
 
 export function AgentStatus() {
   const [analyzing, setAnalyzing] = useState(false);
   const [lastAnalysis, setLastAnalysis] = useState<string | null>(null);
   const [signalCount, setSignalCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [scanStep, setScanStep] = useState(0);
   const queryClient = useQueryClient();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (analyzing) {
+      setScanStep(0);
+      intervalRef.current = setInterval(() => {
+        setScanStep((s) => (s + 1) % SCAN_STEPS.length);
+      }, 3000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [analyzing]);
 
   const runAnalysis = async () => {
     setAnalyzing(true);
@@ -41,7 +65,7 @@ export function AgentStatus() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Activity className="size-4 text-emerald-500" />
-              <span className="text-sm font-medium">Agent Status</span>
+              <span className="text-sm font-medium">Agent #4</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -50,7 +74,12 @@ export function AgentStatus() {
           </div>
 
           <div className="flex items-center gap-4">
-            {lastAnalysis && (
+            {analyzing && (
+              <span className="text-xs text-muted-foreground animate-pulse">
+                {SCAN_STEPS[scanStep]}
+              </span>
+            )}
+            {!analyzing && lastAnalysis && (
               <div className="flex items-center gap-1.5 text-xs text-emerald-600">
                 <CheckCircle2 className="size-3.5" />
                 {lastAnalysis}
