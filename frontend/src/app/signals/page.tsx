@@ -3,6 +3,7 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { SignalFeed } from "@/components/signals/signal-feed";
+import { AgentStatus } from "@/components/dashboard/agent-status";
 import { useSignals } from "@/hooks/use-signals";
 
 export default function SignalsPage() {
@@ -18,6 +19,8 @@ export default function SignalsPage() {
             AI-generated trading signals across all markets
           </p>
         </div>
+
+        <AgentStatus />
 
         {isLoading ? (
           <div className="space-y-3">
