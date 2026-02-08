@@ -1,5 +1,5 @@
 import { createPublicClient, http } from "viem";
-import { celoAlfajores } from "viem/chains";
+import { celo } from "viem/chains";
 import {
   IDENTITY_REGISTRY_ADDRESS,
   REPUTATION_REGISTRY_ADDRESS,
@@ -8,7 +8,7 @@ import {
 } from "@/config/contracts";
 
 export const publicClient = createPublicClient({
-  chain: celoAlfajores,
+  chain: celo,
   transport: http(),
 });
 

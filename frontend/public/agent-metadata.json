@@ -6,7 +6,7 @@
   "services": [
     {
       "name": "web",
-      "endpoint": ""
+      "endpoint": "https://aaa-agent-steel.vercel.app"
     }
   ],
   "x402Support": true,

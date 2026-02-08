@@ -7,7 +7,7 @@ import {
   identityRegistryAbi,
   reputationRegistryAbi,
 } from "@/config/contracts";
-import { celoAlfajores } from "wagmi/chains";
+import { celo } from "wagmi/chains";
 
 const AGENT_ID = BigInt(process.env.NEXT_PUBLIC_AGENT_ID || "1");
 
@@ -17,7 +17,7 @@ export function useAgentTokenURI() {
     abi: identityRegistryAbi,
     functionName: "tokenURI",
     args: [AGENT_ID],
-    chainId: celoAlfajores.id,
+    chainId: celo.id,
   });
 }
 
@@ -27,7 +27,7 @@ export function useAgentOwner() {
     abi: identityRegistryAbi,
     functionName: "ownerOf",
     args: [AGENT_ID],
-    chainId: celoAlfajores.id,
+    chainId: celo.id,
   });
 }
 
@@ -37,7 +37,7 @@ export function useAgentWallet() {
     abi: identityRegistryAbi,
     functionName: "getAgentWallet",
     args: [AGENT_ID],
-    chainId: celoAlfajores.id,
+    chainId: celo.id,
   });
 }
 
@@ -47,7 +47,7 @@ export function useReputationSummary() {
     abi: reputationRegistryAbi,
     functionName: "getSummary",
     args: [AGENT_ID, [], "", ""],
-    chainId: celoAlfajores.id,
+    chainId: celo.id,
   });
 }
 
@@ -57,7 +57,7 @@ export function useReputationFeedback() {
     abi: reputationRegistryAbi,
     functionName: "readAllFeedback",
     args: [AGENT_ID, [], "", "", false],
-    chainId: celoAlfajores.id,
+    chainId: celo.id,
   });
 }
 

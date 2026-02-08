@@ -9,13 +9,13 @@ import type { MarketType } from "@/lib/types";
 const payTo = (process.env.AGENT_WALLET_ADDRESS ||
   "0x0000000000000000000000000000000000000001") as `0x${string}`;
 
-// cUSD on Celo Alfajores
-const CUSD_ADDRESS = "0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1";
+// cUSD on Celo Mainnet
+const CUSD_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a";
 
 // x402 payment requirements for this endpoint
 const paymentRequirements = {
   scheme: "exact",
-  network: "eip155:44787" as const,
+  network: "eip155:42220" as const,
   asset: CUSD_ADDRESS,
   amount: "10000", // $0.01 in 6 decimal USDC/cUSD
   payTo,
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     if (
       payload.x402Version &&
       payload.payload &&
-      payload.accepted?.network === "eip155:44787"
+      payload.accepted?.network === "eip155:42220"
     ) {
       // Payment accepted — return premium signals
       const market = request.nextUrl.searchParams.get(
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         headers: {
           "X-PAYMENT-RESPONSE": JSON.stringify({
             success: true,
-            network: "eip155:44787",
+            network: "eip155:42220",
             transaction: "0x" + "0".repeat(64), // Demo: no on-chain settlement
           }),
         },

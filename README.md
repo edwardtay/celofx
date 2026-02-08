@@ -29,7 +29,7 @@ $AAA is an AI-powered trading signal agent that:
                  │                         │
                  ▼                         ▼
           ┌────────────┐          ┌────────────────┐
-          │ Claude AI  │          │ Celo Alfajores │
+          │ Claude AI  │          │ Celo │
           │ Agent Loop │          │   (on-chain)   │
           └────────────┘          └────────────────┘
 ```
@@ -39,9 +39,9 @@ $AAA is an AI-powered trading signal agent that:
 - **Frontend**: Next.js 16, React 19, Tailwind v4, shadcn/ui, wagmi, viem, RainbowKit
 - **AI Agent**: Anthropic Claude with tool-use (5 tools: fetch crypto/stocks/forex/commodities, generate signal)
 - **Payments**: x402 protocol — HTTP 402 with `X-PAYMENT-REQUIRED` header, `@x402/core` for encoding, `@x402/fetch` for client
-- **Identity**: ERC-8004 Identity Registry on Celo Alfajores (`0x8004A818BFB912233c491871b3d84c89A494BD9e`)
-- **Reputation**: ERC-8004 Reputation Registry on Celo Alfajores (`0x8004B663056A597Dffe9eCcC1965A193B7388713`)
-- **Chain**: Celo Alfajores testnet (cUSD for payments)
+- **Identity**: ERC-8004 Identity Registry on Celo (`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`)
+- **Reputation**: ERC-8004 Reputation Registry on Celo (`0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`)
+- **Chain**: Celo mainnet (cUSD for payments)
 
 ## How x402 Works Here
 
@@ -49,13 +49,13 @@ $AAA is an AI-powered trading signal agent that:
 User clicks "Unlock Premium"
   → Client fetches GET /api/premium-signals
   → Server returns HTTP 402 + X-PAYMENT-REQUIRED header
-  → @x402/fetch reads requirements (scheme: exact, $0.01 cUSD, eip155:44787)
+  → @x402/fetch reads requirements (scheme: exact, $0.01 cUSD, eip155:42220)
   → Wallet signs EIP-712 payment authorization (no gas)
   → Client retries with X-PAYMENT header
   → Server decodes + verifies → returns premium signals
 ```
 
-The premium endpoint uses `@x402/core/http` for standards-compliant header encoding/decoding. Payment requirements include the cUSD asset address on Celo Alfajores.
+The premium endpoint uses `@x402/core/http` for standards-compliant header encoding/decoding. Payment requirements include the cUSD asset address on Celo.
 
 ## How ERC-8004 Works Here
 

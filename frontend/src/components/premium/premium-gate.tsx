@@ -47,7 +47,7 @@ export function PremiumGate({
         } as const;
 
         const client = new x402Client()
-          .register("eip155:44787", new ExactEvmScheme(signer));
+          .register("eip155:42220", new ExactEvmScheme(signer));
 
         const fetchWithPay = wrapFetchWithPayment(fetch, client);
         const res = await fetchWithPay("/api/premium-signals");
@@ -68,7 +68,7 @@ export function PremiumGate({
       try {
         const res = await fetch("/api/premium-signals");
         if (res.status === 402) {
-          setError("Connect wallet on Celo Alfajores to pay with x402.");
+          setError("Connect wallet on Celo to pay with x402.");
         }
       } catch {
         setError("Payment service unavailable.");

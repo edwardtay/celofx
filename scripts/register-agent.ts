@@ -1,19 +1,18 @@
 /**
- * Register $AAA agent on ERC-8004 Identity Registry (Celo Alfajores)
+ * Register $AAA agent on ERC-8004 Identity Registry (Celo Mainnet)
  *
  * Usage:
  *   AGENT_PRIVATE_KEY=0x... npx tsx scripts/register-agent.ts
  *
  * Prerequisites:
- *   - AGENT_PRIVATE_KEY with Celo Alfajores testnet CELO for gas
- *   - Get testnet CELO from https://faucet.celo.org/alfajores
+ *   - AGENT_PRIVATE_KEY with CELO for gas on mainnet
  */
 
 import { createWalletClient, createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { celoAlfajores } from "viem/chains";
+import { celo } from "viem/chains";
 
-const IDENTITY_REGISTRY = "0x8004A818BFB912233c491871b3d84c89A494BD9e" as const;
+const IDENTITY_REGISTRY = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as const;
 
 const identityRegistryAbi = [
   {
@@ -45,13 +44,13 @@ async function main() {
   console.log("Registering agent from:", account.address);
 
   const publicClient = createPublicClient({
-    chain: celoAlfajores,
+    chain: celo,
     transport: http(),
   });
 
   const walletClient = createWalletClient({
     account,
-    chain: celoAlfajores,
+    chain: celo,
     transport: http(),
   });
 
@@ -85,7 +84,7 @@ async function main() {
       console.log("\nSet in .env.local:");
       console.log(`NEXT_PUBLIC_AGENT_ID=${agentId.toString()}`);
       console.log(
-        `\nView on Celoscan: https://alfajores.celoscan.io/tx/${hash}`
+        `\nView on Celoscan: https://celoscan.io/tx/${hash}`
       );
     }
   }

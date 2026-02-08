@@ -95,7 +95,7 @@ export function AgentIdentityCard() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Chain</p>
-            <p className="text-xs">Celo Alfajores</p>
+            <p className="text-xs">Celo</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Markets</p>
@@ -104,7 +104,7 @@ export function AgentIdentityCard() {
         </div>
 
         <a
-          href={`https://alfajores.celoscan.io/address/${IDENTITY_REGISTRY_ADDRESS}`}
+          href={`https://celoscan.io/address/${IDENTITY_REGISTRY_ADDRESS}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
