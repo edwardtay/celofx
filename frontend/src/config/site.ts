@@ -1,4 +1,4 @@
 export const siteConfig = {
-  name: "My App",
-  description: "A web3 application.",
+  name: "$AAA",
+  description: "Cross-market alpha, verified on-chain",
 } as const;

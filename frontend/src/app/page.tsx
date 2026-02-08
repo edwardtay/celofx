@@ -1,17 +1,27 @@
 import { Navbar } from "@/components/navbar";
-import { siteConfig } from "@/config/site";
+import { MarketOverview } from "@/components/dashboard/market-overview";
+import { TopSignals } from "@/components/dashboard/top-signals";
+import { AgentStatus } from "@/components/dashboard/agent-status";
 
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="flex-1 flex flex-col items-center justify-center gap-6 px-6">
-        <h1 className="text-4xl font-bold tracking-tight">
-          {siteConfig.name}
-        </h1>
-        <p className="text-muted-foreground text-lg max-w-md text-center">
-          {siteConfig.description}
-        </p>
+      <main className="flex-1 px-6 py-6 max-w-6xl mx-auto w-full space-y-6">
+        <div>
+          <h1 className="text-2xl font-display tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time alpha across crypto, stocks, forex, and commodities
+          </p>
+        </div>
+
+        <AgentStatus />
+        <MarketOverview />
+
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Top Signals</h2>
+          <TopSignals />
+        </div>
       </main>
     </div>
   );

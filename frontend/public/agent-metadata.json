@@ -1,0 +1,16 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "$AAA",
+  "description": "Alpha Acceleration Agent — Cross-market alpha analyst scanning crypto, stocks, forex, and commodities to surface high-conviction trading signals. Powered by Claude AI.",
+  "image": "",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": ""
+    }
+  ],
+  "x402Support": true,
+  "active": true,
+  "registrations": [],
+  "supportedTrust": ["reputation"]
+}

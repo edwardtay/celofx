@@ -1,0 +1,118 @@
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useAgentTokenURI, useAgentOwner, useAgentId } from "@/hooks/use-agent-profile";
+import { formatAddress } from "@/lib/format";
+import { Bot, ExternalLink } from "lucide-react";
+import { IDENTITY_REGISTRY_ADDRESS } from "@/config/contracts";
+import { useEffect, useState } from "react";
+
+interface AgentMetadata {
+  name: string;
+  description: string;
+  image?: string;
+}
+
+export function AgentIdentityCard() {
+  const agentId = useAgentId();
+  const { data: tokenURI, isLoading: uriLoading } = useAgentTokenURI();
+  const { data: owner, isLoading: ownerLoading } = useAgentOwner();
+  const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+
+  useEffect(() => {
+    if (!tokenURI) return;
+    const uri = tokenURI as string;
+
+    // Handle data URIs and HTTP URIs
+    if (uri.startsWith("data:")) {
+      try {
+        const json = atob(uri.split(",")[1]);
+        setMetadata(JSON.parse(json));
+      } catch {
+        setMetadata({ name: "$AAA", description: "Alpha Acceleration Agent" });
+      }
+    } else if (uri.startsWith("http")) {
+      fetch(uri)
+        .then((r) => r.json())
+        .then(setMetadata)
+        .catch(() =>
+          setMetadata({ name: "$AAA", description: "Alpha Acceleration Agent" })
+        );
+    }
+  }, [tokenURI]);
+
+  const isLoading = uriLoading || ownerLoading;
+
+  // Fallback when not registered on-chain
+  const displayName = metadata?.name ?? "$AAA";
+  const displayDesc =
+    metadata?.description ??
+    "Cross-market alpha analyst. Scans crypto, stocks, forex, and commodities to surface high-conviction trading signals. Registered via ERC-8004.";
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center size-10 rounded-full bg-primary text-primary-foreground">
+              <Bot className="size-5" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-display">
+                {displayName}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Agent #{agentId.toString()}
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className="gap-1">
+            <div className="size-1.5 rounded-full bg-emerald-500" />
+            Active
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          {displayDesc}
+        </p>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Owner</p>
+            {isLoading ? (
+              <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+            ) : (
+              <p className="font-mono text-xs">
+                {owner ? formatAddress(owner as string) : "Not registered"}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Registry</p>
+            <p className="font-mono text-xs">ERC-8004 Identity</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Chain</p>
+            <p className="text-xs">Celo Alfajores</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Markets</p>
+            <p className="text-xs">Crypto, Stocks, Forex, Commodities</p>
+          </div>
+        </div>
+
+        <a
+          href={`https://alfajores.celoscan.io/address/${IDENTITY_REGISTRY_ADDRESS}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          View on Celoscan
+          <ExternalLink className="size-3" />
+        </a>
+      </CardContent>
+    </Card>
+  );
+}

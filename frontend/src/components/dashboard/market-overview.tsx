@@ -1,0 +1,120 @@
+"use client";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCurrency, formatPercent } from "@/lib/format";
+import {
+  useCryptoData,
+  useStockData,
+  useForexData,
+  useCommodityData,
+} from "@/hooks/use-market-data";
+import type { AssetPrice } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { Bitcoin, BarChart3, DollarSign, Gem } from "lucide-react";
+
+const marketConfig = [
+  { key: "crypto", label: "Crypto", icon: Bitcoin, hook: useCryptoData },
+  { key: "stocks", label: "Stocks", icon: BarChart3, hook: useStockData },
+  { key: "forex", label: "Forex", icon: DollarSign, hook: useForexData },
+  { key: "commodities", label: "Commodities", icon: Gem, hook: useCommodityData },
+] as const;
+
+function MarketCard({
+  label,
+  icon: Icon,
+  data,
+  isLoading,
+}: {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  data?: AssetPrice[];
+  isLoading: boolean;
+}) {
+  const topAsset = data?.[0];
+
+  return (
+    <Card className="gap-0 py-0">
+      <CardHeader className="pb-2 pt-4">
+        <div className="flex items-center gap-2">
+          <Icon className="size-4 text-muted-foreground" />
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {label}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="pb-4 pt-0">
+        {isLoading || !topAsset ? (
+          <div className="space-y-2">
+            <div className="h-6 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+          </div>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-semibold font-mono">
+                {formatCurrency(topAsset.price)}
+              </span>
+              <span
+                className={cn(
+                  "text-xs font-mono font-medium",
+                  topAsset.change24h >= 0
+                    ? "text-emerald-600"
+                    : "text-red-600"
+                )}
+              >
+                {formatPercent(topAsset.change24h)}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {topAsset.symbol} · {topAsset.name}
+            </p>
+            {data && data.length > 1 && (
+              <div className="flex gap-3 mt-2">
+                {data.slice(1, 4).map((asset) => (
+                  <div key={asset.symbol} className="text-xs">
+                    <span className="text-muted-foreground">
+                      {asset.symbol}
+                    </span>{" "}
+                    <span
+                      className={cn(
+                        "font-mono",
+                        asset.change24h >= 0
+                          ? "text-emerald-600"
+                          : "text-red-600"
+                      )}
+                    >
+                      {formatPercent(asset.change24h)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function MarketOverview() {
+  const crypto = useCryptoData();
+  const stocks = useStockData();
+  const forex = useForexData();
+  const commodities = useCommodityData();
+
+  const results = [crypto, stocks, forex, commodities];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {marketConfig.map((market, i) => (
+        <MarketCard
+          key={market.key}
+          label={market.label}
+          icon={market.icon}
+          data={results[i].data}
+          isLoading={results[i].isLoading}
+        />
+      ))}
+    </div>
+  );
+}
