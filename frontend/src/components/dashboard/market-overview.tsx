@@ -103,18 +103,30 @@ export function MarketOverview() {
   const commodities = useCommodityData();
 
   const results = [crypto, stocks, forex, commodities];
+  const allLoaded = results.every((r) => !r.isLoading && r.data);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {marketConfig.map((market, i) => (
-        <MarketCard
-          key={market.key}
-          label={market.label}
-          icon={market.icon}
-          data={results[i].data}
-          isLoading={results[i].isLoading}
-        />
-      ))}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Markets</h2>
+        {allLoaded && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Live · refreshes every 60s
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {marketConfig.map((market, i) => (
+          <MarketCard
+            key={market.key}
+            label={market.label}
+            icon={market.icon}
+            data={results[i].data}
+            isLoading={results[i].isLoading}
+          />
+        ))}
+      </div>
     </div>
   );
 }

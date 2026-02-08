@@ -35,6 +35,7 @@ const directionConfig = {
 export function SignalCard({ signal }: { signal: Signal }) {
   const dir = directionConfig[signal.direction];
   const Icon = dir.icon;
+  const isNew = Date.now() - signal.timestamp < 60 * 60 * 1000; // Last hour
 
   return (
     <Card className="gap-0 py-0 overflow-hidden">
@@ -43,6 +44,11 @@ export function SignalCard({ signal }: { signal: Signal }) {
           <div className="flex items-center gap-2">
             <MarketTag market={signal.market} />
             <CardTitle className="text-base">{signal.asset}</CardTitle>
+            {isNew && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                NEW
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Badge

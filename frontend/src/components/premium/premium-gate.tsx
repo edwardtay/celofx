@@ -82,51 +82,85 @@ export function PremiumGate({
     return <>{children(signals)}</>;
   }
 
+  // Preview signals (blurred behind paywall)
+  const previews = [
+    { market: "crypto", asset: "CELO/USD", direction: "Long", confidence: 71 },
+    { market: "stocks", asset: "TSLA", direction: "Short", confidence: 68 },
+    { market: "forex", asset: "GBP/USD", direction: "Short", confidence: 63 },
+    { market: "commodities", asset: "Silver (XAG)", direction: "Long", confidence: 76 },
+  ];
+
   return (
-    <Card className="border-dashed">
-      <CardContent className="py-12 flex flex-col items-center gap-4 text-center">
-        <div className="flex items-center justify-center size-12 rounded-full bg-muted">
-          <Lock className="size-5 text-muted-foreground" />
+    <div className="space-y-4">
+      {/* Blurred preview cards */}
+      <div className="relative">
+        <div className="space-y-3 blur-[6px] select-none pointer-events-none" aria-hidden>
+          {previews.map((p) => (
+            <div key={p.asset} className="border rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded border bg-muted">{p.market}</span>
+                  <span className="font-semibold">{p.asset}</span>
+                </div>
+                <span className="text-xs font-mono">{p.direction} · {p.confidence}%</span>
+              </div>
+              <div className="h-3 bg-muted rounded w-full" />
+              <div className="h-3 bg-muted rounded w-3/4" />
+              <div className="flex gap-4 text-xs font-mono pt-1">
+                <span>Entry $---.--</span>
+                <span className="text-emerald-600">TP $---.--</span>
+                <span className="text-red-600">SL $---.--</span>
+              </div>
+            </div>
+          ))}
         </div>
-        <div>
-          <h3 className="font-semibold mb-1">Premium Signals</h3>
-          <p className="text-sm text-muted-foreground max-w-sm">
-            Get detailed analysis with entry/exit prices, stop losses, and
-            in-depth reasoning. Powered by x402 micropayments.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="font-mono font-semibold">$0.01</span>
-          <span className="text-muted-foreground">per access in cUSD on Celo</span>
-        </div>
-        {error && (
-          <div className="flex items-center gap-2 text-sm text-red-600">
-            <AlertCircle className="size-4" />
-            {error}
+
+        {/* Overlay */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px] rounded-xl">
+          <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+            <div className="flex items-center justify-center size-12 rounded-full bg-muted">
+              <Lock className="size-5 text-muted-foreground" />
+            </div>
+            <div>
+              <h3 className="font-semibold mb-1">Unlock {previews.length} Premium Signals</h3>
+              <p className="text-sm text-muted-foreground">
+                Entry/exit prices, stop losses, and detailed reasoning
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-mono font-semibold">$0.01</span>
+              <span className="text-muted-foreground">in cUSD on Celo</span>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-red-600">
+                <AlertCircle className="size-4" />
+                {error}
+              </div>
+            )}
+            <Button onClick={handleUnlock} disabled={loading || !walletClient} className="gap-1.5">
+              {loading ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Processing Payment...
+                </>
+              ) : (
+                <>
+                  <Unlock className="size-4" />
+                  Unlock Premium
+                </>
+              )}
+            </Button>
+            {!walletClient && (
+              <p className="text-xs text-amber-600">
+                Connect your wallet on Celo to unlock
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              x402 protocol · HTTP 402 · EIP-712 signature
+            </p>
           </div>
-        )}
-        <Button onClick={handleUnlock} disabled={loading || !walletClient} className="gap-1.5">
-          {loading ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Processing Payment...
-            </>
-          ) : (
-            <>
-              <Unlock className="size-4" />
-              Unlock Premium
-            </>
-          )}
-        </Button>
-        {!walletClient && (
-          <p className="text-xs text-amber-600">
-            Connect your wallet on Celo to unlock
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Payment settled on-chain via x402 protocol (HTTP 402)
-        </p>
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -46,6 +46,19 @@ export function AgentStatus() {
       if (data.success) {
         setLastAnalysis(new Date().toLocaleTimeString());
         setSignalCount(data.signalCount);
+
+        // Merge agent-generated signals into the client cache
+        // (serverless instances don't share memory, so we merge here)
+        if (data.signals?.length) {
+          queryClient.setQueryData<unknown[]>(["signals", undefined], (old) => {
+            const existing = (old ?? []) as Record<string, unknown>[];
+            const existingIds = new Set(existing.map((s) => s.id));
+            const newSignals = data.signals.filter(
+              (s: Record<string, unknown>) => !existingIds.has(s.id)
+            );
+            return [...newSignals, ...existing];
+          });
+        }
         queryClient.invalidateQueries({ queryKey: ["signals"] });
       } else {
         setError(data.error || "Analysis failed");

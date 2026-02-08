@@ -130,9 +130,16 @@ export async function POST() {
       if (response.stop_reason === "end_turn") break;
     }
 
+    // Return generated signals so client can display them immediately
+    // (serverless instances don't share in-memory state)
+    const { getSignals } = await import("@/lib/signal-store");
+    const currentSignals = getSignals();
+    const agentSignals = currentSignals.filter((s) => s.id.startsWith("agent-"));
+
     return NextResponse.json({
       success: true,
       signalCount,
+      signals: agentSignals,
       message: `Analysis complete. Generated ${signalCount} new signals.`,
     });
   } catch (error) {
