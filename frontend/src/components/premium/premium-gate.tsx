@@ -97,7 +97,7 @@ export function PremiumGate({
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="font-mono font-semibold">$0.01</span>
-          <span className="text-muted-foreground">per access in USDC on Celo</span>
+          <span className="text-muted-foreground">per access in cUSD on Celo</span>
         </div>
         {error && (
           <div className="flex items-center gap-2 text-sm text-red-600">

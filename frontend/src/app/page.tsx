@@ -3,7 +3,8 @@ import { Footer } from "@/components/footer";
 import { MarketOverview } from "@/components/dashboard/market-overview";
 import { TopSignals } from "@/components/dashboard/top-signals";
 import { AgentStatus } from "@/components/dashboard/agent-status";
-import { Shield, Zap, BarChart3 } from "lucide-react";
+import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -18,33 +19,42 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="flex items-start gap-3 border rounded-lg p-3">
+          <Link href="/agent" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
             <Shield className="size-4 mt-0.5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Verifiable Identity</p>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Verifiable Identity</p>
+                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <p className="text-xs text-muted-foreground">
                 Agent #4 registered on ERC-8004 Identity Registry on Celo
               </p>
             </div>
-          </div>
-          <div className="flex items-start gap-3 border rounded-lg p-3">
+          </Link>
+          <Link href="/agent" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
             <BarChart3 className="size-4 mt-0.5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-sm font-medium">On-Chain Reputation</p>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">On-Chain Reputation</p>
+                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <p className="text-xs text-muted-foreground">
                 Signal quality tracked via ERC-8004 Reputation Registry
               </p>
             </div>
-          </div>
-          <div className="flex items-start gap-3 border rounded-lg p-3">
+          </Link>
+          <Link href="/premium" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
             <Zap className="size-4 mt-0.5 text-muted-foreground shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Pay Per Signal</p>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Pay Per Signal</p>
+                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
               <p className="text-xs text-muted-foreground">
                 Premium signals via x402 micropayments — $0.01 in cUSD
               </p>
             </div>
-          </div>
+          </Link>
         </div>
 
         <AgentStatus />

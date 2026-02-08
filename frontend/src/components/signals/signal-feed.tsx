@@ -21,23 +21,39 @@ export function SignalFeed({ signals }: { signals: Signal[] }) {
       ? signals
       : signals.filter((s) => s.market === activeTab);
 
+  const countFor = (tab: MarketType | "all") =>
+    tab === "all" ? signals.length : signals.filter((s) => s.market === tab).length;
+
   return (
     <div className="space-y-4">
       <div className="flex gap-1 border-b">
-        {tabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveTab(tab.value)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px",
-              activeTab === tab.value
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const count = countFor(tab.value);
+          return (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={cn(
+                "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5",
+                activeTab === tab.value
+                  ? "border-foreground text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              {count > 0 && (
+                <span className={cn(
+                  "text-[10px] font-mono px-1.5 py-0.5 rounded-full",
+                  activeTab === tab.value
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground"
+                )}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="space-y-3">

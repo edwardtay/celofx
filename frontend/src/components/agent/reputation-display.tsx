@@ -11,8 +11,10 @@ import {
   useReputationSummary,
   useReputationFeedback,
 } from "@/hooks/use-agent-profile";
+import { REPUTATION_REGISTRY_ADDRESS } from "@/config/contracts";
+import { useAgentId } from "@/hooks/use-agent-profile";
 import { formatAddress, formatTimeAgo } from "@/lib/format";
-import { Star, MessageSquare } from "lucide-react";
+import { Star, MessageSquare, ExternalLink, ShieldCheck } from "lucide-react";
 
 // Pre-seeded feedback for display when on-chain data isn't available
 const seedFeedback = [
@@ -37,18 +39,17 @@ const seedFeedback = [
 ];
 
 function valueToStars(value: number): number {
-  // Convert 0-100 scale back to 1-5 stars
   return Math.round(value / 20);
 }
 
 export function ReputationDisplay() {
+  const agentId = useAgentId();
   const { data: summary, isLoading: summaryLoading } = useReputationSummary();
   const { data: feedbackData, isLoading: feedbackLoading } =
     useReputationFeedback();
 
   const isLoading = summaryLoading || feedbackLoading;
 
-  // Parse on-chain summary: [count, summaryValue, summaryValueDecimals]
   const onChainCount = summary ? Number((summary as [bigint, bigint, number])[0]) : 0;
   const summaryValue = summary ? Number((summary as [bigint, bigint, number])[1]) : 0;
   const summaryDecimals = summary ? Number((summary as [bigint, bigint, number])[2]) : 0;
@@ -57,9 +58,8 @@ export function ReputationDisplay() {
   const avgValue = hasOnChainData
     ? summaryValue / Math.pow(10, summaryDecimals) / onChainCount
     : seedFeedback.reduce((sum, f) => sum + f.value, 0) / seedFeedback.length;
-  const avgStars = Math.round(avgValue / 20); // Convert 0-100 back to 1-5
+  const avgStars = Math.round(avgValue / 20);
 
-  // Parse on-chain feedback: [clients[], indexes[], values[], decimals[], tag1s[], tag2s[], revoked[]]
   type FeedbackResult = [string[], bigint[], bigint[], number[], string[], string[], boolean[]];
   const feedbackList = feedbackData
     ? (() => {
@@ -68,7 +68,7 @@ export function ReputationDisplay() {
           reviewer: client,
           value: Number(values[i]),
           tag2: tag2s[i] || "",
-          timestamp: Date.now() - i * 24 * 60 * 60 * 1000, // Approximate
+          timestamp: Date.now() - i * 24 * 60 * 60 * 1000,
         }));
       })()
     : seedFeedback;
@@ -85,6 +85,12 @@ export function ReputationDisplay() {
           </CardTitle>
           {!isLoading && (
             <div className="flex items-center gap-2">
+              {hasOnChainData && (
+                <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-200 bg-emerald-50">
+                  <ShieldCheck className="size-3" />
+                  On-chain
+                </Badge>
+              )}
               <Badge variant="secondary" className="font-mono">
                 {avgStars > 0 ? avgStars : "4.2"}/5
               </Badge>
@@ -125,9 +131,14 @@ export function ReputationDisplay() {
                           />
                         ))}
                       </div>
-                      <span className="text-xs font-mono text-muted-foreground">
+                      <a
+                        href={`https://celoscan.io/address/${entry.reviewer}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
+                      >
                         {formatAddress(entry.reviewer)}
-                      </span>
+                      </a>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {formatTimeAgo(entry.timestamp)}
@@ -135,7 +146,7 @@ export function ReputationDisplay() {
                   </div>
                   {entry.tag2 && (
                     <p className="text-sm text-muted-foreground">
-                      {entry.tag2}
+                      &ldquo;{entry.tag2}&rdquo;
                     </p>
                   )}
                 </div>
@@ -148,6 +159,23 @@ export function ReputationDisplay() {
                 <p className="text-sm">No feedback yet</p>
               </div>
             )}
+          </div>
+        )}
+
+        {hasOnChainData && (
+          <div className="border-t pt-3 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              All feedback stored on ERC-8004 Reputation Registry
+            </p>
+            <a
+              href={`https://celoscan.io/address/${REPUTATION_REGISTRY_ADDRESS}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              View on Celoscan
+              <ExternalLink className="size-3" />
+            </a>
           </div>
         )}
       </CardContent>

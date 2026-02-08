@@ -110,7 +110,7 @@ export function AgentIdentityCard() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            View Registry
+            Identity Registry
             <ExternalLink className="size-3" />
           </a>
           <a
@@ -120,6 +120,15 @@ export function AgentIdentityCard() {
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             Registration Tx
+            <ExternalLink className="size-3" />
+          </a>
+          <a
+            href={`https://celoscan.io/nft/${IDENTITY_REGISTRY_ADDRESS}/${agentId.toString()}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            NFT #{agentId.toString()}
             <ExternalLink className="size-3" />
           </a>
         </div>

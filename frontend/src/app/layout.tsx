@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "AAA — Alpha Acceleration Agent",
     description: "AI-powered cross-market trading signals. Verifiable identity via ERC-8004, pay-per-signal via x402 on Celo.",
-    siteName: "$AAA",
+    siteName: "AAA",
     type: "website",
   },
   twitter: {
