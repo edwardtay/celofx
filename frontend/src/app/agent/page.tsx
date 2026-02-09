@@ -5,6 +5,7 @@ import { Footer } from "@/components/footer";
 import { AgentIdentityCard } from "@/components/agent/agent-identity-card";
 import { ReputationDisplay } from "@/components/agent/reputation-display";
 import { ReputationForm } from "@/components/agent/reputation-form";
+import { OnChainMetadata } from "@/components/agent/on-chain-metadata";
 import { Fingerprint, Star, Users, ExternalLink, ShieldX, ShieldCheck, Database } from "lucide-react";
 
 export default function AgentPage() {
@@ -30,6 +31,8 @@ export default function AgentPage() {
             <ReputationDisplay />
           </div>
         </div>
+
+        <OnChainMetadata />
 
         {/* Why On-Chain Identity Matters */}
         <div className="border rounded-lg p-4 space-y-3">
