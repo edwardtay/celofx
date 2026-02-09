@@ -59,7 +59,8 @@ export function SignalFeed({ signals }: { signals: Signal[] }) {
       <div className="space-y-3">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No signals found for this market.
+            <p className="text-sm">No {activeTab === "all" ? "" : activeTab + " "}signals yet</p>
+            <p className="text-xs mt-1">Run analysis from the dashboard to generate signals</p>
           </div>
         ) : (
           filtered.map((signal) => (

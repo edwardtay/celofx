@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { formatCurrencyCompact, formatPercent } from "@/lib/format";
 import {
   useCryptoData,
   useStockData,
@@ -52,7 +52,7 @@ function MarketCard({
           <>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-semibold font-mono">
-                {formatCurrency(topAsset.price)}
+                {formatCurrencyCompact(topAsset.price)}
               </span>
               <span
                 className={cn(

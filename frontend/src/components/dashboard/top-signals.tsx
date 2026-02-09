@@ -2,8 +2,7 @@
 
 import { useSignals } from "@/hooks/use-signals";
 import { SignalCard } from "@/components/signals/signal-card";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { Zap } from "lucide-react";
 
 export function TopSignals() {
   const { data: signals, isLoading } = useSignals();
@@ -28,7 +27,11 @@ export function TopSignals() {
   if (topSignals.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
-        <p className="text-sm">No signals yet. Click &quot;Run Analysis&quot; above to generate signals.</p>
+        <div className="flex flex-col items-center gap-2">
+          <Zap className="size-6 opacity-40" />
+          <p className="text-sm">Click &quot;Run Analysis&quot; above to generate AI signals</p>
+          <p className="text-xs">Agent #4 will scan crypto, stocks, forex, and commodities</p>
+        </div>
       </div>
     );
   }
@@ -38,13 +41,6 @@ export function TopSignals() {
       {topSignals.map((signal) => (
         <SignalCard key={signal.id} signal={signal} />
       ))}
-      <Link
-        href="/signals"
-        className="flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
-      >
-        View all signals
-        <ArrowRight className="size-3.5" />
-      </Link>
     </div>
   );
 }

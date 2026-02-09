@@ -76,7 +76,15 @@ export default function Home() {
         <TrackRecord />
 
         <div>
-          <h2 className="text-lg font-semibold mb-3">Top Signals</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Top Signals</h2>
+            <Link
+              href="/signals"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              View all <ArrowRight className="size-3" />
+            </Link>
+          </div>
           <TopSignals />
         </div>
       </main>

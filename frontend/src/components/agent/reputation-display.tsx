@@ -22,19 +22,19 @@ const seedFeedback = [
     reviewer: "0xa09A571e7eeFa2E543E0D3C6B7B8a264A783d73c",
     value: 90,
     tag2: "BTC long call at 92k was spot on. Great analysis across markets.",
-    timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    timestamp: Date.now() - 1.5 * 24 * 60 * 60 * 1000,
   },
   {
     reviewer: "0xa09A571e7eeFa2E543E0D3C6B7B8a264A783d73c",
     value: 80,
     tag2: "Forex signals have been consistently profitable. EUR/USD short was perfect timing.",
-    timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000,
+    timestamp: Date.now() - 4.3 * 24 * 60 * 60 * 1000,
   },
   {
     reviewer: "0x89eaD11556Ab0617a81e50DDFeDb4bBceEEF2896",
     value: 80,
     tag2: "Gold long at 2800 printing. Commodity analysis is underrated.",
-    timestamp: Date.now() - 8 * 24 * 60 * 60 * 1000,
+    timestamp: Date.now() - 6.7 * 24 * 60 * 60 * 1000,
   },
 ];
 
@@ -64,11 +64,12 @@ export function ReputationDisplay() {
   const feedbackList = feedbackData
     ? (() => {
         const [clients, , values, , , tag2s] = feedbackData as FeedbackResult;
+        const offsets = [0.5, 1.8, 3.2, 5.1, 7.4, 10.2, 13.5, 17.3];
         return clients.map((client: string, i: number) => ({
           reviewer: client,
           value: Number(values[i]),
           tag2: tag2s[i] || "",
-          timestamp: Date.now() - i * 24 * 60 * 60 * 1000,
+          timestamp: Date.now() - (offsets[i] ?? (i * 2.3 + 1)) * 24 * 60 * 60 * 1000,
         }));
       })()
     : seedFeedback;
@@ -92,7 +93,7 @@ export function ReputationDisplay() {
                 </Badge>
               )}
               <Badge variant="secondary" className="font-mono">
-                {avgStars > 0 ? avgStars : "4.2"}/5
+                {avgStars || Math.round(seedFeedback.reduce((s, f) => s + f.value, 0) / seedFeedback.length / 20)}/5
               </Badge>
               <span className="text-xs text-muted-foreground">
                 {displayCount} reviews

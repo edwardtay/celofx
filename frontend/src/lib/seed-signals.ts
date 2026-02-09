@@ -29,6 +29,8 @@ export const seedSignals: Signal[] = [
     confidence: 74,
     summary:
       "Ethereum showing relative strength as ETH/BTC ratio rebounds from multi-year support. Pectra upgrade catalyst ahead.",
+    reasoning:
+      "ETH/BTC bouncing off 0.032 support level held since 2021. Pectra upgrade improves staking UX, expected to reduce sell pressure. DeFi TVL recovering with $45B locked.",
     tier: "free",
     timestamp: h(5),
   },
@@ -40,6 +42,8 @@ export const seedSignals: Signal[] = [
     confidence: 65,
     summary:
       "Solana facing resistance at $180. DEX volume declining while token unlocks approach. Risk/reward favors caution.",
+    reasoning:
+      "Weekly DEX volume dropped 30% from peak. 15M SOL unlock in March from early investors. Meme coin activity fading as driver. RSI divergence on daily chart.",
     tier: "free",
     timestamp: h(8),
   },
@@ -68,6 +72,8 @@ export const seedSignals: Signal[] = [
     confidence: 78,
     summary:
       "NVIDIA earnings beat expectations. Data center revenue up 150% YoY. AI capex cycle still accelerating.",
+    reasoning:
+      "Blackwell architecture sold out through Q3. Hyperscaler capex guidance raised across MSFT, GOOG, AMZN. Forward P/E at 35x reasonable for 60%+ growth.",
     tier: "free",
     timestamp: h(3),
   },
@@ -79,6 +85,8 @@ export const seedSignals: Signal[] = [
     confidence: 60,
     summary:
       "Apple trading at fair value. iPhone 17 cycle priced in. Wait for pullback to $210 for better entry.",
+    reasoning:
+      "Services revenue growing 14% but hardware flat. Apple Intelligence rollout slower than expected. P/E at 32x with single-digit earnings growth. Neutral until next catalyst.",
     tier: "free",
     timestamp: h(12),
   },
@@ -107,6 +115,8 @@ export const seedSignals: Signal[] = [
     confidence: 72,
     summary:
       "Dollar strengthening on hawkish Fed rhetoric. ECB cutting faster than expected. Yield differential widening.",
+    reasoning:
+      "US-EU 2-year yield spread at 200bps, widest since 2022. ECB cut 25bps with dovish guidance while Fed paused. EUR/USD broke below 1.08 support. DXY momentum bullish.",
     tier: "free",
     timestamp: h(4),
   },
@@ -118,6 +128,8 @@ export const seedSignals: Signal[] = [
     confidence: 66,
     summary:
       "BOJ maintaining dovish stance despite inflation. Carry trade flows supporting dollar-yen above 150.",
+    reasoning:
+      "BOJ kept rates at 0.25%, signaling patience. US-Japan rate differential at 450bps fueling carry trade. MOF intervention risk above 155 limits upside. Range trade 150-155.",
     tier: "free",
     timestamp: h(10),
   },
@@ -146,6 +158,8 @@ export const seedSignals: Signal[] = [
     confidence: 85,
     summary:
       "Gold at all-time highs as central banks accelerate purchases. De-dollarization trend provides structural bid.",
+    reasoning:
+      "Central bank buying hit 1,037 tonnes in 2024, led by China and Poland. Real rates declining as Fed pivots. ETF inflows resuming. $3,000 target increasingly consensus.",
     tier: "free",
     timestamp: h(1),
   },
@@ -157,6 +171,8 @@ export const seedSignals: Signal[] = [
     confidence: 58,
     summary:
       "Oil demand outlook weakening as China slows. OPEC+ cuts offset by US shale production growth.",
+    reasoning:
+      "IEA downgraded 2025 demand growth to 1.1M bpd. US production at record 13.3M bpd. China PMI contractionary for 3rd month. OPEC+ compliance eroding. Low conviction — watch $65 support.",
     tier: "free",
     timestamp: h(9),
   },

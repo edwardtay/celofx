@@ -1,8 +1,18 @@
 export function formatCurrency(value: number, decimals = 2): string {
   if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  if (value >= 1) return `$${value.toFixed(decimals)}`;
+  return `$${value.toFixed(4)}`;
+}
+
+/** Compact format for market overview cards: $97.5K, $2.8K */
+export function formatCurrencyCompact(value: number): string {
+  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(decimals)}`;
+  if (value >= 1) return `$${value.toFixed(2)}`;
+  return `$${value.toFixed(4)}`;
 }
 
 export function formatPercent(value: number): string {

@@ -28,13 +28,13 @@ export function getSignals(opts?: {
 }
 
 export function getFreeSignals(market?: MarketType): Signal[] {
-  return getSignals({ tier: "free", market }).map((s) => ({
-    ...s,
-    reasoning: undefined,
-    entryPrice: undefined,
-    targetPrice: undefined,
-    stopLoss: undefined,
-  }));
+  return getSignals({ market }).map((s) => {
+    if (s.tier === "premium") {
+      // Premium signals: show reasoning (the hook) but gate prices
+      return { ...s, entryPrice: undefined, targetPrice: undefined, stopLoss: undefined };
+    }
+    return s;
+  });
 }
 
 export function getPremiumSignals(market?: MarketType): Signal[] {

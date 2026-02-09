@@ -4,13 +4,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border mt-auto">
       <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-4">
-          <span>ERC-8004 Identity + Reputation</span>
-          <span className="hidden sm:inline">·</span>
-          <span>x402 Micropayments</span>
-          <span className="hidden sm:inline">·</span>
-          <span>Celo</span>
-        </div>
+        <span>Agent #4 on Celo</span>
         <div className="flex items-center gap-4">
           <a
             href="https://celoscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
