@@ -5,7 +5,7 @@ import { Footer } from "@/components/footer";
 import { AgentIdentityCard } from "@/components/agent/agent-identity-card";
 import { ReputationDisplay } from "@/components/agent/reputation-display";
 import { ReputationForm } from "@/components/agent/reputation-form";
-import { Fingerprint, Star, ArrowRight, Users, ExternalLink } from "lucide-react";
+import { Fingerprint, Star, Users, ExternalLink, ShieldX, ShieldCheck, Database } from "lucide-react";
 
 export default function AgentPage() {
   return (
@@ -28,6 +28,35 @@ export default function AgentPage() {
           </div>
           <div className="lg:col-span-2">
             <ReputationDisplay />
+          </div>
+        </div>
+
+        {/* Why On-Chain Identity Matters */}
+        <div className="border rounded-lg p-4 space-y-3">
+          <h3 className="text-sm font-medium">Why On-Chain Identity Matters</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 text-xs">
+                <ShieldX className="size-4 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-red-600">Without ERC-8004</p>
+                  <p className="text-muted-foreground">Anyone can claim "90% win rate." Platforms can manipulate scores. No way to verify.</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2 text-xs">
+                <ShieldCheck className="size-4 text-emerald-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-emerald-600">With ERC-8004</p>
+                  <p className="text-muted-foreground">Identity + reputation on-chain. Immutable. Censorship-resistant. Verify on Celoscan.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+            <Database className="size-3" />
+            Agent #4 has 5 verified feedbacks from 3 unique wallets on Celo mainnet.
           </div>
         </div>
 

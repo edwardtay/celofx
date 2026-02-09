@@ -1,11 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lock, Unlock, Loader2, AlertCircle } from "lucide-react";
+import {
+  Lock,
+  Unlock,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Server,
+  Wallet,
+  ArrowRight,
+  Eye,
+} from "lucide-react";
 import { useWalletClient } from "wagmi";
+import { useSearchParams } from "next/navigation";
 import type { Signal } from "@/lib/types";
+
+type PaymentStep = "idle" | "requesting" | "signing" | "verifying" | "done";
+
+const stepLabels: Record<PaymentStep, string> = {
+  idle: "",
+  requesting: "Server returning HTTP 402...",
+  signing: "Wallet signing EIP-712 payment...",
+  verifying: "Verifying payment on Celo...",
+  done: "Access granted!",
+};
 
 export function PremiumGate({
   children,
@@ -16,19 +36,52 @@ export function PremiumGate({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
+  const [step, setStep] = useState<PaymentStep>("idle");
   const { data: walletClient } = useWalletClient();
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+
+  const handleDemoUnlock = async () => {
+    setLoading(true);
+    setStep("requesting");
+    await new Promise((r) => setTimeout(r, 800));
+    setStep("signing");
+    await new Promise((r) => setTimeout(r, 1000));
+    setStep("verifying");
+    await new Promise((r) => setTimeout(r, 600));
+    setStep("done");
+
+    // Fetch signals directly (bypass 402 for demo)
+    try {
+      const res = await fetch("/api/signals");
+      if (res.ok) {
+        const data = await res.json();
+        const premium = data.filter((s: Signal) => s.tier === "premium");
+        setSignals(premium.length > 0 ? premium : data.slice(0, 4));
+      }
+    } catch {
+      // Use empty array — children will handle empty state
+    }
+
+    await new Promise((r) => setTimeout(r, 500));
+    setUnlocked(true);
+    setLoading(false);
+  };
 
   const handleUnlock = async () => {
+    if (isDemo) {
+      return handleDemoUnlock();
+    }
+
     setLoading(true);
     setError(null);
+    setStep("requesting");
 
     try {
       if (walletClient) {
-        // Real x402 flow: use @x402/fetch to handle 402 → sign → retry
         const { wrapFetchWithPayment, x402Client } = await import("@x402/fetch");
         const { ExactEvmScheme } = await import("@x402/evm/exact/client");
 
-        // Adapt wagmi walletClient to ClientEvmSigner interface
         const signer = {
           address: walletClient.account.address,
           signTypedData: (msg: {
@@ -49,12 +102,17 @@ export function PremiumGate({
         const client = new x402Client()
           .register("eip155:42220", new ExactEvmScheme(signer));
 
+        setStep("signing");
         const fetchWithPay = wrapFetchWithPayment(fetch, client);
         const res = await fetchWithPay("/api/premium-signals");
+
+        setStep("verifying");
 
         if (res.ok) {
           const data = await res.json();
           setSignals(data);
+          setStep("done");
+          await new Promise((r) => setTimeout(r, 500));
           setUnlocked(true);
           return;
         }
@@ -64,7 +122,6 @@ export function PremiumGate({
       }
     } catch (err) {
       console.error("x402 payment error:", err);
-      // Fallback: direct fetch for demo (when facilitator unavailable)
       try {
         const res = await fetch("/api/premium-signals");
         if (res.status === 402) {
@@ -75,6 +132,7 @@ export function PremiumGate({
       }
     } finally {
       setLoading(false);
+      if (step !== "done") setStep("idle");
     }
   };
 
@@ -82,7 +140,6 @@ export function PremiumGate({
     return <>{children(signals)}</>;
   }
 
-  // Preview signals (blurred behind paywall)
   const previews = [
     { market: "crypto", asset: "CELO/USD", direction: "Long", confidence: 71 },
     { market: "stocks", asset: "TSLA", direction: "Short", confidence: 68 },
@@ -92,7 +149,13 @@ export function PremiumGate({
 
   return (
     <div className="space-y-4">
-      {/* Blurred preview cards */}
+      {isDemo && (
+        <div className="border border-amber-200 bg-amber-50 rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm text-amber-800">
+          <Eye className="size-4 shrink-0" />
+          Demo mode — payment simulation only. Real payments use x402 on Celo.
+        </div>
+      )}
+
       <div className="relative">
         <div className="space-y-3 blur-[6px] select-none pointer-events-none" aria-hidden>
           {previews.map((p) => (
@@ -115,7 +178,6 @@ export function PremiumGate({
           ))}
         </div>
 
-        {/* Overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[2px] rounded-xl">
           <div className="flex flex-col items-center gap-4 text-center max-w-sm">
             <div className="flex items-center justify-center size-12 rounded-full bg-muted">
@@ -127,30 +189,64 @@ export function PremiumGate({
                 Entry/exit prices, stop losses, and detailed reasoning
               </p>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-mono font-semibold">$0.01</span>
-              <span className="text-muted-foreground">in cUSD on Celo</span>
-            </div>
+
+            {/* Payment flow steps */}
+            {loading && (
+              <div className="w-full max-w-xs space-y-2">
+                <PaymentStepRow
+                  icon={<Server className="size-3.5" />}
+                  label="Server returns HTTP 402"
+                  active={step === "requesting"}
+                  done={["signing", "verifying", "done"].includes(step)}
+                />
+                <PaymentStepRow
+                  icon={<Wallet className="size-3.5" />}
+                  label="Wallet signs EIP-712"
+                  active={step === "signing"}
+                  done={["verifying", "done"].includes(step)}
+                />
+                <PaymentStepRow
+                  icon={<CheckCircle2 className="size-3.5" />}
+                  label="Payment verified on Celo"
+                  active={step === "verifying"}
+                  done={step === "done"}
+                />
+              </div>
+            )}
+
+            {!loading && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-mono font-semibold">$0.01</span>
+                <span className="text-muted-foreground">in cUSD on Celo</span>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 text-sm text-red-600">
                 <AlertCircle className="size-4" />
                 {error}
               </div>
             )}
-            <Button onClick={handleUnlock} disabled={loading || !walletClient} className="gap-1.5">
+
+            <Button
+              onClick={handleUnlock}
+              disabled={loading || (!walletClient && !isDemo)}
+              className="gap-1.5"
+            >
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Processing Payment...
+                  {stepLabels[step]}
                 </>
               ) : (
                 <>
                   <Unlock className="size-4" />
-                  Unlock Premium
+                  {isDemo ? "Unlock (Demo)" : "Unlock Premium"}
                 </>
               )}
             </Button>
-            {!walletClient && (
+
+            {!walletClient && !isDemo && (
               <p className="text-xs text-amber-600">
                 Connect your wallet on Celo to unlock
               </p>
@@ -161,6 +257,47 @@ export function PremiumGate({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PaymentStepRow({
+  icon,
+  label,
+  active,
+  done,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  done: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <div
+        className={`flex items-center justify-center size-6 rounded-full transition-colors ${
+          done
+            ? "bg-emerald-100 text-emerald-600"
+            : active
+              ? "bg-foreground text-background"
+              : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {done ? <CheckCircle2 className="size-3.5" /> : icon}
+      </div>
+      <span
+        className={`transition-colors ${
+          done
+            ? "text-emerald-600 line-through"
+            : active
+              ? "text-foreground font-medium"
+              : "text-muted-foreground"
+        }`}
+      >
+        {label}
+      </span>
+      {active && <Loader2 className="size-3 animate-spin text-muted-foreground ml-auto" />}
+      {done && <CheckCircle2 className="size-3 text-emerald-500 ml-auto" />}
     </div>
   );
 }

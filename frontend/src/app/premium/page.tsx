@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { PremiumGate } from "@/components/premium/premium-gate";
@@ -51,23 +52,25 @@ export default function PremiumPage() {
           </div>
         </div>
 
-        <PremiumGate>
-          {(signals) => (
-            <div className="space-y-3">
-              {signals.filter((s) => s.tier === "premium").length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  No premium signals available yet. Run agent analysis first.
-                </div>
-              ) : (
-                signals
-                  .filter((s) => s.tier === "premium")
-                  .map((signal) => (
-                    <SignalCard key={signal.id} signal={signal} />
-                  ))
-              )}
-            </div>
-          )}
-        </PremiumGate>
+        <Suspense fallback={<div className="h-64 bg-muted rounded-xl animate-pulse" />}>
+          <PremiumGate>
+            {(signals) => (
+              <div className="space-y-3">
+                {signals.filter((s) => s.tier === "premium").length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No premium signals available yet. Run agent analysis first.
+                  </div>
+                ) : (
+                  signals
+                    .filter((s) => s.tier === "premium")
+                    .map((signal) => (
+                      <SignalCard key={signal.id} signal={signal} />
+                    ))
+                )}
+              </div>
+            )}
+          </PremiumGate>
+        </Suspense>
 
         <div className="border rounded-lg p-4 space-y-3">
           <h3 className="text-sm font-medium">How x402 Payment Works</h3>

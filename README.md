@@ -4,6 +4,54 @@ Cross-market alpha analyst that scans crypto, stocks, forex, and commodities to 
 
 **Live**: [aaa-agent-steel.vercel.app](https://aaa-agent-steel.vercel.app)
 
+---
+
+## For Hackathon Judges
+
+### Demo Flow (2 minutes)
+
+1. **Dashboard** → See live market data across 4 markets + pre-seeded signals
+2. **Click "Run Analysis"** → Watch Agent #4 scan all markets and generate fresh AI signals
+3. **Click any signal** → See full detail modal with reasoning, entry/exit, confidence
+4. **Navigate to Premium** → See x402 paywall with blurred preview cards
+5. **Unlock Premium** ([demo link](https://aaa-agent-steel.vercel.app/premium?demo=true)) → Watch step-by-step payment flow: HTTP 402 → EIP-712 sign → verify on Celo
+6. **Navigate to Agent** → See ERC-8004 identity (Agent #4) + on-chain reputation (5 feedbacks from 3 wallets)
+7. **Submit feedback** → Connect wallet on Celo, rate the agent, see tx confirm on Celoscan
+
+### Key Innovations
+
+- **Cross-market coverage** — Not just crypto. Scans stocks, forex, commodities. Real-world use case.
+- **Both ERC-8004 registries** — Identity (agent profile on-chain) AND Reputation (user feedback on-chain). Not just one.
+- **Real x402 implementation** — HTTP 402 headers, `@x402/core` encoding, `@x402/fetch` client, EIP-712 signatures. Not a mock.
+- **Real AI agent** — Claude with 5 tools in an agentic loop. Fetches live data, generates structured signals.
+- **Celo mainnet** — Not testnet. Real cUSD payments, real on-chain data.
+
+### Verify On-Chain
+
+| What | Link |
+|------|------|
+| Agent #4 Registration | [celoscan.io/tx/0xea64b5d...](https://celoscan.io/tx/0xea64b5d790028208b285bb05a00cb506b44f7fa6d10099cff6671bd42e9a3ab6) |
+| Feedback: 90/100 | [celoscan.io/tx/0x238e1f...](https://celoscan.io/tx/0x238e1f606bcdab5789ef4f7dc5c69147e2ff5779bfd2a69605de3793636be70c) |
+| Feedback: 80/100 | [celoscan.io/tx/0xfb08a3...](https://celoscan.io/tx/0xfb08a317148df32a911813d400883dd7f5a53ce20bdb33a7745f8050ef9d3199) |
+| Feedback: 95/100 | [celoscan.io/tx/0x40ec63...](https://celoscan.io/tx/0x40ec63fe091e54c1181304d19c0348721092716b4dd0088e30f7bee0d9fa493c) |
+| Feedback: 75/100 | [celoscan.io/tx/0x84bc50...](https://celoscan.io/tx/0x84bc5016754b09645716487392667d2331c894fc48512eda39a901fdcad424ad) |
+| Identity Registry | [celoscan.io/address/0x8004A1...](https://celoscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) |
+| Reputation Registry | [celoscan.io/address/0x8004BA...](https://celoscan.io/address/0x8004BAa17C55a88189AE136b182e5fdA19dE9b63) |
+
+### Key Source Files
+
+| File | What It Does |
+|------|-------------|
+| [`agent-tools.ts`](frontend/src/lib/agent-tools.ts) | Claude agent system prompt + 5 tool definitions |
+| [`analyze/route.ts`](frontend/src/app/api/agent/analyze/route.ts) | Agentic loop: fetch data → generate signals |
+| [`premium-gate.tsx`](frontend/src/components/premium/premium-gate.tsx) | x402 payment flow with step-by-step visualization |
+| [`premium-signals/route.ts`](frontend/src/app/api/premium-signals/route.ts) | HTTP 402 endpoint with `@x402/core` headers |
+| [`contracts.ts`](frontend/src/config/contracts.ts) | ERC-8004 ABIs + registry addresses |
+| [`reputation-form.tsx`](frontend/src/components/agent/reputation-form.tsx) | On-chain feedback via `giveFeedback()` |
+| [`reputation-display.tsx`](frontend/src/components/agent/reputation-display.tsx) | `getSummary()` + `readAllFeedback()` from ERC-8004 |
+
+---
+
 ## What It Does
 
 $AAA is an AI-powered trading signal agent that:
@@ -31,7 +79,7 @@ $AAA is an AI-powered trading signal agent that:
                  │                         │
                  ▼                         ▼
           ┌────────────┐          ┌────────────────┐
-          │ Claude AI  │          │ Celo │
+          │ Claude AI  │          │ Celo Mainnet   │
           │ Agent Loop │          │   (on-chain)   │
           └────────────┘          └────────────────┘
 ```
@@ -73,9 +121,10 @@ The premium endpoint uses `@x402/core/http` for standards-compliant header encod
 
 | Route | Description |
 |-------|-------------|
-| `/` | Dashboard with market overview, agent status, top signals |
+| `/` | Dashboard with market overview, agent status, performance metrics, top signals |
 | `/signals` | Full signal feed with market filters (Crypto/Stocks/Forex/Commodities) |
 | `/premium` | x402-gated premium signals with entry/exit prices and stop losses |
+| `/premium?demo=true` | Demo mode — simulates x402 payment flow without wallet |
 | `/agent` | ERC-8004 agent profile, reputation score, feedback form |
 
 ## API Routes
@@ -115,5 +164,13 @@ FINNHUB_API_KEY=                 # Optional: Finnhub for stock data
 AIXBT proved 300K people want AI-generated alpha. But it's crypto-only, has no verifiable track record, and costs $1,400 in tokens to access premium features.
 
 $AAA extends this to all financial markets, proves its track record on-chain via ERC-8004, and lets anyone pay a penny per signal via x402 on Celo.
+
+| | AIXBT | $AAA |
+|---|---|---|
+| Markets | Crypto only | Crypto + Stocks + Forex + Commodities |
+| Access cost | $1,400 token gate | $0.01 per signal |
+| Reputation | Self-reported | ERC-8004 on-chain (immutable) |
+| Payment | Hold tokens | x402 micropayments (cUSD) |
+| Verification | Trust us | Check Celoscan |
 
 Cross-market coverage + verifiable reputation + micropayment access — three things no existing competitor offers together.
