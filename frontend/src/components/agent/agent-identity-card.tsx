@@ -32,25 +32,24 @@ export function AgentIdentityCard() {
         const json = atob(uri.split(",")[1]);
         setMetadata(JSON.parse(json));
       } catch {
-        setMetadata({ name: "$AAA", description: "Alpha Acceleration Agent" });
+        setMetadata({ name: "CeloFX", description: "Autonomous FX Agent" });
       }
     } else if (uri.startsWith("http")) {
       fetch(uri)
         .then((r) => r.json())
         .then(setMetadata)
         .catch(() =>
-          setMetadata({ name: "$AAA", description: "Alpha Acceleration Agent" })
+          setMetadata({ name: "CeloFX", description: "Autonomous FX Agent" })
         );
     }
   }, [tokenURI]);
 
   const isLoading = uriLoading || ownerLoading;
 
-  // Fallback when not registered on-chain
-  const displayName = metadata?.name ?? "$AAA";
+  // Use "CeloFX" as display name (on-chain metadata may have registration name)
+  const displayName = "CeloFX";
   const displayDesc =
-    metadata?.description ??
-    "Cross-market alpha analyst. Scans crypto, stocks, forex, and commodities to surface high-conviction trading signals. Registered via ERC-8004.";
+    "Autonomous FX agent. Analyzes forex markets and executes stablecoin swaps via Mento on Celo. Registered via ERC-8004.";
 
   return (
     <Card>
@@ -101,7 +100,7 @@ export function AgentIdentityCard() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Markets</p>
-            <p className="text-xs">Crypto, Stocks, Forex, Commodities</p>
+            <p className="text-xs">Forex, Mento Stablecoins</p>
           </div>
         </div>
 
@@ -112,7 +111,7 @@ export function AgentIdentityCard() {
               Signal Activity
             </div>
             <div className="grid grid-cols-4 gap-2 text-center">
-              {(["crypto", "stocks", "forex", "commodities"] as const).map((m) => {
+              {(["mento", "forex", "crypto", "commodities"] as const).map((m) => {
                 const count = signals.filter((s) => s.market === m).length;
                 return (
                   <div key={m}>

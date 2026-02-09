@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useWalletClient } from "wagmi";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import type { Signal } from "@/lib/types";
 
 type PaymentStep = "idle" | "requesting" | "signing" | "verifying" | "done";
@@ -140,8 +139,7 @@ export function PremiumGate({
       } else {
         setError("Connect your wallet to unlock premium signals.");
       }
-    } catch (err) {
-      console.error("x402 payment error:", err);
+    } catch {
       try {
         const res = await fetch("/api/premium-signals");
         if (res.status === 402) {
@@ -161,10 +159,10 @@ export function PremiumGate({
   }
 
   const previews = [
+    { market: "mento", asset: "cUSD/cEUR", direction: "Long", confidence: 78 },
+    { market: "mento", asset: "cUSD/cREAL", direction: "Long", confidence: 72 },
+    { market: "forex", asset: "EUR/USD", direction: "Short", confidence: 74 },
     { market: "crypto", asset: "CELO/USD", direction: "Long", confidence: 71 },
-    { market: "stocks", asset: "TSLA", direction: "Short", confidence: 68 },
-    { market: "forex", asset: "GBP/USD", direction: "Short", confidence: 63 },
-    { market: "commodities", asset: "Silver (XAG)", direction: "Long", confidence: 76 },
   ];
 
   return (
@@ -288,21 +286,12 @@ export function PremiumGate({
             </Button>
 
             {!walletClient && !isDemo && (
-              <div className="text-center space-y-1">
-                <p className="text-xs text-amber-600">
-                  Connect your wallet on Celo to unlock
-                </p>
-                <Link
-                  href="/premium?demo=true"
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
-                >
-                  <Eye className="size-3" />
-                  Or try the demo
-                </Link>
-              </div>
+              <p className="text-xs text-amber-600">
+                Connect your wallet on Celo to unlock
+              </p>
             )}
             <p className="text-xs text-muted-foreground">
-              x402 protocol · HTTP 402 · EIP-712 signature
+              Powered by x402 on Celo
             </p>
           </div>
         </div>

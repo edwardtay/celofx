@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "AAA — Alpha Acceleration Agent";
+export const alt = "CeloFX — Autonomous FX Agent";
 export const size = {
   width: 1200,
   height: 630,
@@ -55,7 +55,7 @@ export default async function Image() {
             marginBottom: "24px",
           }}
         >
-          A
+          FX
         </div>
 
         {/* Title */}
@@ -68,7 +68,7 @@ export default async function Image() {
             marginBottom: "8px",
           }}
         >
-          $AAA
+          CeloFX
         </div>
 
         {/* Subtitle */}
@@ -79,7 +79,7 @@ export default async function Image() {
             marginBottom: "32px",
           }}
         >
-          Alpha Acceleration Agent
+          Autonomous FX Agent
         </div>
 
         {/* Market pills */}
@@ -91,10 +91,10 @@ export default async function Image() {
           }}
         >
           {[
-            { label: "Crypto", color: "#3b82f6" },
-            { label: "Stocks", color: "#10b981" },
-            { label: "Forex", color: "#f59e0b" },
-            { label: "Commodities", color: "#8b5cf6" },
+            { label: "cUSD", color: "#35d07f" },
+            { label: "cEUR", color: "#3b82f6" },
+            { label: "cBRL", color: "#f59e0b" },
+            { label: "Forex", color: "#8b5cf6" },
           ].map((m) => (
             <div
               key={m.label}
@@ -131,7 +131,7 @@ export default async function Image() {
             color: "#8b7d6e",
           }}
         >
-          AI-powered signals · ERC-8004 verified · x402 micropayments · Celo
+          Mento stablecoin trading · ERC-8004 verified · x402 micropayments · Celo
         </div>
       </div>
     ),

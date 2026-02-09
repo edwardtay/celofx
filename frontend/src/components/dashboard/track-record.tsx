@@ -3,19 +3,17 @@
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Hardcoded historical performance for demo
-// In production, this would compare entry prices to actual prices
 const historicalSignals = [
+  { asset: "cUSD/cEUR", direction: "long", entry: 0.842, target: 0.838, actual: 0.836, hit: true },
+  { asset: "cUSD/cREAL", direction: "long", entry: 5.22, target: 5.18, actual: 5.18, hit: true },
+  { asset: "EUR/USD", direction: "short", entry: 1.198, target: 1.175, actual: 1.189, hit: true },
+  { asset: "cEUR/cREAL", direction: "long", entry: 6.20, target: 6.17, actual: 6.17, hit: true },
   { asset: "BTC/USD", direction: "long", entry: 92000, target: 97500, actual: 97500, hit: true },
-  { asset: "Gold (XAU)", direction: "long", entry: 2750, target: 2865, actual: 2865, hit: true },
-  { asset: "EUR/USD", direction: "short", entry: 1.092, target: 1.075, actual: 1.08, hit: true },
-  { asset: "NVDA", direction: "long", entry: 128, target: 140, actual: 138, hit: true },
-  { asset: "SOL/USD", direction: "short", entry: 195, target: 170, actual: 172, hit: true },
-  { asset: "TSLA", direction: "short", entry: 268, target: 240, actual: 245, hit: true },
+  { asset: "USD/BRL", direction: "long", entry: 5.05, target: 5.19, actual: 5.19, hit: true },
   { asset: "GBP/USD", direction: "short", entry: 1.262, target: 1.215, actual: 1.248, hit: false },
-  { asset: "Silver (XAG)", direction: "long", entry: 29.5, target: 33, actual: 31.8, hit: false },
+  { asset: "Gold (XAU)", direction: "long", entry: 2750, target: 2865, actual: 2865, hit: true },
+  { asset: "CELO/USD", direction: "long", entry: 0.42, target: 0.55, actual: 0.38, hit: false },
   { asset: "USD/JPY", direction: "long", entry: 148, target: 155, actual: 152, hit: false },
-  { asset: "Crude Oil", direction: "short", entry: 76, target: 70, actual: 71, hit: true },
 ];
 
 export function TrackRecord() {

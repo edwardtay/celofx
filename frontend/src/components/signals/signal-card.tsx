@@ -12,7 +12,7 @@ import { MarketTag } from "./market-tag";
 import { SignalDetailModal } from "./signal-detail-modal";
 import { formatTimeAgo, formatCurrency } from "@/lib/format";
 import type { Signal } from "@/lib/types";
-import { TrendingUp, TrendingDown, Minus, Lock, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Lock, Sparkles, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const directionConfig = {
@@ -59,6 +59,12 @@ export function SignalCard({ signal }: { signal: Signal }) {
             <div className="flex items-center gap-2 min-w-0">
               <MarketTag market={signal.market} />
               <CardTitle className="text-base truncate">{signal.asset}</CardTitle>
+              {signal.market === "mento" && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 flex items-center gap-0.5 shrink-0">
+                  <Link2 className="size-2.5" />
+                  On-chain
+                </span>
+              )}
               {signal.tier === "premium" && (
                 <span className="text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0">
                   <Sparkles className="size-2.5" />
@@ -118,7 +124,23 @@ export function SignalCard({ signal }: { signal: Signal }) {
               </span>
             </div>
 
-            {signal.entryPrice ? (
+            {signal.market === "mento" && signal.entryPrice && signal.targetPrice ? (
+              <div className="flex items-center gap-3 text-xs font-mono">
+                <span className="text-muted-foreground">
+                  Mento {signal.entryPrice.toFixed(4)}
+                </span>
+                <span className="text-muted-foreground">
+                  Forex {signal.targetPrice.toFixed(4)}
+                </span>
+                <span className={cn(
+                  "font-semibold",
+                  signal.entryPrice > signal.targetPrice ? "text-emerald-600" : "text-red-600"
+                )}>
+                  {signal.entryPrice > signal.targetPrice ? "+" : ""}
+                  {(((signal.entryPrice - signal.targetPrice) / signal.targetPrice) * 100).toFixed(2)}% spread
+                </span>
+              </div>
+            ) : signal.entryPrice ? (
               <div className="flex items-center gap-3 text-xs font-mono">
                 <span className="text-muted-foreground">
                   Entry {formatCurrency(signal.entryPrice)}

@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { MentoSpreads } from "@/components/dashboard/mento-spreads";
 import { MarketOverview } from "@/components/dashboard/market-overview";
 import { TopSignals } from "@/components/dashboard/top-signals";
 import { AgentStatus } from "@/components/dashboard/agent-status";
@@ -17,15 +18,17 @@ export default function Home() {
       <main className="flex-1 px-6 py-6 max-w-6xl mx-auto w-full space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-display tracking-tight">$AAA</h1>
+            <h1 className="text-2xl font-display tracking-tight">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-              AI-generated trading signals across crypto, stocks, forex, and commodities. Every signal is backed by an on-chain track record you can verify.
+              Real-time Mento Broker rates, forex spreads, and AI-generated FX signals.
             </p>
           </div>
           <ReputationBadge />
         </div>
 
         <AgentStatus />
+
+        <MentoSpreads />
 
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -54,11 +57,11 @@ export default function Home() {
             <Shield className="size-4 mt-0.5 text-muted-foreground shrink-0" />
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Verifiable Identity</p>
+                <p className="text-sm font-medium">Mento Integration</p>
                 <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <p className="text-xs text-muted-foreground">
-                This agent&apos;s identity is registered on-chain — you can verify who built it and when
+                Compares real forex rates with Mento on-chain stablecoin rates to find swap opportunities
               </p>
             </div>
           </Link>
@@ -66,15 +69,15 @@ export default function Home() {
             <BarChart3 className="size-4 mt-0.5 text-muted-foreground shrink-0" />
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Provable Track Record</p>
+                <p className="text-sm font-medium">ERC-8004 Verified</p>
                 <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <p className="text-xs text-muted-foreground">
-                Users rate signal quality on-chain — reputation is public and immutable
+                On-chain identity and reputation — every FX signal contributes to a verifiable track record
               </p>
             </div>
           </Link>
-          <Link href="/premium?demo=true" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
+          <Link href="/premium" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
             <Zap className="size-4 mt-0.5 text-muted-foreground shrink-0" />
             <div className="flex-1">
               <div className="flex items-center justify-between">
@@ -82,7 +85,7 @@ export default function Home() {
                 <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <p className="text-xs text-muted-foreground">
-                Unlock premium signals with a one-cent micropayment — no subscription needed
+                Premium FX swap signals via x402 micropayment — no subscription needed
               </p>
             </div>
           </Link>

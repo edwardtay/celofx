@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 
 const tabs: { value: MarketType | "all"; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "crypto", label: "Crypto" },
-  { value: "stocks", label: "Stocks" },
+  { value: "mento", label: "Mento FX" },
   { value: "forex", label: "Forex" },
+  { value: "crypto", label: "Crypto" },
   { value: "commodities", label: "Commodities" },
 ];
 

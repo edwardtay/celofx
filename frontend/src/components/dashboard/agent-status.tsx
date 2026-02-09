@@ -24,8 +24,8 @@ import { cn } from "@/lib/utils";
 
 type AnalysisPhase =
   | "idle"
+  | "mento"
   | "crypto"
-  | "stocks"
   | "forex"
   | "commodities"
   | "thinking"
@@ -74,23 +74,16 @@ export function AgentStatus() {
     setGeneratedSignals([]);
 
     try {
-      // Phase 1: Fetch market data in sequence so judge sees each step
-      setPhase("crypto");
-      const crypto = await fetchMarket(
-        "/api/market-data/crypto",
-        "Crypto",
-        <Bitcoin className="size-3" />
+      // Phase 1: Fetch Mento rates first (the core product)
+      setPhase("mento");
+      const mento = await fetchMarket(
+        "/api/market-data/mento",
+        "Mento FX",
+        <DollarSign className="size-3" />
       );
-      setSnapshots((prev) => [...prev, crypto]);
+      setSnapshots((prev) => [...prev, mento]);
 
-      setPhase("stocks");
-      const stocks = await fetchMarket(
-        "/api/market-data/stocks",
-        "Stocks",
-        <BarChart3 className="size-3" />
-      );
-      setSnapshots((prev) => [...prev, stocks]);
-
+      // Phase 2: Fetch supporting market data
       setPhase("forex");
       const forex = await fetchMarket(
         "/api/market-data/forex",
@@ -98,6 +91,14 @@ export function AgentStatus() {
         <DollarSign className="size-3" />
       );
       setSnapshots((prev) => [...prev, forex]);
+
+      setPhase("crypto");
+      const crypto = await fetchMarket(
+        "/api/market-data/crypto",
+        "Crypto",
+        <Bitcoin className="size-3" />
+      );
+      setSnapshots((prev) => [...prev, crypto]);
 
       setPhase("commodities");
       const commodities = await fetchMarket(
@@ -147,8 +148,7 @@ export function AgentStatus() {
         setError(data.error || "Analysis failed");
         setPhase("idle");
       }
-    } catch (err) {
-      console.error("Analysis failed:", err);
+    } catch {
       setError("Analysis unavailable — try again in a moment");
       setPhase("idle");
     } finally {
@@ -158,11 +158,11 @@ export function AgentStatus() {
 
   const phaseLabel: Record<AnalysisPhase, string> = {
     idle: "",
+    mento: "Fetching Mento stablecoin rates...",
     crypto: "Fetching crypto prices...",
-    stocks: "Fetching stock prices...",
     forex: "Fetching forex rates...",
     commodities: "Fetching commodity prices...",
-    thinking: "Claude AI analyzing markets...",
+    thinking: "Claude AI analyzing FX opportunities...",
     done: "Analysis complete!",
   };
 

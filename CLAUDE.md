@@ -1,37 +1,54 @@
-# Starter EVM Template
+# CeloFX
 
-## What This Is
-Reusable scaffold for EVM hackathon projects. Clone this, don't modify in place.
+Autonomous FX agent on Celo. Analyzes forex markets, compares with Mento on-chain stablecoin rates, and recommends/executes swaps when spreads are favorable.
 
-## Quick Start
-```bash
-cp -r starter-evm/ ../new-project-name/
-cd ../new-project-name/
+## Architecture
+
 ```
-Then:
-1. Edit `frontend/src/config/site.ts` — project name/description
-2. Edit `frontend/src/config/wagmi.ts` — target chains
-3. Copy `.env.example` → `.env.local` — add WalletConnect project ID
-4. `cd frontend && pnpm install && pnpm dev`
-5. `cd contracts && forge build`
+Agent Flow:
+  Fetch Mento rates (cUSD/cEUR, cUSD/cREAL) → Compare vs real forex rates
+  → Identify spread opportunities → Generate swap signals
+  → User approves → Execute via Mento Broker on Celo
 
-## Structure
-- `frontend/` — Next.js 16 + wagmi + viem + RainbowKit
-- `contracts/` — Foundry, Solidity 0.8.26, EVM Cancun
-- `agent/` — Anthropic SDK tool-use agent scaffold
-
-## Chains
-Default: Ethereum mainnet, Base, Sepolia. Change in wagmi.ts.
-
-## Contract Workflow
-```bash
-cd contracts
-forge build
-forge test
-forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast
+Tech Stack:
+  Frontend: Next.js 16 + React 19 + Tailwind v4 + shadcn/ui + wagmi + viem + RainbowKit
+  Agent: Claude (Anthropic SDK) with tool-use loop
+  Chain: Celo mainnet (EVM L2)
+  Payments: x402 (Thirdweb) for premium signal micropayments
+  Identity: ERC-8004 Identity + Reputation Registry
+  FX: Mento Protocol (Broker contract for stablecoin swaps)
 ```
 
-## When Creating a New Project From This Template
-- Always run `pnpm install` in frontend/ after cloning
-- Always create .env.local before running dev server
-- Update foundry.toml rpc_endpoints for target chain
+## Key Addresses (Celo Mainnet)
+
+- ERC-8004 Identity Registry: `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`
+- ERC-8004 Reputation Registry: `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`
+- Mento Broker: `0x777A8255cA72412f0d706dc03C9D1987306B4CaD`
+- cUSD: `0x765DE816845861e75A25fCA122bb6898B8B1282a`
+- cEUR: `0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73`
+- cREAL: `0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787`
+- CELO: `0x471EcE3750Da237f93B8E339c536989b8978a438`
+
+## Agent Tools
+
+- `fetch_mento_rates` — Mento stablecoin exchange rates vs real forex (the core)
+- `fetch_forex` — Real-world forex rates (EUR/USD, GBP/USD, USD/JPY, USD/CHF)
+- `fetch_crypto` — Crypto prices (BTC, ETH, SOL, CELO)
+- `fetch_commodities` — Commodity prices (Gold, Oil, Silver, Gas)
+- `fetch_stocks` — Stock prices (AAPL, NVDA, TSLA, MSFT)
+- `generate_fx_action` — Mento swap recommendation (from/to token, rates, spread)
+- `generate_signal` — General market signal (crypto, stocks, forex, commodities)
+
+## Commands
+
+```bash
+cd frontend && pnpm install && pnpm dev
+```
+
+## Hackathon
+
+- **Hackathon**: Build Agents for the Real World (Celo)
+- **Dates**: Feb 6-15, 2026
+- **Prizes**: $4K 1st + $1K 2nd
+- **Submission**: Tweet + Karma + ERC-8004 agentId + SelfClaw verification
+- **Agent ID**: #4 on ERC-8004 Identity Registry

@@ -1,4 +1,4 @@
-export type MarketType = "crypto" | "stocks" | "forex" | "commodities";
+export type MarketType = "crypto" | "forex" | "commodities" | "mento";
 
 export type SignalDirection = "long" | "short" | "hold";
 

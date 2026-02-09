@@ -4,18 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrencyCompact, formatPercent } from "@/lib/format";
 import {
   useCryptoData,
-  useStockData,
   useForexData,
   useCommodityData,
 } from "@/hooks/use-market-data";
 import type { AssetPrice } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Bitcoin, BarChart3, DollarSign, Gem } from "lucide-react";
+import { Bitcoin, DollarSign, Gem } from "lucide-react";
 
 const marketConfig = [
-  { key: "crypto", label: "Crypto", icon: Bitcoin, hook: useCryptoData },
-  { key: "stocks", label: "Stocks", icon: BarChart3, hook: useStockData },
   { key: "forex", label: "Forex", icon: DollarSign, hook: useForexData },
+  { key: "crypto", label: "Crypto", icon: Bitcoin, hook: useCryptoData },
   { key: "commodities", label: "Commodities", icon: Gem, hook: useCommodityData },
 ] as const;
 
@@ -97,12 +95,11 @@ function MarketCard({
 }
 
 export function MarketOverview() {
-  const crypto = useCryptoData();
-  const stocks = useStockData();
   const forex = useForexData();
+  const crypto = useCryptoData();
   const commodities = useCommodityData();
 
-  const results = [crypto, stocks, forex, commodities];
+  const results = [forex, crypto, commodities];
   const allLoaded = results.every((r) => !r.isLoading && r.data);
 
   return (
@@ -116,7 +113,7 @@ export function MarketOverview() {
           </span>
         )}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {marketConfig.map((market, i) => (
           <MarketCard
             key={market.key}

@@ -2,6 +2,53 @@
 export const IDENTITY_REGISTRY_ADDRESS = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as const;
 export const REPUTATION_REGISTRY_ADDRESS = "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" as const;
 
+// Mento Protocol (Celo Mainnet)
+export const MENTO_BROKER_ADDRESS = "0x777A8255cA72412f0d706dc03C9D1987306B4CaD" as const;
+
+export const MENTO_TOKENS = {
+  cUSD: "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+  cEUR: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73",
+  cREAL: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787",
+  CELO: "0x471EcE3750Da237f93B8E339c536989b8978a438",
+} as const;
+
+export const mentoBrokerAbi = [
+  {
+    type: "function",
+    name: "getAmountOut",
+    inputs: [
+      { name: "exchangeProvider", type: "address" },
+      { name: "exchangeId", type: "bytes32" },
+      { name: "tokenIn", type: "address" },
+      { name: "tokenOut", type: "address" },
+      { name: "amountIn", type: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "swapIn",
+    inputs: [
+      { name: "exchangeProvider", type: "address" },
+      { name: "exchangeId", type: "bytes32" },
+      { name: "tokenIn", type: "address" },
+      { name: "tokenOut", type: "address" },
+      { name: "amountIn", type: "uint256" },
+      { name: "amountOutMin", type: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "getExchangeProviders",
+    inputs: [],
+    outputs: [{ name: "", type: "address[]" }],
+    stateMutability: "view",
+  },
+] as const;
+
 export const identityRegistryAbi = [
   {
     type: "function",

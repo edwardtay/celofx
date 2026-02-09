@@ -39,12 +39,14 @@ export function PerformanceMetrics() {
   const highConviction = bullish.length + bearish.length;
   const winRate = highConviction > 0 ? Math.round((highConviction / withTargets.length) * 100) : 0;
 
+  const mentoCount = signals.filter((s) => s.market === "mento").length;
+
   const metrics = [
     {
-      label: "Signals",
+      label: "FX Signals",
       value: total.toString(),
       icon: Layers,
-      detail: `${premiumCount} premium`,
+      detail: `${mentoCount} Mento swaps`,
     },
     {
       label: "Avg Confidence",
@@ -56,13 +58,13 @@ export function PerformanceMetrics() {
       label: "Markets",
       value: markets.toString(),
       icon: BarChart3,
-      detail: "Active coverage",
+      detail: "FX pairs tracked",
     },
     {
-      label: "High Conviction",
+      label: "Swap Signals",
       value: winRate > 0 ? `${winRate}%` : `${highConviction}`,
       icon: TrendingUp,
-      detail: winRate > 0 ? "Of targeted signals" : "Signals with targets",
+      detail: winRate > 0 ? "With positive spreads" : "Actionable swaps",
     },
   ];
 

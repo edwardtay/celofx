@@ -30,7 +30,7 @@ export function TopSignals() {
         <div className="flex flex-col items-center gap-2">
           <Zap className="size-6 opacity-40" />
           <p className="text-sm">Click &quot;Run Analysis&quot; above to generate AI signals</p>
-          <p className="text-xs">Agent #4 will scan crypto, stocks, forex, and commodities</p>
+          <p className="text-xs">Agent #4 will scan Mento FX, forex, crypto, and commodities</p>
         </div>
       </div>
     );

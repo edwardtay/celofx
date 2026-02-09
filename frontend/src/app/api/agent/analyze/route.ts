@@ -4,9 +4,10 @@ import { agentTools, AGENT_SYSTEM_PROMPT } from "@/lib/agent-tools";
 import {
   fetchCryptoPrices,
   fetchForexRates,
-  fetchStockPrices,
   fetchCommodityPrices,
+  fetchMentoRates,
 } from "@/lib/market-data";
+import { getMentoOnChainRates, buildSwapTx, type MentoToken } from "@/lib/mento-sdk";
 import { addSignal } from "@/lib/signal-store";
 import type { Signal, MarketType, SignalDirection, SignalTier } from "@/lib/types";
 
@@ -23,13 +24,14 @@ export async function POST() {
 
   const client = new Anthropic({ apiKey });
   let signalCount = 0;
+  const swapTxs: Array<{ fromToken: string; toToken: string; amount: string; rate: number; expectedOut: string }> = [];
 
   try {
     const messages: Anthropic.MessageParam[] = [
       {
         role: "user",
         content:
-          "Analyze all four markets right now. Fetch data from crypto, stocks, forex, and commodities, then generate 3-5 high-conviction trading signals across different markets.",
+          "Analyze markets with a focus on FX opportunities. Fetch Mento on-chain rates first, then forex, crypto, and commodities. Compare Mento stablecoin rates against real forex rates to find swap opportunities. Generate 3-5 signals — prioritize Mento FX actions where spreads are favorable.",
       },
     ];
 
@@ -74,11 +76,6 @@ export async function POST() {
             result = JSON.stringify(data);
             break;
           }
-          case "fetch_stocks": {
-            const data = await fetchStockPrices();
-            result = JSON.stringify(data);
-            break;
-          }
           case "fetch_forex": {
             const data = await fetchForexRates();
             result = JSON.stringify(data);
@@ -87,6 +84,45 @@ export async function POST() {
           case "fetch_commodities": {
             const data = fetchCommodityPrices();
             result = JSON.stringify(data);
+            break;
+          }
+          case "fetch_mento_rates": {
+            // Try real on-chain Mento Broker rates first
+            try {
+              const onChainData = await getMentoOnChainRates();
+              if (onChainData.length > 0) {
+                result = JSON.stringify(onChainData);
+                break;
+              }
+            } catch {
+              // Fall through to CoinGecko fallback
+            }
+            const data = await fetchMentoRates();
+            result = JSON.stringify(data);
+            break;
+          }
+          case "generate_fx_action": {
+            const input = toolUse.input as Record<string, unknown>;
+            const signal: Signal = {
+              id: `agent-fx-${Date.now()}-${signalCount}`,
+              market: "mento" as MarketType,
+              asset: `${input.fromToken}/${input.toToken}`,
+              direction: "long" as SignalDirection,
+              confidence: input.confidence as number,
+              summary: `Swap ${input.fromToken} → ${input.toToken} via Mento${input.spreadPct ? ` (${input.spreadPct}% spread)` : ""}`,
+              reasoning: input.reasoning as string | undefined,
+              entryPrice: input.mentoRate as number | undefined,
+              targetPrice: input.forexRate as number | undefined,
+              tier: (input.tier as SignalTier) || "free",
+              timestamp: Date.now(),
+            };
+            addSignal(signal);
+            signalCount++;
+            result = JSON.stringify({
+              success: true,
+              signalId: signal.id,
+              message: `FX action: SWAP ${input.fromToken} → ${input.toToken} (${signal.confidence}% confidence)`,
+            });
             break;
           }
           case "generate_signal": {
@@ -112,6 +148,53 @@ export async function POST() {
               signalId: signal.id,
               message: `Signal generated: ${signal.direction.toUpperCase()} ${signal.asset} (${signal.confidence}% confidence)`,
             });
+            break;
+          }
+          case "execute_mento_swap": {
+            const input = toolUse.input as Record<string, unknown>;
+            try {
+              const swapResult = await buildSwapTx(
+                input.fromToken as MentoToken,
+                input.toToken as MentoToken,
+                input.amount as string
+              );
+              swapTxs.push({
+                fromToken: input.fromToken as string,
+                toToken: input.toToken as string,
+                amount: input.amount as string,
+                rate: swapResult.summary.rate,
+                expectedOut: swapResult.summary.expectedOut,
+              });
+              // Also generate a signal for this swap
+              const signal: Signal = {
+                id: `agent-swap-${Date.now()}-${signalCount}`,
+                market: "mento" as MarketType,
+                asset: `${input.fromToken}/${input.toToken}`,
+                direction: "long" as SignalDirection,
+                confidence: 85,
+                summary: `Swap ${input.amount} ${input.fromToken} → ${swapResult.summary.expectedOut.slice(0, 8)} ${input.toToken} via Mento Broker`,
+                reasoning: input.reasoning as string,
+                entryPrice: swapResult.summary.rate,
+                tier: "premium" as SignalTier,
+                timestamp: Date.now(),
+              };
+              addSignal(signal);
+              signalCount++;
+              result = JSON.stringify({
+                success: true,
+                signalId: signal.id,
+                swap: {
+                  ...swapResult.summary,
+                  brokerAddress: "0x777A8255cA72412f0d706dc03C9D1987306B4CaD",
+                  status: "tx_ready",
+                },
+                message: `Swap transaction built: ${input.amount} ${input.fromToken} → ${swapResult.summary.expectedOut} ${input.toToken} (rate: ${swapResult.summary.rate.toFixed(6)})`,
+              });
+            } catch (err) {
+              result = JSON.stringify({
+                error: `Failed to build swap: ${err instanceof Error ? err.message : "unknown error"}`,
+              });
+            }
             break;
           }
           default:
@@ -140,12 +223,12 @@ export async function POST() {
       success: true,
       signalCount,
       signals: agentSignals,
-      message: `Analysis complete. Generated ${signalCount} new signals.`,
+      swaps: swapTxs,
+      message: `Analysis complete. Generated ${signalCount} signals${swapTxs.length > 0 ? ` and ${swapTxs.length} swap transaction(s)` : ""}.`,
     });
-  } catch (error) {
-    console.error("Agent analysis error:", error);
+  } catch {
     return NextResponse.json(
-      { error: "Analysis failed", details: String(error) },
+      { error: "Analysis failed" },
       { status: 500 }
     );
   }

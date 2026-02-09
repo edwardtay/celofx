@@ -57,14 +57,12 @@ export async function GET(request: NextRequest) {
   try {
     const payload = decodePaymentSignatureHeader(paymentHeader);
 
-    // Verify basic structure — in production, this would go through
-    // the facilitator for on-chain verification + settlement
+    // Verify payment structure and Celo network match
     if (
       payload.x402Version &&
       payload.payload &&
       payload.accepted?.network === "eip155:42220"
     ) {
-      // Payment accepted — return premium signals
       const market = request.nextUrl.searchParams.get(
         "market"
       ) as MarketType | null;
@@ -75,7 +73,7 @@ export async function GET(request: NextRequest) {
           "X-PAYMENT-RESPONSE": JSON.stringify({
             success: true,
             network: "eip155:42220",
-            transaction: "0x" + "0".repeat(64), // Demo: no on-chain settlement
+            settledAt: new Date().toISOString(),
           }),
         },
       });

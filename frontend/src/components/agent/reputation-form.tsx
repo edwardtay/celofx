@@ -59,7 +59,7 @@ export function ReputationForm() {
           <Star className="size-5 mx-auto text-muted-foreground" />
           <p className="text-sm font-medium">Rate this agent</p>
           <p className="text-xs text-muted-foreground">
-            Connect your wallet on Celo to leave immutable feedback on the ERC-8004 Reputation Registry
+            Connect your wallet on Celo to rate this agent — your feedback is stored permanently on-chain
           </p>
         </CardContent>
       </Card>
@@ -126,7 +126,7 @@ export function ReputationForm() {
         )}
         {isError && (
           <p className="text-xs text-red-600 text-center">
-            Transaction failed. Please try again.
+            Transaction failed — make sure your wallet is connected to Celo Mainnet
           </p>
         )}
         <p className="text-xs text-muted-foreground text-center">

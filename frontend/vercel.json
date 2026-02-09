@@ -1,4 +1,9 @@
 {
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "functions": {
+    "src/app/api/agent/analyze/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

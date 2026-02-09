@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { AssetPrice } from "@/lib/types";
+import type { MentoRate } from "@/lib/market-data";
 
 function useMarket(market: string) {
   return useQuery<AssetPrice[]>({
@@ -15,12 +16,20 @@ function useMarket(market: string) {
   });
 }
 
-export function useCryptoData() {
-  return useMarket("crypto");
+export function useMentoData() {
+  return useQuery<MentoRate[]>({
+    queryKey: ["market-data", "mento"],
+    queryFn: async () => {
+      const res = await fetch("/api/market-data/mento");
+      if (!res.ok) throw new Error("Failed to fetch Mento data");
+      return res.json();
+    },
+    refetchInterval: 60_000,
+  });
 }
 
-export function useStockData() {
-  return useMarket("stocks");
+export function useCryptoData() {
+  return useMarket("crypto");
 }
 
 export function useForexData() {

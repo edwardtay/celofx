@@ -113,67 +113,110 @@ export async function fetchForexRates(): Promise<AssetPrice[]> {
   }
 }
 
-export async function fetchStockPrices(): Promise<AssetPrice[]> {
-  const cached = getCached<AssetPrice[]>("stocks");
-  if (cached) return cached;
-
-  const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) {
-    return getStockFallback();
-  }
-
-  try {
-    const symbols = ["AAPL", "NVDA", "TSLA", "MSFT"];
-    const results = await Promise.all(
-      symbols.map(async (sym) => {
-        const res = await fetch(
-          `https://finnhub.io/api/v1/quote?symbol=${sym}&token=${apiKey}`,
-          { signal: AbortSignal.timeout(8000) }
-        );
-        if (!res.ok) return null;
-        const d = await res.json();
-        return { symbol: sym, price: d.c, change: d.dp };
-      })
-    );
-
-    const prices: AssetPrice[] = results.map((r, i) => ({
-      symbol: symbols[i],
-      name: getStockName(symbols[i]),
-      price: r?.price ?? getStockFallback()[i].price,
-      change24h: r?.change ?? getStockFallback()[i].change24h,
-    }));
-
-    setCache("stocks", prices);
-    return prices;
-  } catch {
-    return getStockFallback();
-  }
-}
-
-function getStockName(symbol: string): string {
-  const names: Record<string, string> = {
-    AAPL: "Apple",
-    NVDA: "NVIDIA",
-    TSLA: "Tesla",
-    MSFT: "Microsoft",
-  };
-  return names[symbol] ?? symbol;
-}
-
-function getStockFallback(): AssetPrice[] {
-  return [
-    { symbol: "AAPL", name: "Apple", price: 228.5, change24h: 0.42 },
-    { symbol: "NVDA", name: "NVIDIA", price: 138.2, change24h: 3.15 },
-    { symbol: "TSLA", name: "Tesla", price: 245.8, change24h: -1.23 },
-    { symbol: "MSFT", name: "Microsoft", price: 415.6, change24h: 0.87 },
-  ];
-}
-
 export function fetchCommodityPrices(): AssetPrice[] {
   return [
     { symbol: "XAU", name: "Gold", price: 2865, change24h: 0.85 },
     { symbol: "WTI", name: "Crude Oil", price: 71.2, change24h: -1.3 },
     { symbol: "XAG", name: "Silver", price: 31.8, change24h: 1.42 },
     { symbol: "NG", name: "Natural Gas", price: 3.12, change24h: -0.65 },
+  ];
+}
+
+export interface MentoRate {
+  pair: string;
+  mentoRate: number;
+  forexRate: number;
+  spread: number;
+  spreadPct: number;
+  direction: "buy" | "sell" | "neutral";
+}
+
+export async function fetchMentoRates(): Promise<MentoRate[]> {
+  const cached = getCached<MentoRate[]>("mento");
+  if (cached) return cached;
+
+  try {
+    // Fetch Mento stablecoin prices from CoinGecko
+    const [mentoRes, forexRes] = await Promise.all([
+      fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=celo-dollar,celo-euro,celo-real&vs_currencies=usd&include_24hr_change=true",
+        { signal: AbortSignal.timeout(8000) }
+      ),
+      fetch(
+        "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL",
+        { signal: AbortSignal.timeout(8000) }
+      ),
+    ]);
+
+    if (!mentoRes.ok || !forexRes.ok) throw new Error("API error");
+
+    const mento = await mentoRes.json();
+    const forex = await forexRes.json();
+
+    // Mento implied rates (how much 1 USD of cUSD buys in other stables)
+    const cUsdPrice = mento["celo-dollar"]?.usd ?? 1.0;
+    const cEurPrice = mento["celo-euro"]?.usd ?? 1.08;
+    const cRealPrice = mento["celo-real"]?.usd ?? 0.18;
+
+    // Real forex rates (Frankfurter base=USD gives EUR per 1 USD directly)
+    const realEurUsd = forex.rates?.EUR ?? 0.926;
+    const realBrlUsd = forex.rates?.BRL ?? 5.7;
+
+    // Mento implied: 1 cUSD → X cEUR
+    const mentoEurRate = cUsdPrice / cEurPrice; // how many cEUR per cUSD
+    const mentoRealRate = cUsdPrice / cRealPrice; // how many cREAL per cUSD
+
+    // Spreads: positive = Mento gives better rate, negative = worse
+    const eurSpread = mentoEurRate - realEurUsd;
+    const eurSpreadPct = (eurSpread / realEurUsd) * 100;
+
+    const realRealRate = realBrlUsd; // how many BRL per USD
+    const realSpread = mentoRealRate - realRealRate;
+    const realSpreadPct = (realSpread / realRealRate) * 100;
+
+    const rates: MentoRate[] = [
+      {
+        pair: "cUSD/cEUR",
+        mentoRate: Number(mentoEurRate.toFixed(4)),
+        forexRate: Number(realEurUsd.toFixed(4)),
+        spread: Number(eurSpread.toFixed(4)),
+        spreadPct: Number(eurSpreadPct.toFixed(2)),
+        direction: eurSpreadPct > 0.1 ? "buy" : eurSpreadPct < -0.1 ? "sell" : "neutral",
+      },
+      {
+        pair: "cUSD/cREAL",
+        mentoRate: Number(mentoRealRate.toFixed(4)),
+        forexRate: Number(realRealRate.toFixed(4)),
+        spread: Number(realSpread.toFixed(4)),
+        spreadPct: Number(realSpreadPct.toFixed(2)),
+        direction: realSpreadPct > 0.1 ? "buy" : realSpreadPct < -0.1 ? "sell" : "neutral",
+      },
+    ];
+
+    setCache("mento", rates);
+    return rates;
+  } catch {
+    return getMentoFallback();
+  }
+}
+
+function getMentoFallback(): MentoRate[] {
+  return [
+    {
+      pair: "cUSD/cEUR",
+      mentoRate: 0.8480,
+      forexRate: 0.8460,
+      spread: 0.002,
+      spreadPct: 0.24,
+      direction: "buy",
+    },
+    {
+      pair: "cUSD/cREAL",
+      mentoRate: 5.72,
+      forexRate: 5.70,
+      spread: 0.02,
+      spreadPct: 0.35,
+      direction: "buy",
+    },
   ];
 }

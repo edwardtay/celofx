@@ -21,18 +21,18 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AAA — Alpha Acceleration Agent",
-  description: "Cross-market alpha analyst scanning crypto, stocks, forex, and commodities. Registered on-chain via ERC-8004, monetized via x402 micropayments on Celo.",
+  title: "CeloFX — Autonomous FX Agent",
+  description: "AI agent that analyzes forex markets and auto-trades Mento stablecoins on Celo. ERC-8004 verified, x402 micropayments.",
   openGraph: {
-    title: "AAA — Alpha Acceleration Agent",
-    description: "AI-powered cross-market trading signals. Verifiable identity via ERC-8004, pay-per-signal via x402 on Celo.",
-    siteName: "AAA",
+    title: "CeloFX — Autonomous FX Agent",
+    description: "AI agent that trades Mento stablecoins based on real-time FX analysis. ERC-8004 verified on Celo.",
+    siteName: "CeloFX",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "AAA — Alpha Acceleration Agent",
-    description: "AI-powered cross-market trading signals. ERC-8004 + x402 on Celo.",
+    title: "CeloFX — Autonomous FX Agent",
+    description: "AI agent that trades Mento stablecoins on Celo. ERC-8004 + x402.",
   },
 };
 

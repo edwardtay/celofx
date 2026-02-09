@@ -30,7 +30,11 @@ export function getSignals(opts?: {
 export function getFreeSignals(market?: MarketType): Signal[] {
   return getSignals({ market }).map((s) => {
     if (s.tier === "premium") {
-      // Premium signals: show reasoning (the hook) but gate prices
+      // Mento signals: spread data is the signal — show it even for premium
+      if (s.market === "mento") {
+        return { ...s, stopLoss: undefined };
+      }
+      // Other premium signals: show reasoning (the hook) but gate prices
       return { ...s, entryPrice: undefined, targetPrice: undefined, stopLoss: undefined };
     }
     return s;

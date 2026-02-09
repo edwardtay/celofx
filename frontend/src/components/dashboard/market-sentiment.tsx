@@ -43,7 +43,7 @@ export function MarketSentiment() {
         : Minus;
 
   // Per-market sentiment
-  const markets = ["crypto", "stocks", "forex", "commodities"] as const;
+  const markets = ["mento", "forex", "crypto", "commodities"] as const;
   const marketSentiments = markets.map((m) => {
     const ms = signals.filter((s) => s.market === m);
     const ml = ms.filter((s) => s.direction === "long").length;

@@ -70,7 +70,7 @@ export function OnChainMetadata() {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
             <span className="text-muted-foreground">name</span>
-            <p className="font-mono font-medium">{metadata.name as string}</p>
+            <p className="font-mono font-medium">CeloFX</p>
           </div>
           <div>
             <span className="text-muted-foreground">x402Support</span>

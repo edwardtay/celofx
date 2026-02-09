@@ -1,4 +1,4 @@
 export const siteConfig = {
-  name: "$AAA",
-  description: "Cross-market alpha, verified on-chain",
+  name: "CeloFX",
+  description: "Autonomous FX agent — trades Mento stablecoins on Celo",
 } as const;

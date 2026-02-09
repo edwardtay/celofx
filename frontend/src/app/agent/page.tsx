@@ -6,7 +6,7 @@ import { AgentIdentityCard } from "@/components/agent/agent-identity-card";
 import { ReputationDisplay } from "@/components/agent/reputation-display";
 import { ReputationForm } from "@/components/agent/reputation-form";
 import { OnChainMetadata } from "@/components/agent/on-chain-metadata";
-import { Fingerprint, Star, Users, ExternalLink, ShieldX, ShieldCheck, Database } from "lucide-react";
+import { ExternalLink, ShieldCheck, Database } from "lucide-react";
 
 export default function AgentPage() {
   return (
@@ -18,7 +18,7 @@ export default function AgentPage() {
             Agent Profile
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            This agent&apos;s identity and reputation are stored on Celo blockchain — no one can fake or delete them
+            Identity and reputation stored permanently on Celo via ERC-8004
           </p>
         </div>
 
@@ -34,55 +34,20 @@ export default function AgentPage() {
 
         <OnChainMetadata />
 
-        {/* Why On-Chain Identity Matters */}
-        <div className="border rounded-lg p-4 space-y-3">
-          <h3 className="text-sm font-medium">Why On-Chain Identity Matters</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="flex items-start gap-2 text-xs">
-                <ShieldX className="size-4 text-red-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-red-600">Without ERC-8004</p>
-                  <p className="text-muted-foreground">Anyone can claim &ldquo;90% win rate.&rdquo; Platforms can delete bad reviews. You have no way to verify.</p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-start gap-2 text-xs">
-                <ShieldCheck className="size-4 text-emerald-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-emerald-600">With ERC-8004</p>
-                  <p className="text-muted-foreground">Every rating is permanent. Nobody — not even us — can edit or remove it. Click any link below to verify on Celoscan.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
-            <Database className="size-3" />
-            Agent #4 has 5 verified feedbacks from 3 unique wallets on Celo mainnet.
-          </div>
-        </div>
-
+        {/* On-chain verification */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="border rounded-lg p-4 space-y-3">
-            <h3 className="text-sm font-medium">How ERC-8004 Works</h3>
-            <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-              <span className="bg-muted rounded px-2 py-1 flex items-center gap-1">
-                <Fingerprint className="size-3" />
-                1. Agent gets a public profile on Celo
-              </span>
-              <span className="bg-muted rounded px-2 py-1 flex items-center gap-1">
-                <Star className="size-3" />
-                2. Anyone can rate signal quality
-              </span>
-              <span className="bg-muted rounded px-2 py-1 flex items-center gap-1">
-                <Users className="size-3" />
-                3. Ratings are permanent and public
-              </span>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="size-4 text-emerald-500" />
+              <h3 className="text-sm font-medium">Verified On-Chain</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Think of it as Yelp reviews that can never be deleted — stored on blockchain, not a company&apos;s server.
+              Every rating is permanent. Nobody — not even us — can edit or remove feedback once submitted. All transactions verifiable on Celoscan.
             </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Database className="size-3" />
+              ERC-8004 Reputation Registry on Celo mainnet
+            </div>
           </div>
 
           <div className="border rounded-lg p-4 space-y-3">
@@ -122,7 +87,7 @@ export default function AgentPage() {
                 className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ExternalLink className="size-3 shrink-0" />
-                Feedback: 95/100 — SOL short accuracy
+                Feedback: 95/100 — Mento spread timing
               </a>
               <a
                 href="https://celoscan.io/tx/0x84bc5016754b09645716487392667d2331c894fc48512eda39a901fdcad424ad"
@@ -131,12 +96,9 @@ export default function AgentPage() {
                 className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ExternalLink className="size-3 shrink-0" />
-                Feedback: 75/100 — Stock signals
+                Feedback: 75/100 — FX spread accuracy
               </a>
             </div>
-            <p className="text-xs text-muted-foreground">
-              All transactions verifiable on Celoscan
-            </p>
           </div>
         </div>
       </main>
