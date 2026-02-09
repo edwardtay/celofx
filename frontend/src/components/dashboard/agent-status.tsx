@@ -197,6 +197,9 @@ export function AgentStatus() {
               <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs text-muted-foreground">Online</span>
             </div>
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-mono">
+              Cron: daily 8:00 UTC
+            </span>
           </div>
 
           <div className="flex items-center gap-4">

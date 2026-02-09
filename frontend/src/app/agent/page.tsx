@@ -6,7 +6,7 @@ import { AgentIdentityCard } from "@/components/agent/agent-identity-card";
 import { ReputationDisplay } from "@/components/agent/reputation-display";
 import { ReputationForm } from "@/components/agent/reputation-form";
 import { OnChainMetadata } from "@/components/agent/on-chain-metadata";
-import { ExternalLink, ShieldCheck, Database } from "lucide-react";
+import { ExternalLink, ShieldCheck, Database, Code2, Activity } from "lucide-react";
 
 export default function AgentPage() {
   return (
@@ -33,6 +33,48 @@ export default function AgentPage() {
         </div>
 
         <OnChainMetadata />
+
+        {/* Public API & Execution */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Code2 className="size-4 text-blue-500" />
+              <h3 className="text-sm font-medium">Track Record API</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Public JSON endpoint for verifying agent performance programmatically. No auth required.
+            </p>
+            <div className="bg-muted/50 border rounded-lg p-2 overflow-x-auto">
+              <code className="text-[11px] font-mono text-muted-foreground">
+                GET /api/agent/track-record
+              </code>
+            </div>
+            <a
+              href="/api/agent/track-record"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ExternalLink className="size-3" />
+              View live response
+            </a>
+          </div>
+
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Activity className="size-4 text-emerald-500" />
+              <h3 className="text-sm font-medium">Autonomous Execution</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Agent scans markets daily via Vercel Cron, analyzes with Claude AI, and auto-executes Mento swaps when spreads exceed 0.3%.
+            </p>
+            <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              <span>Cron: daily at 8:00 UTC</span>
+              <span>Threshold: spread &gt; 0.3%</span>
+              <span>Wallet: 0x1e67...b23</span>
+            </div>
+          </div>
+        </div>
 
         {/* On-chain verification */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

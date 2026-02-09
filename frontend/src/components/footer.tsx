@@ -28,6 +28,15 @@ export function Footer() {
             <ExternalLink className="size-3" />
           </a>
           <a
+            href="/api/agent/track-record"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+          >
+            Track Record API
+            <ExternalLink className="size-3" />
+          </a>
+          <a
             href="https://github.com/edwardtay/celofx"
             target="_blank"
             rel="noopener noreferrer"

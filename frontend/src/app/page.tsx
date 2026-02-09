@@ -9,6 +9,7 @@ import { ReputationBadge } from "@/components/dashboard/reputation-badge";
 import { PerformanceMetrics } from "@/components/dashboard/performance-metrics";
 import { MarketSentiment } from "@/components/dashboard/market-sentiment";
 import { TrackRecord } from "@/components/dashboard/track-record";
+import { AutonomousLoop } from "@/components/dashboard/autonomous-loop";
 import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -30,6 +31,8 @@ export default function Home() {
         <AgentStatus />
 
         <AgentWallet />
+
+        <AutonomousLoop />
 
         <MentoSpreads />
 
