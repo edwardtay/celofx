@@ -286,9 +286,17 @@ export function PremiumGate({
             </Button>
 
             {!walletClient && !isDemo && (
-              <p className="text-xs text-amber-600">
-                Connect your wallet on Celo to unlock
-              </p>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-xs text-amber-600">
+                  Connect your wallet on Celo to unlock
+                </p>
+                <a
+                  href="/premium?demo=true"
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                >
+                  or try the demo flow
+                </a>
+              </div>
             )}
             <p className="text-xs text-muted-foreground">
               Powered by x402 on Celo
