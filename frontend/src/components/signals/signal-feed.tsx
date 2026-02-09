@@ -26,16 +26,20 @@ export function SignalFeed({ signals }: { signals: Signal[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 border-b">
+      <div className="flex gap-1 border-b" role="tablist" aria-label="Filter signals by market">
         {tabs.map((tab) => {
           const count = countFor(tab.value);
+          const isActive = activeTab === tab.value;
           return (
             <button
               key={tab.value}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls="signal-list"
               onClick={() => setActiveTab(tab.value)}
               className={cn(
                 "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-1.5",
-                activeTab === tab.value
+                isActive
                   ? "border-foreground text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
@@ -44,7 +48,7 @@ export function SignalFeed({ signals }: { signals: Signal[] }) {
               {count > 0 && (
                 <span className={cn(
                   "text-[10px] font-mono px-1.5 py-0.5 rounded-full",
-                  activeTab === tab.value
+                  isActive
                     ? "bg-foreground text-background"
                     : "bg-muted text-muted-foreground"
                 )}>
@@ -56,7 +60,7 @@ export function SignalFeed({ signals }: { signals: Signal[] }) {
         })}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3" id="signal-list" role="tabpanel">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-sm">No {activeTab === "all" ? "" : activeTab + " "}signals yet</p>

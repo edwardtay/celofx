@@ -120,7 +120,7 @@ export function ReputationDisplay() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="flex">
+                      <div className="flex" aria-label={`${stars} out of 5 stars`} role="img">
                         {Array.from({ length: 5 }).map((_, j) => (
                           <Star
                             key={j}

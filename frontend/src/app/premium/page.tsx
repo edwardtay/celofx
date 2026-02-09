@@ -97,16 +97,14 @@ export default function PremiumPage() {
           <PremiumGate>
             {(signals) => (
               <div className="space-y-3">
-                {signals.filter((s) => s.tier === "premium").length === 0 ? (
+                {signals.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     No premium signals available yet. Run agent analysis first.
                   </div>
                 ) : (
-                  signals
-                    .filter((s) => s.tier === "premium")
-                    .map((signal) => (
-                      <SignalCard key={signal.id} signal={signal} />
-                    ))
+                  signals.map((signal) => (
+                    <SignalCard key={signal.id} signal={signal} />
+                  ))
                 )}
               </div>
             )}
