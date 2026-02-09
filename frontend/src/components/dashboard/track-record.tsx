@@ -68,7 +68,7 @@ export function TrackRecord() {
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        Based on historical signal accuracy. Future predictions are tracked on-chain via ERC-8004 reputation.
+        Early sample — accuracy improves as more signals are generated and verified. All future predictions tracked on-chain.
       </p>
     </div>
   );
