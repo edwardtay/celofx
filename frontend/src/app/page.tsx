@@ -4,6 +4,7 @@ import { MarketOverview } from "@/components/dashboard/market-overview";
 import { TopSignals } from "@/components/dashboard/top-signals";
 import { AgentStatus } from "@/components/dashboard/agent-status";
 import { ReputationBadge } from "@/components/dashboard/reputation-badge";
+import { PerformanceMetrics } from "@/components/dashboard/performance-metrics";
 import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -62,6 +63,7 @@ export default function Home() {
         </div>
 
         <AgentStatus />
+        <PerformanceMetrics />
         <MarketOverview />
 
         <div>

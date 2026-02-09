@@ -15,13 +15,3 @@ export function useSignals(market?: MarketType) {
     refetchInterval: 30_000,
   });
 }
-
-export function useAnalyze() {
-  return {
-    analyze: async () => {
-      const res = await fetch("/api/agent/analyze", { method: "POST" });
-      if (!res.ok) throw new Error("Analysis failed");
-      return res.json();
-    },
-  };
-}

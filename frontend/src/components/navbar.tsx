@@ -48,6 +48,7 @@ export function Navbar() {
           <button
             className="md:hidden p-1.5 rounded-md hover:bg-accent"
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
           >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>

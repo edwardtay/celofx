@@ -19,19 +19,19 @@ import { Star, MessageSquare, ExternalLink, ShieldCheck } from "lucide-react";
 // Pre-seeded feedback for display when on-chain data isn't available
 const seedFeedback = [
   {
-    reviewer: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18",
+    reviewer: "0xa09A571e7eeFa2E543E0D3C6B7B8a264A783d73c",
     value: 90,
     tag2: "BTC long call at 92k was spot on. Great analysis across markets.",
     timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
   },
   {
-    reviewer: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
+    reviewer: "0xa09A571e7eeFa2E543E0D3C6B7B8a264A783d73c",
     value: 80,
     tag2: "Forex signals have been consistently profitable. EUR/USD short was perfect timing.",
     timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000,
   },
   {
-    reviewer: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    reviewer: "0x89eaD11556Ab0617a81e50DDFeDb4bBceEEF2896",
     value: 80,
     tag2: "Gold long at 2800 printing. Commodity analysis is underrated.",
     timestamp: Date.now() - 8 * 24 * 60 * 60 * 1000,
@@ -114,7 +114,7 @@ export function ReputationDisplay() {
               const stars = valueToStars(entry.value);
               return (
                 <div
-                  key={i}
+                  key={`${entry.reviewer}-${entry.value}-${i}`}
                   className="border rounded-lg p-3 space-y-2"
                 >
                   <div className="flex items-center justify-between">

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { MarketTag } from "./market-tag";
 import { formatTimeAgo, formatCurrency, formatPercent } from "@/lib/format";
 import type { Signal } from "@/lib/types";
-import { TrendingUp, TrendingDown, Minus, Lock } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Lock, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const directionConfig = {
@@ -44,6 +44,12 @@ export function SignalCard({ signal }: { signal: Signal }) {
           <div className="flex items-center gap-2">
             <MarketTag market={signal.market} />
             <CardTitle className="text-base">{signal.asset}</CardTitle>
+            {signal.tier === "premium" && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5">
+                <Sparkles className="size-2.5" />
+                PRO
+              </span>
+            )}
             {isNew && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
                 NEW

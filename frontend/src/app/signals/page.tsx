@@ -4,6 +4,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { SignalFeed } from "@/components/signals/signal-feed";
 import { AgentStatus } from "@/components/dashboard/agent-status";
+import { PerformanceMetrics } from "@/components/dashboard/performance-metrics";
 import { useSignals } from "@/hooks/use-signals";
 
 export default function SignalsPage() {
@@ -21,6 +22,7 @@ export default function SignalsPage() {
         </div>
 
         <AgentStatus />
+        <PerformanceMetrics />
 
         {isLoading ? (
           <div className="space-y-3">

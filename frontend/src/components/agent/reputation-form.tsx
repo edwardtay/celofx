@@ -10,7 +10,7 @@ import {
   reputationRegistryAbi,
 } from "@/config/contracts";
 import { useAgentId } from "@/hooks/use-agent-profile";
-import { Star, Send } from "lucide-react";
+import { Star, Send, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
@@ -78,6 +78,7 @@ export function ReputationForm() {
                 onMouseEnter={() => setHoverScore(s)}
                 onMouseLeave={() => setHoverScore(0)}
                 className="p-0.5"
+                aria-label={`Rate ${s} out of 5 stars`}
               >
                 <Star
                   className={cn(
@@ -111,9 +112,10 @@ export function ReputationForm() {
         </Button>
 
         {submitted && (
-          <p className="text-xs text-emerald-600 text-center font-medium">
-            Feedback submitted on-chain! Thank you.
-          </p>
+          <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-600 font-medium">
+            <CheckCircle2 className="size-3.5" />
+            Feedback submitted on-chain!
+          </div>
         )}
         {isError && (
           <p className="text-xs text-red-600 text-center">

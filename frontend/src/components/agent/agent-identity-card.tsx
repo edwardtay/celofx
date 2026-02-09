@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAgentTokenURI, useAgentOwner, useAgentId } from "@/hooks/use-agent-profile";
 import { formatAddress } from "@/lib/format";
-import { Bot, ExternalLink } from "lucide-react";
+import { Bot, ExternalLink, Activity } from "lucide-react";
 import { IDENTITY_REGISTRY_ADDRESS } from "@/config/contracts";
 import { useEffect, useState } from "react";
+import { useSignals } from "@/hooks/use-signals";
 
 interface AgentMetadata {
   name: string;
@@ -19,6 +20,7 @@ export function AgentIdentityCard() {
   const { data: tokenURI, isLoading: uriLoading } = useAgentTokenURI();
   const { data: owner, isLoading: ownerLoading } = useAgentOwner();
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+  const { data: signals } = useSignals();
 
   useEffect(() => {
     if (!tokenURI) return;
@@ -102,6 +104,26 @@ export function AgentIdentityCard() {
             <p className="text-xs">Crypto, Stocks, Forex, Commodities</p>
           </div>
         </div>
+
+        {signals && signals.length > 0 && (
+          <div className="border rounded-lg p-3 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Activity className="size-3" />
+              Signal Activity
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {(["crypto", "stocks", "forex", "commodities"] as const).map((m) => {
+                const count = signals.filter((s) => s.market === m).length;
+                return (
+                  <div key={m}>
+                    <p className="text-sm font-semibold font-mono">{count}</p>
+                    <p className="text-[10px] text-muted-foreground capitalize">{m}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-3">
           <a
