@@ -10,8 +10,8 @@ import {
   CheckCircle2,
   Server,
   Wallet,
-  ArrowRight,
   Eye,
+  Code2,
 } from "lucide-react";
 import { useWalletClient } from "wagmi";
 import { useSearchParams } from "next/navigation";
@@ -37,16 +37,35 @@ export function PremiumGate({
   const [error, setError] = useState<string | null>(null);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [step, setStep] = useState<PaymentStep>("idle");
+  const [liveProof, setLiveProof] = useState<{
+    status: number;
+    header: string;
+  } | null>(null);
   const { data: walletClient } = useWalletClient();
   const searchParams = useSearchParams();
   const isDemo = searchParams.get("demo") === "true";
 
   const handleDemoUnlock = async () => {
     setLoading(true);
+    setLiveProof(null);
+
+    // Step 1: Actually hit the premium API to get a REAL 402
     setStep("requesting");
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      const real402 = await fetch("/api/premium-signals");
+      const paymentHeader =
+        real402.headers.get("x-payment-required") || "";
+      setLiveProof({ status: real402.status, header: paymentHeader });
+    } catch {
+      // API might be cold-starting — continue demo anyway
+    }
+    await new Promise((r) => setTimeout(r, 600));
+
+    // Step 2: Simulate wallet signing
     setStep("signing");
     await new Promise((r) => setTimeout(r, 1000));
+
+    // Step 3: Simulate verification
     setStep("verifying");
     await new Promise((r) => setTimeout(r, 600));
     setStep("done");
@@ -195,7 +214,11 @@ export function PremiumGate({
               <div className="w-full max-w-xs space-y-2">
                 <PaymentStepRow
                   icon={<Server className="size-3.5" />}
-                  label="Server returns HTTP 402"
+                  label={
+                    liveProof
+                      ? `Server returned HTTP ${liveProof.status}`
+                      : "Server returns HTTP 402"
+                  }
                   active={step === "requesting"}
                   done={["signing", "verifying", "done"].includes(step)}
                 />
@@ -211,6 +234,23 @@ export function PremiumGate({
                   active={step === "verifying"}
                   done={step === "done"}
                 />
+                {/* Live 402 proof — show actual response header */}
+                {liveProof && ["signing", "verifying", "done"].includes(step) && (
+                  <div className="mt-1 bg-muted/50 border rounded p-2 text-left">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mb-1">
+                      <Code2 className="size-2.5" />
+                      Live API response
+                    </div>
+                    <p className="text-[10px] font-mono text-emerald-600">
+                      HTTP {liveProof.status} Payment Required
+                    </p>
+                    {liveProof.header && (
+                      <p className="text-[10px] font-mono text-muted-foreground truncate">
+                        X-PAYMENT-REQUIRED: {liveProof.header.slice(0, 60)}...
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

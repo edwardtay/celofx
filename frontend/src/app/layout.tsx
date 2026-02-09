@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "AAA — Alpha Acceleration Agent",
     description: "AI-powered cross-market trading signals. ERC-8004 + x402 on Celo.",
   },

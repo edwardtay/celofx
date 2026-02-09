@@ -55,8 +55,12 @@ export function ReputationForm() {
   if (!isConnected) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-muted-foreground text-sm">
-          Connect your wallet to leave feedback
+        <CardContent className="py-6 text-center space-y-2">
+          <Star className="size-5 mx-auto text-muted-foreground" />
+          <p className="text-sm font-medium">Rate this agent</p>
+          <p className="text-xs text-muted-foreground">
+            Connect your wallet on Celo to leave immutable feedback on the ERC-8004 Reputation Registry
+          </p>
         </CardContent>
       </Card>
     );
@@ -65,9 +69,12 @@ export function ReputationForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Leave Feedback</CardTitle>
+        <CardTitle className="text-base">Rate Agent #4</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Your feedback is recorded permanently on-chain. It shapes this agent&apos;s reputation score and is visible to all users.
+        </p>
         <div>
           <p className="text-xs text-muted-foreground mb-2">Rating</p>
           <div className="flex gap-1">
@@ -96,7 +103,7 @@ export function ReputationForm() {
         <div>
           <p className="text-xs text-muted-foreground mb-2">Comment</p>
           <Input
-            placeholder="How was the agent's analysis?"
+            placeholder="e.g., BTC long call was spot on"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
           />
