@@ -7,7 +7,17 @@ import { cn } from "@/lib/utils";
 export function MarketSentiment() {
   const { data: signals, isLoading } = useSignals();
 
-  if (isLoading || !signals || signals.length === 0) return null;
+  if (isLoading) return null;
+
+  if (!signals || signals.length === 0) {
+    return (
+      <div className="border rounded-lg p-3 space-y-2">
+        <span className="text-xs text-muted-foreground">Market Sentiment</span>
+        <div className="flex h-2 rounded-full overflow-hidden bg-muted" />
+        <p className="text-[10px] text-muted-foreground">Scan markets to see sentiment breakdown</p>
+      </div>
+    );
+  }
 
   const longs = signals.filter((s) => s.direction === "long").length;
   const shorts = signals.filter((s) => s.direction === "short").length;

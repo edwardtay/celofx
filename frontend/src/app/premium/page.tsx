@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -98,8 +99,12 @@ export default function PremiumPage() {
             {(signals) => (
               <div className="space-y-3">
                 {signals.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No premium signals available yet. Run agent analysis first.
+                  <div className="text-center py-12 text-muted-foreground space-y-2">
+                    <BarChart3 className="size-6 mx-auto opacity-40" />
+                    <p className="text-sm">No signals loaded</p>
+                    <Link href="/" className="text-xs underline underline-offset-2 hover:text-foreground transition-colors">
+                      Go to dashboard and click &quot;Scan Markets&quot; first
+                    </Link>
                   </div>
                 ) : (
                   signals.map((signal) => (

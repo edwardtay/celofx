@@ -6,7 +6,20 @@ import { TrendingUp, Target, BarChart3, Layers } from "lucide-react";
 export function PerformanceMetrics() {
   const { data: signals, isLoading } = useSignals();
 
-  if (isLoading || !signals || signals.length === 0) return null;
+  if (isLoading) return null;
+
+  if (!signals || signals.length === 0) {
+    return (
+      <div className="border rounded-lg p-3 grid grid-cols-2 gap-3">
+        {["Signals", "Avg Confidence", "Markets", "High Conviction"].map((label) => (
+          <div key={label} className="space-y-0.5">
+            <span className="text-[10px] text-muted-foreground">{label}</span>
+            <p className="text-lg font-semibold font-mono leading-tight text-muted-foreground/30">—</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const total = signals.length;
   const avgConfidence = Math.round(

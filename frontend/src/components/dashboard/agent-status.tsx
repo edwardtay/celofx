@@ -149,7 +149,7 @@ export function AgentStatus() {
       }
     } catch (err) {
       console.error("Analysis failed:", err);
-      setError("Network error — check API key");
+      setError("Analysis unavailable — try again in a moment");
       setPhase("idle");
     } finally {
       setAnalyzing(false);
