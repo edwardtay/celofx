@@ -50,25 +50,28 @@ export function SignalCard({ signal }: { signal: Signal }) {
       <Card
         className={cn("gap-0 py-0 overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors border-l-4", dir.border)}
         onClick={() => setModalOpen(true)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setModalOpen(true); } }}
+        role="button"
+        tabIndex={0}
       >
         <CardHeader className="pb-3 pt-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
               <MarketTag market={signal.market} />
-              <CardTitle className="text-base">{signal.asset}</CardTitle>
+              <CardTitle className="text-base truncate">{signal.asset}</CardTitle>
               {signal.tier === "premium" && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0">
                   <Sparkles className="size-2.5" />
                   PRO
                 </span>
               )}
               {isNew && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 shrink-0">
                   NEW
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Badge
                 variant="outline"
                 className={cn("gap-1 font-mono text-xs", dir.color, dir.bg)}
@@ -90,7 +93,14 @@ export function SignalCard({ signal }: { signal: Signal }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground">Confidence</span>
-              <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="w-20 h-1.5 rounded-full bg-muted overflow-hidden"
+                role="progressbar"
+                aria-valuenow={signal.confidence}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Confidence ${signal.confidence}%`}
+              >
                 <div
                   className={cn(
                     "h-full rounded-full",

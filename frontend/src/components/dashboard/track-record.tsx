@@ -68,7 +68,7 @@ export function TrackRecord() {
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        Based on recent signal accuracy. All signals verifiable on-chain via ERC-8004 reputation.
+        Based on historical signal accuracy. Future predictions are tracked on-chain via ERC-8004 reputation.
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAgentTokenURI, useAgentId } from "@/hooks/use-agent-profile";
 import {
   Code2,
@@ -23,7 +23,8 @@ export function OnChainMetadata() {
   const [metadataSource, setMetadataSource] = useState<string | null>(null);
 
   // Parse metadata when tokenURI loads
-  if (tokenURI && !metadata && !isLoading) {
+  useEffect(() => {
+    if (!tokenURI || metadata || isLoading) return;
     const uri = tokenURI as string;
     if (uri.startsWith("data:")) {
       try {
@@ -40,7 +41,7 @@ export function OnChainMetadata() {
         .then((data) => setMetadata(data))
         .catch(() => setMetadataSource("HTTP URI (failed to fetch)"));
     }
-  }
+  }, [tokenURI, metadata, isLoading]);
 
   return (
     <div className="border rounded-lg p-4 space-y-3">

@@ -17,9 +17,9 @@ export default function Home() {
       <main className="flex-1 px-6 py-6 max-w-6xl mx-auto w-full space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-display tracking-tight">Dashboard</h1>
+            <h1 className="text-2xl font-display tracking-tight">$AAA</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Real-time alpha across crypto, stocks, forex, and commodities
+              AI agent surfacing alpha across crypto, stocks, forex, and commodities — registered and reputation-scored on-chain
             </p>
           </div>
           <ReputationBadge />
