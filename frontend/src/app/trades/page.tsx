@@ -39,7 +39,7 @@ export default function TradesPage() {
         <div>
           <h1 className="text-2xl font-display tracking-tight">Trades</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Every swap executed autonomously by the agent. Approval, execution, and settlement — all on-chain.
+            Every swap executed autonomously by the agent. Approval, execution, and settlement — all verifiable on Celoscan.
           </p>
         </div>
 

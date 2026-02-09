@@ -6,6 +6,7 @@ import { AgentIdentityCard } from "@/components/agent/agent-identity-card";
 import { ReputationDisplay } from "@/components/agent/reputation-display";
 import { ReputationForm } from "@/components/agent/reputation-form";
 import { OnChainMetadata } from "@/components/agent/on-chain-metadata";
+import { ExecutionTimeline } from "@/components/agent/execution-timeline";
 import { ExternalLink, ShieldCheck, Database, Code2, Activity } from "lucide-react";
 
 export default function AgentPage() {
@@ -33,6 +34,8 @@ export default function AgentPage() {
         </div>
 
         <OnChainMetadata />
+
+        <ExecutionTimeline />
 
         {/* Public API & Execution */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

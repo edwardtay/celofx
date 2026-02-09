@@ -7,7 +7,7 @@ import { formatAddress } from "@/lib/format";
 import { createPublicClient, http, formatUnits } from "viem";
 import { celo } from "viem/chains";
 import { MENTO_TOKENS } from "@/config/contracts";
-import { Wallet, ExternalLink, Bot, TrendingUp } from "lucide-react";
+import { Wallet, ExternalLink, Bot, TrendingUp, Clock } from "lucide-react";
 import type { Trade } from "@/lib/types";
 
 const AGENT_ADDRESS = "0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23" as const;
@@ -38,6 +38,7 @@ interface TradeStats {
   avgSpread: number;
   cumulativePnl: number;
   latestSwapHash: string | null;
+  oldestTradeTime: number | null;
 }
 
 export function AgentWallet() {
@@ -49,6 +50,7 @@ export function AgentWallet() {
     avgSpread: 0,
     cumulativePnl: 0,
     latestSwapHash: null,
+    oldestTradeTime: null,
   });
   const [loading, setLoading] = useState(true);
 
@@ -107,12 +109,16 @@ export function AgentWallet() {
           const sorted = [...confirmed].sort(
             (a: Trade, b: Trade) => b.timestamp - a.timestamp
           );
+          const oldest = [...confirmed].sort(
+            (a: Trade, b: Trade) => a.timestamp - b.timestamp
+          );
           setStats({
             tradeCount: confirmed.length,
             totalVolume,
             avgSpread,
             cumulativePnl,
             latestSwapHash: sorted[0]?.swapTxHash ?? null,
+            oldestTradeTime: oldest[0]?.timestamp ?? null,
           });
         }
       } catch {
@@ -139,6 +145,12 @@ export function AgentWallet() {
               <Bot className="size-2.5" />
               Autonomous
             </Badge>
+            {!loading && stats.oldestTradeTime && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Clock className="size-2.5" />
+                Live since {new Date(stats.oldestTradeTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </span>
+            )}
           </div>
           <a
             href={`https://celoscan.io/address/${AGENT_ADDRESS}`}
