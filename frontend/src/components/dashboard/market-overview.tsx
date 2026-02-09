@@ -33,7 +33,7 @@ function MarketCard({
   const topAsset = data?.[0];
 
   return (
-    <Card className="gap-0 py-0">
+    <Card className="gap-0 py-0 hover:shadow-md transition-all duration-200">
       <CardHeader className="pb-2 pt-4">
         <div className="flex items-center gap-2">
           <Icon className="size-4 text-muted-foreground" />

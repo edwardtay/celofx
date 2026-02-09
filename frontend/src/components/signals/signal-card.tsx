@@ -48,7 +48,7 @@ export function SignalCard({ signal }: { signal: Signal }) {
   return (
     <>
       <Card
-        className={cn("gap-0 py-0 overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors border-l-4", dir.border)}
+        className={cn("gap-0 py-0 overflow-hidden cursor-pointer hover:border-foreground/20 hover:shadow-md transition-all duration-200 border-l-4", dir.border)}
         onClick={() => setModalOpen(true)}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setModalOpen(true); } }}
         role="button"
@@ -60,13 +60,13 @@ export function SignalCard({ signal }: { signal: Signal }) {
               <MarketTag market={signal.market} />
               <CardTitle className="text-base truncate">{signal.asset}</CardTitle>
               {signal.tier === "premium" && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0">
+                <span className="text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5 shrink-0">
                   <Sparkles className="size-2.5" />
                   PRO
                 </span>
               )}
               {isNew && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 shrink-0">
+                <span className="text-[10px] font-semibold font-mono px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 shrink-0">
                   NEW
                 </span>
               )}
@@ -94,7 +94,7 @@ export function SignalCard({ signal }: { signal: Signal }) {
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground">Confidence</span>
               <div
-                className="w-20 h-1.5 rounded-full bg-muted overflow-hidden"
+                className="w-20 h-2 rounded-full bg-muted overflow-hidden"
                 role="progressbar"
                 aria-valuenow={signal.confidence}
                 aria-valuemin={0}

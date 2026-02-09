@@ -177,7 +177,7 @@ export function PremiumGate({
       )}
 
       <div className="relative">
-        <div className="space-y-3 blur-[6px] select-none pointer-events-none" aria-hidden>
+        <div className="space-y-3 blur-[4px] select-none pointer-events-none" aria-hidden>
           {previews.map((p) => (
             <div key={p.asset} className="border rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
