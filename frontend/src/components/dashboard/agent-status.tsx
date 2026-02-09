@@ -207,24 +207,31 @@ export function AgentStatus() {
                 {error}
               </div>
             )}
-            <Button
-              size="sm"
-              onClick={runAnalysis}
-              disabled={analyzing}
-              className="gap-1.5"
-            >
-              {analyzing ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Zap className="size-3.5" />
-                  Run Analysis
-                </>
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                size="sm"
+                onClick={runAnalysis}
+                disabled={analyzing}
+                className="gap-1.5"
+              >
+                {analyzing ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="size-3.5" />
+                    Scan Markets
+                  </>
+                )}
+              </Button>
+              {!analyzing && !lastAnalysis && (
+                <span className="text-[10px] text-muted-foreground">
+                  Fetches live data + AI analysis (~30s)
+                </span>
               )}
-            </Button>
+            </div>
           </div>
         </div>
 

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useWalletClient } from "wagmi";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import type { Signal } from "@/lib/types";
 
 type PaymentStep = "idle" | "requesting" | "signing" | "verifying" | "done";
@@ -287,9 +288,18 @@ export function PremiumGate({
             </Button>
 
             {!walletClient && !isDemo && (
-              <p className="text-xs text-amber-600">
-                Connect your wallet on Celo to unlock
-              </p>
+              <div className="text-center space-y-1">
+                <p className="text-xs text-amber-600">
+                  Connect your wallet on Celo to unlock
+                </p>
+                <Link
+                  href="/premium?demo=true"
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2"
+                >
+                  <Eye className="size-3" />
+                  Or try the demo
+                </Link>
+              </div>
             )}
             <p className="text-xs text-muted-foreground">
               x402 protocol · HTTP 402 · EIP-712 signature
