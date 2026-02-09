@@ -5,6 +5,8 @@ import { TopSignals } from "@/components/dashboard/top-signals";
 import { AgentStatus } from "@/components/dashboard/agent-status";
 import { ReputationBadge } from "@/components/dashboard/reputation-badge";
 import { PerformanceMetrics } from "@/components/dashboard/performance-metrics";
+import { MarketSentiment } from "@/components/dashboard/market-sentiment";
+import { TrackRecord } from "@/components/dashboard/track-record";
 import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -63,8 +65,15 @@ export default function Home() {
         </div>
 
         <AgentStatus />
-        <PerformanceMetrics />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <PerformanceMetrics />
+          <MarketSentiment />
+        </div>
+
         <MarketOverview />
+
+        <TrackRecord />
 
         <div>
           <h2 className="text-lg font-semibold mb-3">Top Signals</h2>

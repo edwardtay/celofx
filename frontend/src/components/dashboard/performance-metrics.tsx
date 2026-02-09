@@ -54,17 +54,14 @@ export function PerformanceMetrics() {
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div className="border rounded-lg p-3 grid grid-cols-2 gap-3">
       {metrics.map((m) => (
-        <div
-          key={m.label}
-          className="border rounded-lg px-3 py-2.5 space-y-1"
-        >
+        <div key={m.label} className="space-y-0.5">
           <div className="flex items-center gap-1.5">
             <m.icon className="size-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{m.label}</span>
+            <span className="text-[10px] text-muted-foreground">{m.label}</span>
           </div>
-          <p className="text-lg font-semibold font-mono">{m.value}</p>
+          <p className="text-lg font-semibold font-mono leading-tight">{m.value}</p>
           <p className="text-[10px] text-muted-foreground">{m.detail}</p>
         </div>
       ))}
