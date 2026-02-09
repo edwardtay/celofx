@@ -11,6 +11,7 @@ import { Menu, X } from "lucide-react";
 const navLinks = [
   { href: "/", label: "Dashboard" },
   { href: "/signals", label: "Signals" },
+  { href: "/trades", label: "Trades" },
   { href: "/premium", label: "Premium" },
   { href: "/agent", label: "Agent" },
 ];

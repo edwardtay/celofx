@@ -50,3 +50,22 @@ export interface FeedbackEntry {
   comment: string;
   timestamp: number;
 }
+
+export type TradeStatus = "pending" | "confirmed" | "failed";
+
+export interface Trade {
+  id: string;
+  pair: string;
+  fromToken: string;
+  toToken: string;
+  amountIn: string;
+  amountOut: string;
+  rate: number;
+  spreadPct: number;
+  status: TradeStatus;
+  approvalTxHash?: string;
+  swapTxHash?: string;
+  error?: string;
+  pnl?: number;
+  timestamp: number;
+}
