@@ -7,6 +7,8 @@ import { ReputationDisplay } from "@/components/agent/reputation-display";
 import { ReputationForm } from "@/components/agent/reputation-form";
 import { OnChainMetadata } from "@/components/agent/on-chain-metadata";
 import { ExecutionTimeline } from "@/components/agent/execution-timeline";
+import { AgenticArchitecture } from "@/components/agent/agentic-architecture";
+import { TechIntegrations } from "@/components/agent/tech-integrations";
 import { ExternalLink, ShieldCheck, Database, Code2, Activity } from "lucide-react";
 
 export default function AgentPage() {
@@ -35,7 +37,11 @@ export default function AgentPage() {
 
         <OnChainMetadata />
 
+        <AgenticArchitecture />
+
         <ExecutionTimeline />
+
+        <TechIntegrations />
 
         {/* Public API & Execution */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
