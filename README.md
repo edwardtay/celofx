@@ -10,13 +10,13 @@ Cross-market alpha analyst that scans crypto, stocks, forex, and commodities to 
 
 ### Demo Flow (2 minutes)
 
-1. **Dashboard** → See live market data across 4 markets + pre-seeded signals
-2. **Click "Run Analysis"** → Watch Agent #4 scan all markets and generate fresh AI signals
-3. **Click any signal** → See full detail modal with reasoning, entry/exit, confidence
-4. **Navigate to Premium** → See x402 paywall with blurred preview cards
-5. **Unlock Premium** ([demo link](https://aaa-agent-steel.vercel.app/premium?demo=true)) → Watch step-by-step payment flow: HTTP 402 → EIP-712 sign → verify on Celo
-6. **Navigate to Agent** → See ERC-8004 identity (Agent #4) + on-chain reputation (5 feedbacks from 3 wallets)
-7. **Submit feedback** → Connect wallet on Celo, rate the agent, see tx confirm on Celoscan
+1. **Dashboard** → See top trading signals (sorted by confidence) + live market prices across 4 markets
+2. **Click "Scan Markets"** → Watch Agent #4 fetch live data from CoinGecko, Finnhub, Frankfurter, then generate AI signals (~30s)
+3. **Click any signal card** → Full detail modal with reasoning, entry/exit prices, confidence score
+4. **Navigate to Premium** → See x402 paywall with blurred premium signals
+5. **Unlock Premium** ([demo link](https://aaa-agent-steel.vercel.app/premium?demo=true)) → Watch step-by-step payment: real HTTP 402 response → EIP-712 sign → verify on Celo
+6. **Navigate to Agent** → See on-chain identity (Agent #4) + reputation (5 feedbacks from 3 wallets) + raw metadata JSON
+7. **Submit feedback** → Connect wallet on Celo, rate the agent 1-5 stars, see tx confirm on Celoscan
 
 ### Key Innovations
 
