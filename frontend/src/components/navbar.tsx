@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import { getCachedSignals, getCachedTrades } from "@/lib/local-cache";
 
 const navLinks = [
   { href: "/", label: "Dashboard" },
-  { href: "/signals", label: "Signals" },
-  { href: "/trades", label: "Trades" },
+  { href: "/signals", label: "Signals", countKey: "signals" as const },
+  { href: "/trades", label: "Trades", countKey: "trades" as const },
   { href: "/premium", label: "Premium" },
   { href: "/agent", label: "Agent" },
 ];
@@ -19,6 +20,19 @@ const navLinks = [
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [counts, setCounts] = useState<{ signals: number; trades: number }>({ signals: 0, trades: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      setCounts({
+        signals: getCachedSignals().length,
+        trades: getCachedTrades().filter((t) => t.status === "confirmed").length,
+      });
+    };
+    update();
+    const interval = setInterval(update, 5_000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <header className="border-b border-border bg-card">
@@ -28,20 +42,28 @@ export function Navbar() {
             {siteConfig.name}
           </Link>
           <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "px-3 py-1.5 text-sm rounded-md transition-colors",
-                  pathname === link.href
-                    ? "bg-accent text-accent-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const count = link.countKey ? counts[link.countKey] : 0;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-1.5",
+                    pathname === link.href
+                      ? "bg-accent text-accent-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  )}
+                >
+                  {link.label}
+                  {count > 0 && (
+                    <span className="text-[10px] font-mono bg-muted-foreground/10 text-muted-foreground px-1.5 py-0.5 rounded-full leading-none">
+                      {count}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </nav>
         </div>
         <div className="flex items-center gap-3">

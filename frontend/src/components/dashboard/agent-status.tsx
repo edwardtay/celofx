@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,10 +17,22 @@ import {
   Brain,
   TrendingUp,
   TrendingDown,
+  Clock,
 } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/format";
+import { formatTimeAgo } from "@/lib/format";
 import type { AssetPrice } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import {
+  setCachedSignals,
+  getCachedSignals,
+  setCachedTrades,
+  getCachedTrades,
+  mergeSignals,
+  mergeTrades,
+  getLastScanTime,
+  setLastScanTime,
+} from "@/lib/local-cache";
 
 type AnalysisPhase =
   | "idle"
@@ -49,7 +61,14 @@ export function AgentStatus() {
   const [generatedSignals, setGeneratedSignals] = useState<
     { asset: string; direction: string; confidence: number }[]
   >([]);
+  const [persistedScanTime, setPersistedScanTime] = useState<number | null>(null);
   const queryClient = useQueryClient();
+
+  // Restore last scan time from localStorage on mount
+  useEffect(() => {
+    const saved = getLastScanTime();
+    if (saved) setPersistedScanTime(saved);
+  }, []);
 
   const fetchMarket = useCallback(
     async (
@@ -129,6 +148,11 @@ export function AgentStatus() {
             await new Promise((r) => setTimeout(r, 300));
           }
 
+          // Persist signals to localStorage so they survive cold starts
+          const cachedSigs = getCachedSignals();
+          const merged = mergeSignals(data.signals, cachedSigs);
+          setCachedSignals(merged);
+
           queryClient.setQueryData<unknown[]>(
             ["signals", undefined],
             (old) => {
@@ -144,13 +168,18 @@ export function AgentStatus() {
         queryClient.invalidateQueries({ queryKey: ["signals"] });
         queryClient.invalidateQueries({ queryKey: ["trades"] });
 
-        // Fetch trade count
+        // Fetch trade count + persist trades
         try {
           const tradesRes = await fetch("/api/trades");
           const tradesData = await tradesRes.json();
           if (Array.isArray(tradesData)) {
+            // Persist trades to localStorage
+            const cachedTrades = getCachedTrades();
+            const mergedTrades = mergeTrades(tradesData, cachedTrades);
+            setCachedTrades(mergedTrades);
+
             setTradeCount(
-              tradesData.filter(
+              mergedTrades.filter(
                 (t: { status: string }) => t.status === "confirmed"
               ).length
             );
@@ -159,6 +188,9 @@ export function AgentStatus() {
           // ignore
         }
 
+        const scanTime = Date.now();
+        setLastScanTime(scanTime);
+        setPersistedScanTime(scanTime);
         setLastAnalysis(new Date().toLocaleTimeString());
         setSignalCount(data.signalCount);
         setPhase("done");
@@ -200,6 +232,12 @@ export function AgentStatus() {
             <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-mono">
               Cron: daily 8:00 UTC
             </span>
+            {!analyzing && !lastAnalysis && persistedScanTime && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Clock className="size-2.5" />
+                Last scan {formatTimeAgo(persistedScanTime)}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-4">

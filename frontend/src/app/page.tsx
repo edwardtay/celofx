@@ -11,6 +11,7 @@ import { MarketSentiment } from "@/components/dashboard/market-sentiment";
 import { TrackRecord } from "@/components/dashboard/track-record";
 import { AutonomousLoop } from "@/components/dashboard/autonomous-loop";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
+import { LiveStats } from "@/components/dashboard/live-stats";
 import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -25,6 +26,7 @@ export default function Home() {
             <p className="text-sm text-muted-foreground mt-1 max-w-lg">
               Real-time Mento Broker rates, forex spreads, and AI-generated FX signals.
             </p>
+            <LiveStats />
           </div>
           <ReputationBadge />
         </div>
