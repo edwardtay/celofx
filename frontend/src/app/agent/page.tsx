@@ -18,7 +18,7 @@ export default function AgentPage() {
             Agent Profile
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            On-chain identity and reputation via ERC-8004
+            This agent&apos;s identity and reputation are stored on Celo blockchain — no one can fake or delete them
           </p>
         </div>
 
@@ -43,7 +43,7 @@ export default function AgentPage() {
                 <ShieldX className="size-4 text-red-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-red-600">Without ERC-8004</p>
-                  <p className="text-muted-foreground">Anyone can claim "90% win rate." Platforms can manipulate scores. No way to verify.</p>
+                  <p className="text-muted-foreground">Anyone can claim &ldquo;90% win rate.&rdquo; Platforms can delete bad reviews. You have no way to verify.</p>
                 </div>
               </div>
             </div>
@@ -52,7 +52,7 @@ export default function AgentPage() {
                 <ShieldCheck className="size-4 text-emerald-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-emerald-600">With ERC-8004</p>
-                  <p className="text-muted-foreground">Identity + reputation on-chain. Immutable. Censorship-resistant. Verify on Celoscan.</p>
+                  <p className="text-muted-foreground">Every rating is permanent. Nobody — not even us — can edit or remove it. Click any link below to verify on Celoscan.</p>
                 </div>
               </div>
             </div>
@@ -69,19 +69,19 @@ export default function AgentPage() {
             <div className="flex flex-col gap-2 text-xs text-muted-foreground">
               <span className="bg-muted rounded px-2 py-1 flex items-center gap-1">
                 <Fingerprint className="size-3" />
-                1. Agent registers identity on-chain
+                1. Agent gets a public profile on Celo
               </span>
               <span className="bg-muted rounded px-2 py-1 flex items-center gap-1">
                 <Star className="size-3" />
-                2. Users rate signal quality
+                2. Anyone can rate signal quality
               </span>
               <span className="bg-muted rounded px-2 py-1 flex items-center gap-1">
                 <Users className="size-3" />
-                3. Reputation builds immutably
+                3. Ratings are permanent and public
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              No platform can manipulate scores — all data is on Celo.
+              Think of it as Yelp reviews that can never be deleted — stored on blockchain, not a company&apos;s server.
             </p>
           </div>
 

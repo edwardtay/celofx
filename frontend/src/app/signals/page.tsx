@@ -16,7 +16,7 @@ export default function SignalsPage() {
         <div>
           <h1 className="text-2xl font-display tracking-tight">Signals</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            AI-generated trading signals across all markets — click any signal for full details
+            Each signal is a trading idea — long, short, or hold — with a confidence score and reasoning. Click any card for full details.
           </p>
         </div>
 
