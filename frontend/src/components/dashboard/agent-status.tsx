@@ -43,6 +43,7 @@ export function AgentStatus() {
   const [phase, setPhase] = useState<AnalysisPhase>("idle");
   const [lastAnalysis, setLastAnalysis] = useState<string | null>(null);
   const [signalCount, setSignalCount] = useState<number | null>(null);
+  const [tradeCount, setTradeCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [snapshots, setSnapshots] = useState<MarketSnapshot[]>([]);
   const [generatedSignals, setGeneratedSignals] = useState<
@@ -141,6 +142,23 @@ export function AgentStatus() {
           );
         }
         queryClient.invalidateQueries({ queryKey: ["signals"] });
+        queryClient.invalidateQueries({ queryKey: ["trades"] });
+
+        // Fetch trade count
+        try {
+          const tradesRes = await fetch("/api/trades");
+          const tradesData = await tradesRes.json();
+          if (Array.isArray(tradesData)) {
+            setTradeCount(
+              tradesData.filter(
+                (t: { status: string }) => t.status === "confirmed"
+              ).length
+            );
+          }
+        } catch {
+          // ignore
+        }
+
         setLastAnalysis(new Date().toLocaleTimeString());
         setSignalCount(data.signalCount);
         setPhase("done");
@@ -192,6 +210,7 @@ export function AgentStatus() {
                 <CheckCircle2 className="size-3.5" />
                 {lastAnalysis}
                 {signalCount !== null && ` · ${signalCount} signals`}
+                {tradeCount !== null && ` · ${tradeCount} trades`}
               </div>
             )}
             {!analyzing && phase === "idle" && lastAnalysis && (
@@ -199,6 +218,7 @@ export function AgentStatus() {
                 <CheckCircle2 className="size-3.5" />
                 {lastAnalysis}
                 {signalCount !== null && ` · ${signalCount} signals`}
+                {tradeCount !== null && ` · ${tradeCount} trades`}
               </div>
             )}
             {error && (

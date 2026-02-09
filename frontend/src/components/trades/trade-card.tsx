@@ -89,6 +89,17 @@ export function TradeCard({ trade }: { trade: Trade }) {
           </div>
 
           <div className="flex items-center gap-2">
+            {trade.approvalTxHash && (
+              <a
+                href={`https://celoscan.io/tx/${trade.approvalTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ExternalLink className="size-3" />
+                Approve
+              </a>
+            )}
             {trade.swapTxHash && (
               <a
                 href={`https://celoscan.io/tx/${trade.swapTxHash}`}
@@ -97,7 +108,7 @@ export function TradeCard({ trade }: { trade: Trade }) {
                 className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ExternalLink className="size-3" />
-                Celoscan
+                Swap
               </a>
             )}
           </div>

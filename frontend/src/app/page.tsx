@@ -4,6 +4,7 @@ import { MentoSpreads } from "@/components/dashboard/mento-spreads";
 import { MarketOverview } from "@/components/dashboard/market-overview";
 import { TopSignals } from "@/components/dashboard/top-signals";
 import { AgentStatus } from "@/components/dashboard/agent-status";
+import { AgentWallet } from "@/components/dashboard/agent-wallet";
 import { ReputationBadge } from "@/components/dashboard/reputation-badge";
 import { PerformanceMetrics } from "@/components/dashboard/performance-metrics";
 import { MarketSentiment } from "@/components/dashboard/market-sentiment";
@@ -27,6 +28,8 @@ export default function Home() {
         </div>
 
         <AgentStatus />
+
+        <AgentWallet />
 
         <MentoSpreads />
 
