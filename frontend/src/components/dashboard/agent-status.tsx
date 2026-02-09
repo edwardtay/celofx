@@ -290,7 +290,7 @@ export function AgentStatus() {
                     <span
                       key={`${sig.asset}-${i}`}
                       className={cn(
-                        "inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full border",
+                        "inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full border animate-signal-enter",
                         sig.direction === "long"
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                           : sig.direction === "short"

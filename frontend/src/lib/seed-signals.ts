@@ -74,6 +74,9 @@ export const seedSignals: Signal[] = [
       "NVIDIA earnings beat expectations. Data center revenue up 150% YoY. AI capex cycle still accelerating.",
     reasoning:
       "Blackwell architecture sold out through Q3. Hyperscaler capex guidance raised across MSFT, GOOG, AMZN. Forward P/E at 35x reasonable for 60%+ growth.",
+    entryPrice: 138,
+    targetPrice: 160,
+    stopLoss: 125,
     tier: "free",
     timestamp: h(3),
   },
@@ -117,6 +120,9 @@ export const seedSignals: Signal[] = [
       "Dollar strengthening on hawkish Fed rhetoric. ECB cutting faster than expected. Yield differential widening.",
     reasoning:
       "US-EU 2-year yield spread at 200bps, widest since 2022. ECB cut 25bps with dovish guidance while Fed paused. EUR/USD broke below 1.08 support. DXY momentum bullish.",
+    entryPrice: 1.078,
+    targetPrice: 1.055,
+    stopLoss: 1.092,
     tier: "free",
     timestamp: h(4),
   },
@@ -160,6 +166,9 @@ export const seedSignals: Signal[] = [
       "Gold at all-time highs as central banks accelerate purchases. De-dollarization trend provides structural bid.",
     reasoning:
       "Central bank buying hit 1,037 tonnes in 2024, led by China and Poland. Real rates declining as Fed pivots. ETF inflows resuming. $3,000 target increasingly consensus.",
+    entryPrice: 2865,
+    targetPrice: 3050,
+    stopLoss: 2780,
     tier: "free",
     timestamp: h(1),
   },

@@ -1,10 +1,13 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ShieldCheck } from "lucide-react";
 
 export function Footer() {
   return (
     <footer className="border-t border-border mt-auto">
       <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span>Agent #4 on Celo</span>
+        <span className="flex items-center gap-1.5">
+          <ShieldCheck className="size-3 text-emerald-500" />
+          Agent #4 · Verified on Celo Mainnet
+        </span>
         <div className="flex items-center gap-4">
           <a
             href="https://celoscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"

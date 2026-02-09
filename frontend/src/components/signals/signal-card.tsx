@@ -21,18 +21,21 @@ const directionConfig = {
     label: "Long",
     color: "text-emerald-600",
     bg: "bg-emerald-50",
+    border: "border-l-emerald-500",
   },
   short: {
     icon: TrendingDown,
     label: "Short",
     color: "text-red-600",
     bg: "bg-red-50",
+    border: "border-l-red-500",
   },
   hold: {
     icon: Minus,
     label: "Hold",
     color: "text-amber-600",
     bg: "bg-amber-50",
+    border: "border-l-amber-500",
   },
 };
 
@@ -45,7 +48,7 @@ export function SignalCard({ signal }: { signal: Signal }) {
   return (
     <>
       <Card
-        className="gap-0 py-0 overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors"
+        className={cn("gap-0 py-0 overflow-hidden cursor-pointer hover:border-foreground/20 transition-colors border-l-4", dir.border)}
         onClick={() => setModalOpen(true)}
       >
         <CardHeader className="pb-3 pt-4">
@@ -105,22 +108,26 @@ export function SignalCard({ signal }: { signal: Signal }) {
               </span>
             </div>
 
-            {signal.tier === "premium" && signal.entryPrice ? (
+            {signal.entryPrice ? (
               <div className="flex items-center gap-3 text-xs font-mono">
                 <span className="text-muted-foreground">
                   Entry {formatCurrency(signal.entryPrice)}
                 </span>
-                <span className="text-emerald-600">
-                  TP {formatCurrency(signal.targetPrice!)}
-                </span>
-                <span className="text-red-600">
-                  SL {formatCurrency(signal.stopLoss!)}
-                </span>
+                {signal.targetPrice && (
+                  <span className="text-emerald-600">
+                    TP {formatCurrency(signal.targetPrice)}
+                  </span>
+                )}
+                {signal.stopLoss && (
+                  <span className="text-red-600">
+                    SL {formatCurrency(signal.stopLoss)}
+                  </span>
+                )}
               </div>
-            ) : signal.tier === "free" && !signal.entryPrice ? (
+            ) : signal.tier === "premium" ? (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Lock className="size-3" />
-                <span>Premium for targets</span>
+                <span>Unlock for targets</span>
               </div>
             ) : null}
           </div>
