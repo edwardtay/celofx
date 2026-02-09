@@ -18,62 +18,14 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
           <div>
             <h1 className="text-2xl font-display tracking-tight">$AAA</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              AI agent surfacing alpha across crypto, stocks, forex, and commodities — registered and reputation-scored on-chain
+            <p className="text-sm text-muted-foreground mt-1 max-w-lg">
+              AI-generated trading signals across crypto, stocks, forex, and commodities. Every signal is backed by an on-chain track record you can verify.
             </p>
           </div>
           <ReputationBadge />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Link href="/agent" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
-            <Shield className="size-4 mt-0.5 text-muted-foreground shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Verifiable Identity</p>
-                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Agent #4 registered on ERC-8004 Identity Registry on Celo
-              </p>
-            </div>
-          </Link>
-          <Link href="/agent" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
-            <BarChart3 className="size-4 mt-0.5 text-muted-foreground shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">On-Chain Reputation</p>
-                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Signal quality tracked via ERC-8004 Reputation Registry
-              </p>
-            </div>
-          </Link>
-          <Link href="/premium" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
-            <Zap className="size-4 mt-0.5 text-muted-foreground shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Pay Per Signal</p>
-                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Premium signals via x402 micropayments — $0.01 in cUSD
-              </p>
-            </div>
-          </Link>
-        </div>
-
         <AgentStatus />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <PerformanceMetrics />
-          <MarketSentiment />
-        </div>
-
-        <MarketOverview />
-
-        <TrackRecord />
 
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -86,6 +38,54 @@ export default function Home() {
             </Link>
           </div>
           <TopSignals />
+        </div>
+
+        <MarketOverview />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <PerformanceMetrics />
+          <MarketSentiment />
+        </div>
+
+        <TrackRecord />
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Link href="/agent" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
+            <Shield className="size-4 mt-0.5 text-muted-foreground shrink-0" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Verifiable Identity</p>
+                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This agent&apos;s identity is registered on-chain — you can verify who built it and when
+              </p>
+            </div>
+          </Link>
+          <Link href="/agent" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
+            <BarChart3 className="size-4 mt-0.5 text-muted-foreground shrink-0" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Provable Track Record</p>
+                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Users rate signal quality on-chain — reputation is public and immutable
+              </p>
+            </div>
+          </Link>
+          <Link href="/premium?demo=true" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
+            <Zap className="size-4 mt-0.5 text-muted-foreground shrink-0" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">$0.01 Per Signal</p>
+                <ArrowRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Unlock premium signals with a one-cent micropayment — no subscription needed
+              </p>
+            </div>
+          </Link>
         </div>
       </main>
       <Footer />

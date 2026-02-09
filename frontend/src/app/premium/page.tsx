@@ -67,28 +67,28 @@ export default function PremiumPage() {
           <div className="border rounded-lg p-4 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Zap className="size-4 text-amber-500" />
-              Entry/Exit Prices
+              Exact Levels
             </div>
             <p className="text-xs text-muted-foreground">
-              Precise entry, target, and stop-loss levels for every signal
+              Entry price, take-profit target, and stop-loss for every signal
             </p>
           </div>
           <div className="border rounded-lg p-4 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Shield className="size-4 text-emerald-500" />
-              Detailed Reasoning
+              Full Reasoning
             </div>
             <p className="text-xs text-muted-foreground">
-              Full analysis from Claude AI with supporting data points
+              Why the agent made this call — data, technicals, cross-market context
             </p>
           </div>
           <div className="border rounded-lg p-4 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <DollarSign className="size-4 text-blue-500" />
-              x402 Protocol
+              One Cent
             </div>
             <p className="text-xs text-muted-foreground">
-              Pay $0.01 in cUSD on Celo — no subscriptions, no tokens
+              Pay $0.01 per unlock — no subscription, no token gate, instant access
             </p>
           </div>
         </div>
@@ -134,7 +134,7 @@ export default function PremiumPage() {
             <span className="bg-muted rounded px-2 py-1">4. cUSD settled on Celo</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            No gas required — EIP-712 signature authorizes cUSD transfer on Celo. Standard HTTP 402 protocol by Thirdweb.
+            No gas fees — you sign a message, the payment settles instantly on Celo. This is the x402 protocol, an open standard for web-native payments.
           </p>
 
           {/* Collapsible x402 spec */}
