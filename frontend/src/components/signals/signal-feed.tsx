@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { SignalCard } from "./signal-card";
 import type { Signal, MarketType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -21,8 +21,15 @@ export function SignalFeed({ signals }: { signals: Signal[] }) {
       ? signals
       : signals.filter((s) => s.market === activeTab);
 
-  const countFor = (tab: MarketType | "all") =>
-    tab === "all" ? signals.length : signals.filter((s) => s.market === tab).length;
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: signals.length };
+    for (const s of signals) {
+      counts[s.market] = (counts[s.market] ?? 0) + 1;
+    }
+    return counts;
+  }, [signals]);
+
+  const countFor = (tab: MarketType | "all") => tabCounts[tab] ?? 0;
 
   return (
     <div className="space-y-4">

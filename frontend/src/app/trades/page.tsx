@@ -5,7 +5,7 @@ import { Footer } from "@/components/footer";
 import { TradeFeed } from "@/components/trades/trade-feed";
 import { useTrades } from "@/hooks/use-trades";
 import { useMemo } from "react";
-import { BarChart3, CheckCircle2, TrendingUp, Activity } from "lucide-react";
+import { BarChart3, CheckCircle2, TrendingUp, Activity, ExternalLink, ShieldCheck, ArrowRight } from "lucide-react";
 
 export default function TradesPage() {
   const { data: trades, isLoading } = useTrades();
@@ -99,6 +99,47 @@ export default function TradesPage() {
             </div>
           </div>
         )}
+
+        {/* Verified On-Chain Swaps — the 3 real executed trades */}
+        {stats && stats.tradeCount > 0 && (() => {
+          const confirmed = (trades ?? []).filter((t) => t.status === "confirmed" && t.swapTxHash);
+          if (confirmed.length === 0) return null;
+          return (
+            <div className="border border-emerald-200 bg-emerald-50/30 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-4 text-emerald-600" />
+                <h2 className="text-sm font-semibold">Verified On-Chain Swaps</h2>
+                <span className="text-[10px] text-emerald-600 font-mono bg-emerald-100 px-1.5 py-0.5 rounded">{confirmed.length} confirmed</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {confirmed.map((trade) => (
+                  <div key={trade.id} className="bg-background border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm">{trade.pair}</span>
+                      <span className="text-emerald-600 text-xs font-mono font-semibold">+{trade.spreadPct.toFixed(2)}%</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
+                      <span>{trade.amountIn} {trade.fromToken}</span>
+                      <ArrowRight className="size-3" />
+                      <span>{trade.amountOut} {trade.toToken}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={`https://celoscan.io/tx/${trade.swapTxHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-emerald-600 hover:text-emerald-800 transition-colors"
+                      >
+                        <ExternalLink className="size-3" />
+                        Celoscan
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {isLoading ? (
           <div className="space-y-3">
