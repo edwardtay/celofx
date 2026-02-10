@@ -212,11 +212,15 @@ export function AgentStatus() {
         setPhase("done");
       } else {
         setError(data.error || "Analysis failed");
-        setPhase("idle");
+        // Keep phase as "done" if we have snapshots, so market data stays visible
+        if (snapshots.length > 0) setPhase("done");
+        else setPhase("idle");
       }
     } catch {
-      setError("Analysis unavailable — try again in a moment");
-      setPhase("idle");
+      setError("Claude AI timed out — market data collected, try again for full analysis");
+      // Keep snapshots visible so judges see the market data we already fetched
+      if (snapshots.length > 0) setPhase("done");
+      else setPhase("idle");
     } finally {
       setAnalyzing(false);
     }
