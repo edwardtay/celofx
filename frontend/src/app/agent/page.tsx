@@ -120,7 +120,7 @@ export default function AgentPage() {
                 className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ExternalLink className="size-3 shrink-0" />
-                Feedback: 90/100 — BTC call accuracy
+                Feedback: 90/100 — Mento spread timing
               </a>
               <a
                 href="https://celoscan.io/tx/0xfb08a317148df32a911813d400883dd7f5a53ce20bdb33a7745f8050ef9d3199"
