@@ -26,6 +26,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0",
+    "thirdweb": "^5.118.1",
     "viem": "^2.21",
     "wagmi": "^2.19.5"
   },

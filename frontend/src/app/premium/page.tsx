@@ -118,13 +118,13 @@ export default function PremiumPage() {
             </div>
             <div className="flex items-center gap-2">
               <a
-                href="https://www.x402.org"
+                href="https://portal.thirdweb.com/x402"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                x402.org <ExternalLink className="size-2.5" />
+                thirdweb x402 <ExternalLink className="size-2.5" />
               </a>
               {showSpec ? (
                 <ChevronUp className="size-4 text-muted-foreground" />
@@ -143,7 +143,7 @@ export default function PremiumPage() {
                 <ArrowRight className="size-3 hidden sm:block" />
                 <span className="bg-muted rounded px-2 py-1">3. Wallet signs EIP-712</span>
                 <ArrowRight className="size-3 hidden sm:block" />
-                <span className="bg-muted rounded px-2 py-1">4. cUSD settled on Celo</span>
+                <span className="bg-muted rounded px-2 py-1">4. thirdweb settles cUSD on Celo</span>
               </div>
               <p className="text-xs text-muted-foreground">
                 No gas fees — you sign a message, the payment settles instantly on Celo.
@@ -164,7 +164,7 @@ export default function PremiumPage() {
                     <strong className="text-foreground">amount</strong>: 10000 = $0.01 (6 decimals)
                   </span>
                   <span>
-                    <strong className="text-foreground">scheme</strong>: exact (no facilitator)
+                    <strong className="text-foreground">facilitator</strong>: thirdweb settlePayment()
                   </span>
                 </div>
               </div>

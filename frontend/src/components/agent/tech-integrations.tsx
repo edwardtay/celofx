@@ -11,10 +11,10 @@ const integrations = [
     color: "border-l-emerald-500",
   },
   {
-    name: "x402 Protocol",
+    name: "x402 via thirdweb",
     desc: "HTTP 402 micropayments for premium signals",
-    detail: "$0.01/signal in cUSD via EIP-712 signed payments on Celo — no gas fees",
-    link: "https://www.x402.org",
+    detail: "thirdweb settlePayment() facilitator + $0.01 cUSD via EIP-712 on Celo — no gas fees",
+    link: "https://portal.thirdweb.com/x402",
     color: "border-l-blue-500",
   },
   {
