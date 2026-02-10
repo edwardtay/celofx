@@ -75,10 +75,10 @@ export default function AgentPage() {
               <h3 className="text-sm font-medium">Autonomous Execution</h3>
             </div>
             <p className="text-xs text-muted-foreground">
-              Agent scans markets daily via Vercel Cron, analyzes with Claude AI, and auto-executes Mento swaps when spreads exceed 0.3%.
+              Cloudflare Worker scans markets every 15 min, compares Mento on-chain rates with forex, and auto-executes swaps when spreads exceed 0.3%.
             </p>
             <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-              <span>Cron: daily at 8:00 UTC</span>
+              <span>Cron: every 15 min (Cloudflare Worker)</span>
               <span>Threshold: spread &gt; 0.3%</span>
               <span>Wallet: 0x1e67...b23</span>
             </div>

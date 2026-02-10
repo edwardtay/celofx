@@ -18,6 +18,8 @@ interface BackendStats {
   totalScans: number;
   latestScan: string | null;
   totalSignals: number;
+  totalTrades: number;
+  autonomousExecution: boolean;
 }
 
 const steps = [
@@ -88,7 +90,8 @@ export function AutonomousLoop() {
         <div className="flex items-center gap-3">
           {stats && (
             <span className="text-[10px] text-muted-foreground">
-              {stats.totalScans} scans
+              {stats.totalScans} scans · {stats.totalSignals} signals
+              {stats.totalTrades > 0 && ` · ${stats.totalTrades} auto-swaps`}
               {stats.latestScan && ` · last ${timeAgo(stats.latestScan)}`}
             </span>
           )}

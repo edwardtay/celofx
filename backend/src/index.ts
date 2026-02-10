@@ -1,14 +1,18 @@
 import {
   createPublicClient,
+  createWalletClient,
   http,
   parseUnits,
   formatUnits,
+  encodeFunctionData,
   type Address,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 
 interface Env {
   KV: KVNamespace;
+  AGENT_PRIVATE_KEY?: string;
 }
 
 // ─── Celo Mainnet Addresses ───
@@ -37,6 +41,20 @@ const BROKER_ABI = [
     ],
     outputs: [{ name: "amountOut", type: "uint256" }],
   },
+  {
+    name: "swapIn",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "exchangeProvider", type: "address" },
+      { name: "exchangeId", type: "bytes32" },
+      { name: "tokenIn", type: "address" },
+      { name: "tokenOut", type: "address" },
+      { name: "amountIn", type: "uint256" },
+      { name: "amountOutMin", type: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
 ] as const;
 
 const BIPOOL_ABI = [
@@ -55,6 +73,26 @@ const BIPOOL_ABI = [
         ],
       },
     ],
+  },
+] as const;
+
+const ERC20_ABI = [
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    name: "balanceOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
   },
 ] as const;
 
@@ -89,10 +127,112 @@ function findExchangeId(
   return null;
 }
 
-// ─── Core scan logic ───
+// ─── Autonomous swap execution ───
+
+const SPREAD_THRESHOLD = 0.3; // Execute if |spread| > 0.3%
+const SWAP_AMOUNT = "0.5"; // Small amount per autonomous swap
+
+async function executeSwap(
+  env: Env,
+  pair: { from: string; to: string },
+  exchangeId: `0x${string}`,
+  pc: ReturnType<typeof createPublicClient>
+): Promise<{
+  success: boolean;
+  approvalTxHash?: string;
+  swapTxHash?: string;
+  amountIn?: string;
+  amountOut?: string;
+  rate?: number;
+  error?: string;
+}> {
+  if (!env.AGENT_PRIVATE_KEY) {
+    return { success: false, error: "No private key configured" };
+  }
+
+  const pk = (
+    env.AGENT_PRIVATE_KEY.startsWith("0x")
+      ? env.AGENT_PRIVATE_KEY
+      : `0x${env.AGENT_PRIVATE_KEY}`
+  ) as `0x${string}`;
+  const account = privateKeyToAccount(pk);
+  const wallet = createWalletClient({
+    account,
+    chain: celo,
+    transport: http("https://forno.celo.org"),
+  });
+
+  const tokenIn = TOKENS[pair.from];
+  const tokenOut = TOKENS[pair.to];
+  const amountIn = parseUnits(SWAP_AMOUNT, 18);
+  const feeCurrency = TOKENS.cUSD as `0x${string}`;
+
+  // Check balance
+  const balance = await pc.readContract({
+    address: tokenIn,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [account.address],
+  });
+
+  if (balance < amountIn) {
+    return {
+      success: false,
+      error: `Insufficient ${pair.from}: ${formatUnits(balance, 18)}`,
+    };
+  }
+
+  // Quote
+  const amountOut = await pc.readContract({
+    address: BROKER,
+    abi: BROKER_ABI,
+    functionName: "getAmountOut",
+    args: [BIPOOL_MANAGER, exchangeId, tokenIn, tokenOut, amountIn],
+  });
+
+  const rate = Number(formatUnits(amountOut, 18)) / Number(SWAP_AMOUNT);
+
+  // Approve
+  const approveData = encodeFunctionData({
+    abi: ERC20_ABI,
+    functionName: "approve",
+    args: [BROKER, amountIn],
+  });
+  const approvalHash = await wallet.sendTransaction({
+    to: tokenIn,
+    data: approveData,
+    feeCurrency,
+  });
+  await pc.waitForTransactionReceipt({ hash: approvalHash });
+
+  // Swap (1% slippage)
+  const minOut = (amountOut * 99n) / 100n;
+  const swapData = encodeFunctionData({
+    abi: BROKER_ABI,
+    functionName: "swapIn",
+    args: [BIPOOL_MANAGER, exchangeId, tokenIn, tokenOut, amountIn, minOut],
+  });
+  const swapHash = await wallet.sendTransaction({
+    to: BROKER,
+    data: swapData,
+    feeCurrency,
+  });
+  const receipt = await pc.waitForTransactionReceipt({ hash: swapHash });
+
+  return {
+    success: receipt.status === "success",
+    approvalTxHash: approvalHash,
+    swapTxHash: swapHash,
+    amountIn: SWAP_AMOUNT,
+    amountOut: formatUnits(amountOut, 18),
+    rate,
+  };
+}
+
+// ─── Core scan + execute logic ───
 
 async function scan(env: Env) {
-  const client = createPublicClient({
+  const pc = createPublicClient({
     chain: celo,
     transport: http("https://forno.celo.org"),
   });
@@ -108,7 +248,7 @@ async function scan(env: Env) {
   const realBrlPerUsd = forex.rates?.BRL ?? 5.7;
 
   // 2. Discover exchanges
-  const rawExchanges = await client.readContract({
+  const rawExchanges = await pc.readContract({
     address: BIPOOL_MANAGER,
     abi: BIPOOL_ABI,
     functionName: "getExchanges",
@@ -127,11 +267,12 @@ async function scan(env: Env) {
     spread: number;
     spreadPct: number;
     direction: string;
+    exchangeId: string;
   }> = [];
 
   const eurExId = findExchangeId(exchanges, TOKENS.cUSD, TOKENS.cEUR);
   if (eurExId) {
-    const amountOut = await client.readContract({
+    const amountOut = await pc.readContract({
       address: BROKER,
       abi: BROKER_ABI,
       functionName: "getAmountOut",
@@ -148,12 +289,13 @@ async function scan(env: Env) {
       spreadPct: +spreadPct.toFixed(3),
       direction:
         spreadPct > 0.1 ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
+      exchangeId: eurExId,
     });
   }
 
   const brlExId = findExchangeId(exchanges, TOKENS.cUSD, TOKENS.cREAL);
   if (brlExId) {
-    const amountOut = await client.readContract({
+    const amountOut = await pc.readContract({
       address: BROKER,
       abi: BROKER_ABI,
       functionName: "getAmountOut",
@@ -170,10 +312,11 @@ async function scan(env: Env) {
       spreadPct: +spreadPct.toFixed(3),
       direction:
         spreadPct > 0.1 ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
+      exchangeId: brlExId,
     });
   }
 
-  // 4. Generate signals from spread data
+  // 4. Generate signals
   const signals = rates.map((r) => ({
     id: `cron-${Date.now()}-${r.pair.replace("/", "-")}`,
     asset: r.pair,
@@ -185,39 +328,80 @@ async function scan(env: Env) {
     timestamp: new Date().toISOString(),
   }));
 
+  // 5. Autonomous execution — swap if spread exceeds threshold
+  const swapResults: unknown[] = [];
+  if (env.AGENT_PRIVATE_KEY) {
+    for (const r of rates) {
+      if (Math.abs(r.spreadPct) > SPREAD_THRESHOLD) {
+        const [from, to] = r.pair.split("/").map((t) => t.replace("c", "c"));
+        try {
+          const result = await executeSwap(
+            env,
+            { from, to },
+            r.exchangeId as `0x${string}`,
+            pc
+          );
+          swapResults.push({
+            pair: r.pair,
+            spreadPct: r.spreadPct,
+            ...result,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (err) {
+          swapResults.push({
+            pair: r.pair,
+            success: false,
+            error: err instanceof Error ? err.message.slice(0, 100) : "unknown",
+          });
+        }
+      }
+    }
+  }
+
   const result = {
     timestamp: new Date().toISOString(),
     rates,
     signals,
+    swaps: swapResults,
     scansTotal: 0,
   };
 
-  // 5. Persist to KV
+  // 6. Persist to KV
   await env.KV.put("latest_scan", JSON.stringify(result));
 
-  // Append to scan history (keep last 100)
+  // Scan history
   const historyRaw = await env.KV.get("scan_history");
   const history: unknown[] = historyRaw ? JSON.parse(historyRaw) : [];
   history.unshift({
     timestamp: result.timestamp,
     rates,
     signalCount: signals.length,
+    swapCount: swapResults.filter((s: any) => s.success).length,
   });
   if (history.length > 100) history.length = 100;
   await env.KV.put("scan_history", JSON.stringify(history));
 
-  // Increment scan count
+  // Scan count
   const countRaw = await env.KV.get("scan_count");
   const count = (countRaw ? parseInt(countRaw) : 0) + 1;
   await env.KV.put("scan_count", count.toString());
   result.scansTotal = count;
 
-  // Merge new signals into persistent signal store (keep last 200)
+  // Signals
   const signalsRaw = await env.KV.get("signals");
   const allSignals: unknown[] = signalsRaw ? JSON.parse(signalsRaw) : [];
   allSignals.unshift(...signals);
   if (allSignals.length > 200) allSignals.length = 200;
   await env.KV.put("signals", JSON.stringify(allSignals));
+
+  // Trades
+  if (swapResults.length > 0) {
+    const tradesRaw = await env.KV.get("trades");
+    const allTrades: unknown[] = tradesRaw ? JSON.parse(tradesRaw) : [];
+    allTrades.unshift(...swapResults.filter((s: any) => s.success));
+    if (allTrades.length > 100) allTrades.length = 100;
+    await env.KV.put("trades", JSON.stringify(allTrades));
+  }
 
   return result;
 }
@@ -249,6 +433,11 @@ export default {
         return cors(data ? JSON.parse(data) : []);
       }
 
+      case "/trades": {
+        const data = await env.KV.get("trades");
+        return cors(data ? JSON.parse(data) : []);
+      }
+
       case "/history": {
         const data = await env.KV.get("scan_history");
         return cors(data ? JSON.parse(data) : []);
@@ -258,12 +447,16 @@ export default {
         const count = await env.KV.get("scan_count");
         const latest = await env.KV.get("latest_scan");
         const signalsRaw = await env.KV.get("signals");
+        const tradesRaw = await env.KV.get("trades");
         return cors({
           totalScans: count ? parseInt(count) : 0,
           latestScan: latest
             ? (JSON.parse(latest) as { timestamp: string }).timestamp
             : null,
           totalSignals: signalsRaw ? JSON.parse(signalsRaw).length : 0,
+          totalTrades: tradesRaw ? JSON.parse(tradesRaw).length : 0,
+          spreadThreshold: `${SPREAD_THRESHOLD}%`,
+          autonomousExecution: !!env.AGENT_PRIVATE_KEY,
         });
       }
 
@@ -271,14 +464,19 @@ export default {
         return cors(
           {
             name: "CeloFX Agent Backend",
+            description:
+              "Autonomous FX arbitrage agent — scans Mento vs forex rates every 15 min, executes swaps when spread exceeds threshold",
             endpoints: [
               "GET  /rates    — latest Mento vs forex rates",
               "GET  /signals  — all generated signals",
+              "GET  /trades   — autonomous swap executions",
               "GET  /history  — scan history",
-              "GET  /stats    — scan count + stats",
-              "POST /scan     — trigger manual scan",
+              "GET  /stats    — scan count + execution stats",
+              "POST /scan     — trigger manual scan + execute",
             ],
             cron: "every 15 minutes",
+            spreadThreshold: `${SPREAD_THRESHOLD}%`,
+            autonomousExecution: !!env.AGENT_PRIVATE_KEY,
           },
           200
         );
