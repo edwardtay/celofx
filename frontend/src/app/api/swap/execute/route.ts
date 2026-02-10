@@ -59,10 +59,14 @@ export async function POST(request: NextRequest) {
       transport: http("https://forno.celo.org"),
     });
 
+    // Fee abstraction: pay gas in cUSD instead of CELO (CIP-64)
+    const feeCurrency = TOKENS.cUSD as `0x${string}`;
+
     // Approval tx
     const approvalHash = await wallet.sendTransaction({
       to: TOKENS[fromToken],
       data: swapResult.approvalTx.data as `0x${string}`,
+      feeCurrency,
     });
     await publicClient.waitForTransactionReceipt({ hash: approvalHash });
 
@@ -70,6 +74,7 @@ export async function POST(request: NextRequest) {
     const swapHash = await wallet.sendTransaction({
       to: swapResult.swapTx.to,
       data: swapResult.swapTx.data as `0x${string}`,
+      feeCurrency,
     });
     const receipt = await publicClient.waitForTransactionReceipt({ hash: swapHash });
 

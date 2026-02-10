@@ -25,6 +25,13 @@ const integrations = [
     color: "border-l-amber-500",
   },
   {
+    name: "Fee Abstraction",
+    desc: "Gas fees paid in cUSD via CIP-64",
+    detail: "Agent swaps pay zero CELO — feeCurrency param routes gas fees through cUSD on every tx",
+    link: "https://docs.celo.org/developer/fee-currency",
+    color: "border-l-cyan-500",
+  },
+  {
     name: "Claude AI",
     desc: "Agentic loop with 7 tools, max 10 iterations",
     detail: "Claude Sonnet 4.5 orchestrates market analysis, signal generation, and swap execution autonomously",
