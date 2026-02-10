@@ -28,11 +28,19 @@
       "version": "0.8.0",
       "skills": [
         "analytical_skills/mathematical_reasoning",
-        "tool_interaction"
+        "analytical_skills/data_analysis",
+        "tool_interaction",
+        "domain_expertise/financial_markets"
       ],
       "domains": [
         "finance_and_business/investment_services",
-        "finance_and_business/finance"
+        "finance_and_business/finance",
+        "finance_and_business/trading"
+      ],
+      "capabilities": [
+        "autonomous_execution",
+        "on_chain_verification",
+        "cross_market_analysis"
       ]
     }
   ],

@@ -20,16 +20,21 @@ export async function GET() {
     },
     defaultInputModes: ["text/plain", "application/json"],
     defaultOutputModes: ["text/plain", "application/json"],
+    authentication: {
+      schemes: ["none"],
+      credentials: null,
+    },
     skills: [
       {
         id: "fx_rate_analysis",
         name: "FX Rate Analysis",
         description:
-          "Analyzes current forex rates vs Mento on-chain stablecoin rates to identify arbitrage opportunities",
-        tags: ["forex", "arbitrage", "celo", "mento", "stablecoin"],
+          "Compares live Mento Broker on-chain stablecoin rates with real forex rates (EUR/USD, USD/BRL) to identify arbitrage spreads. Returns spread percentage and whether it exceeds the 0.3% execution threshold.",
+        tags: ["forex", "arbitrage", "celo", "mento", "stablecoin", "spread"],
         examples: [
           "What are the current Mento spreads?",
           "Compare cEUR/cUSD on-chain rate vs EUR/USD forex rate",
+          "Is there an arbitrage opportunity on Mento right now?",
         ],
         inputModes: ["text/plain"],
         outputModes: ["application/json"],
@@ -38,8 +43,8 @@ export async function GET() {
         id: "execute_swap",
         name: "Execute Mento Swap",
         description:
-          "Executes a Mento Broker stablecoin swap on Celo when arbitrage spread is favorable",
-        tags: ["swap", "execution", "mento", "celo", "defi"],
+          "Executes a Mento Broker stablecoin swap on Celo mainnet using CIP-64 fee abstraction (gas paid in cUSD). Requires spread > 0.3% threshold and Bearer auth.",
+        tags: ["swap", "execution", "mento", "celo", "defi", "fee-abstraction"],
         examples: [
           "Swap 2 cUSD to cEUR on Mento",
           "Execute arbitrage on cUSD/cREAL pair",
@@ -51,9 +56,27 @@ export async function GET() {
         id: "portfolio_status",
         name: "Portfolio Status",
         description:
-          "Returns agent wallet balances, recent trades, and performance metrics",
-        tags: ["portfolio", "status", "balance", "trades"],
-        examples: ["Show agent portfolio", "What trades were executed today?"],
+          "Returns agent execution wallet balances, recent on-chain trades with Celoscan links, and trade statistics",
+        tags: ["portfolio", "status", "balance", "trades", "celoscan"],
+        examples: [
+          "Show agent portfolio",
+          "What trades were executed today?",
+          "Show recent swaps",
+        ],
+        inputModes: ["text/plain"],
+        outputModes: ["application/json"],
+      },
+      {
+        id: "performance_tracking",
+        name: "Performance Tracking",
+        description:
+          "Returns the agent's verified track record: total volume, cumulative P&L, success rate, pairs traded. All trades have on-chain proof verifiable on Celoscan.",
+        tags: ["performance", "pnl", "track-record", "verification", "celoscan"],
+        examples: [
+          "What is the agent's track record?",
+          "Show cumulative P&L",
+          "How many trades has the agent executed?",
+        ],
         inputModes: ["text/plain"],
         outputModes: ["application/json"],
       },
