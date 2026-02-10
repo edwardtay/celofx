@@ -174,9 +174,29 @@ export function PremiumGate({
         </div>
       )}
 
+      {/* Free preview — first signal visible */}
+      <div className="border rounded-xl p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium px-2 py-0.5 rounded border bg-muted">{previews[0].market}</span>
+            <span className="font-semibold">{previews[0].asset}</span>
+            <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Free preview</span>
+          </div>
+          <span className="text-xs font-mono">{previews[0].direction} · {previews[0].confidence}%</span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Mento cUSD/cEUR spread at -0.68% — below auto-execution threshold. Agent monitoring for oracle update to drive spread above +0.3%.
+        </p>
+        <div className="flex gap-4 text-xs font-mono pt-1">
+          <span>Mento <span className="font-semibold">0.8356</span></span>
+          <span>Forex <span className="font-semibold">0.8413</span></span>
+          <span className="text-red-600">Spread -0.68%</span>
+        </div>
+      </div>
+
       <div className="relative">
         <div className="space-y-3 blur-[4px] select-none pointer-events-none" aria-hidden>
-          {previews.map((p) => (
+          {previews.slice(1).map((p) => (
             <div key={p.asset} className="border rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -202,7 +222,7 @@ export function PremiumGate({
               <Lock className="size-5 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold mb-1">Unlock {previews.length} Premium Signals</h3>
+              <h3 className="font-semibold mb-1">Unlock {previews.length - 1} More Signals</h3>
               <p className="text-sm text-muted-foreground">
                 Entry/exit prices, stop losses, and detailed reasoning
               </p>
@@ -299,7 +319,7 @@ export function PremiumGate({
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Powered by x402 on Celo
+              $0.01 cUSD settled on Celo via x402 protocol
             </p>
           </div>
         </div>

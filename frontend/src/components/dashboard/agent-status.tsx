@@ -147,43 +147,23 @@ export function AgentStatus() {
     let fetchedSnapshots = 0;
 
     try {
-      // Phase 1: Fetch Mento rates first (the core product)
-      setPhase("mento");
-      const mento = await fetchMarket(
-        "/api/market-data/mento",
-        "Mento FX",
-        <DollarSign className="size-3" />
-      );
-      setSnapshots((prev) => [...prev, mento]);
-      fetchedSnapshots++;
+      // Fetch all markets in parallel — each appears as it resolves
+      setPhase("forex"); // Generic "fetching" phase
+      const marketConfigs = [
+        { url: "/api/market-data/mento", market: "Mento FX", icon: <DollarSign className="size-3" /> },
+        { url: "/api/market-data/forex", market: "Forex", icon: <DollarSign className="size-3" /> },
+        { url: "/api/market-data/crypto", market: "Crypto", icon: <Bitcoin className="size-3" /> },
+        { url: "/api/market-data/commodities", market: "Commodities", icon: <Gem className="size-3" /> },
+      ] as const;
 
-      // Phase 2: Fetch supporting market data
-      setPhase("forex");
-      const forex = await fetchMarket(
-        "/api/market-data/forex",
-        "Forex",
-        <DollarSign className="size-3" />
-      );
-      setSnapshots((prev) => [...prev, forex]);
-      fetchedSnapshots++;
+      const marketPromises = marketConfigs.map(async (cfg) => {
+        const result = await fetchMarket(cfg.url, cfg.market, cfg.icon);
+        setSnapshots((prev) => [...prev, result]);
+        fetchedSnapshots++;
+        return result;
+      });
 
-      setPhase("crypto");
-      const crypto = await fetchMarket(
-        "/api/market-data/crypto",
-        "Crypto",
-        <Bitcoin className="size-3" />
-      );
-      setSnapshots((prev) => [...prev, crypto]);
-      fetchedSnapshots++;
-
-      setPhase("commodities");
-      const commodities = await fetchMarket(
-        "/api/market-data/commodities",
-        "Commodities",
-        <Gem className="size-3" />
-      );
-      setSnapshots((prev) => [...prev, commodities]);
-      fetchedSnapshots++;
+      const [mento, forex, crypto, commodities] = await Promise.all(marketPromises);
 
       // Phase 3: Stream Claude analysis via SSE
       setPhase("thinking");
@@ -346,10 +326,10 @@ export function AgentStatus() {
 
   const phaseLabel: Record<AnalysisPhase, string> = {
     idle: "",
-    mento: "Fetching Mento stablecoin rates...",
-    crypto: "Fetching crypto prices...",
-    forex: "Fetching forex rates...",
-    commodities: "Fetching commodity prices...",
+    mento: "Fetching market data...",
+    crypto: "Fetching market data...",
+    forex: "Fetching market data...",
+    commodities: "Fetching market data...",
     thinking: "Claude AI analyzing FX opportunities...",
     done: "Analysis complete!",
   };
