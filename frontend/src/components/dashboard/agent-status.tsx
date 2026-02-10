@@ -318,10 +318,10 @@ export function AgentStatus() {
                   <span className="text-muted-foreground">{snap.market}:</span>
                   {snap.assets[0] && (
                     <span className="font-mono font-medium">
-                      {snap.assets[0].symbol}{" "}
+                      {snap.assets[0].symbol || snap.market}{" "}
                       <span
                         className={cn(
-                          snap.assets[0].change24h >= 0
+                          (snap.assets[0].change24h ?? 0) >= 0
                             ? "text-emerald-600"
                             : "text-red-600"
                         )}

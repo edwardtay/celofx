@@ -1,4 +1,5 @@
-export function formatCurrency(value: number, decimals = 2): string {
+export function formatCurrency(value: number | undefined | null, decimals = 2): string {
+  if (value == null || isNaN(value)) return "$0.00";
   if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -7,7 +8,8 @@ export function formatCurrency(value: number, decimals = 2): string {
 }
 
 /** Compact format for market overview cards: $97.5K, $2.8K */
-export function formatCurrencyCompact(value: number): string {
+export function formatCurrencyCompact(value: number | undefined | null): string {
+  if (value == null || isNaN(value)) return "$0.00";
   if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
@@ -15,7 +17,8 @@ export function formatCurrencyCompact(value: number): string {
   return `$${value.toFixed(4)}`;
 }
 
-export function formatPercent(value: number): string {
+export function formatPercent(value: number | undefined | null): string {
+  if (value == null || isNaN(value)) return "0.00%";
   const sign = value >= 0 ? "+" : "";
   return `${sign}${value.toFixed(2)}%`;
 }
