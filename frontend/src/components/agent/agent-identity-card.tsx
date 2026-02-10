@@ -2,50 +2,19 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAgentTokenURI, useAgentOwner, useAgentId } from "@/hooks/use-agent-profile";
+import { useAgentOwner, useAgentId } from "@/hooks/use-agent-profile";
 import { formatAddress } from "@/lib/format";
 import { ExternalLink, Activity } from "lucide-react";
 import Image from "next/image";
 import { IDENTITY_REGISTRY_ADDRESS } from "@/config/contracts";
-import { useEffect, useState } from "react";
 import { useSignals } from "@/hooks/use-signals";
-
-interface AgentMetadata {
-  name: string;
-  description: string;
-  image?: string;
-}
 
 export function AgentIdentityCard() {
   const agentId = useAgentId();
-  const { data: tokenURI, isLoading: uriLoading } = useAgentTokenURI();
   const { data: owner, isLoading: ownerLoading } = useAgentOwner();
-  const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
   const { data: signals } = useSignals();
 
-  useEffect(() => {
-    if (!tokenURI) return;
-    const uri = tokenURI as string;
-
-    // Handle data URIs and HTTP URIs
-    if (uri.startsWith("data:")) {
-      try {
-        const json = atob(uri.split(",")[1]);
-        setMetadata(JSON.parse(json));
-      } catch {
-        setMetadata({ name: "CeloFX", description: "Autonomous FX Agent" });
-      }
-    } else if (uri.startsWith("http")) {
-      fetch(uri)
-        .then((r) => r.json())
-        .then(setMetadata)
-        .catch(() =>
-          setMetadata({ name: "CeloFX", description: "Autonomous FX Agent" })
-        );
-    }
-  }, [tokenURI]);
-
-  const isLoading = uriLoading || ownerLoading;
+  const isLoading = ownerLoading;
 
   // Use "CeloFX" as display name (on-chain metadata may have registration name)
   const displayName = "CeloFX";

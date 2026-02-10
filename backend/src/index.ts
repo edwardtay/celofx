@@ -13,6 +13,7 @@ import { celo } from "viem/chains";
 interface Env {
   KV: KVNamespace;
   AGENT_PRIVATE_KEY?: string;
+  SCAN_SECRET?: string;
 }
 
 // ─── Celo Mainnet Addresses ───
@@ -98,14 +99,25 @@ const ERC20_ABI = [
 
 // ─── Helpers ───
 
-function cors(data: unknown, status = 200): Response {
+const ALLOWED_ORIGINS = [
+  "https://celofx.vercel.app",
+  "https://aaa-agent-steel.vercel.app",
+  "http://localhost:3000",
+];
+
+function cors(data: unknown, status = 200, origin?: string | null): Response {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.some((o) => origin === o || origin.endsWith(".vercel.app"))
+      ? origin
+      : ALLOWED_ORIGINS[0];
+
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": allowedOrigin,
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
     },
   });
 }
@@ -411,36 +423,44 @@ async function scan(env: Env) {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const origin = request.headers.get("origin");
 
     if (request.method === "OPTIONS") {
-      return cors({});
+      return cors({}, 200, origin);
     }
 
     switch (url.pathname) {
       case "/scan": {
-        if (request.method !== "POST") return cors({ error: "POST only" }, 405);
+        if (request.method !== "POST") return cors({ error: "POST only" }, 405, origin);
+        // Require auth for manual scan trigger
+        if (env.SCAN_SECRET) {
+          const auth = request.headers.get("authorization");
+          if (auth !== `Bearer ${env.SCAN_SECRET}`) {
+            return cors({ error: "Unauthorized" }, 401, origin);
+          }
+        }
         const result = await scan(env);
-        return cors(result);
+        return cors(result, 200, origin);
       }
 
       case "/rates": {
         const data = await env.KV.get("latest_scan");
-        return cors(data ? JSON.parse(data) : { error: "No scan data yet" });
+        return cors(data ? JSON.parse(data) : { error: "No scan data yet" }, 200, origin);
       }
 
       case "/signals": {
         const data = await env.KV.get("signals");
-        return cors(data ? JSON.parse(data) : []);
+        return cors(data ? JSON.parse(data) : [], 200, origin);
       }
 
       case "/trades": {
         const data = await env.KV.get("trades");
-        return cors(data ? JSON.parse(data) : []);
+        return cors(data ? JSON.parse(data) : [], 200, origin);
       }
 
       case "/history": {
         const data = await env.KV.get("scan_history");
-        return cors(data ? JSON.parse(data) : []);
+        return cors(data ? JSON.parse(data) : [], 200, origin);
       }
 
       case "/stats": {
@@ -457,7 +477,7 @@ export default {
           totalTrades: tradesRaw ? JSON.parse(tradesRaw).length : 0,
           spreadThreshold: `${SPREAD_THRESHOLD}%`,
           autonomousExecution: !!env.AGENT_PRIVATE_KEY,
-        });
+        }, 200, origin);
       }
 
       default:
@@ -472,13 +492,14 @@ export default {
               "GET  /trades   — autonomous swap executions",
               "GET  /history  — scan history",
               "GET  /stats    — scan count + execution stats",
-              "POST /scan     — trigger manual scan + execute",
+              "POST /scan     — trigger manual scan + execute (auth required)",
             ],
             cron: "every 15 minutes",
             spreadThreshold: `${SPREAD_THRESHOLD}%`,
             autonomousExecution: !!env.AGENT_PRIVATE_KEY,
           },
-          200
+          200,
+          origin
         );
     }
   },

@@ -9,7 +9,7 @@ export default function NotFound() {
       <main className="flex-1 flex items-center justify-center px-6">
         <div className="text-center space-y-4">
           <p className="text-6xl font-display tracking-tight">404</p>
-          <p className="text-muted-foreground">This page doesn't exist.</p>
+          <p className="text-muted-foreground">This page does not exist.</p>
           <Link
             href="/"
             className="inline-block text-sm font-medium underline underline-offset-4 hover:text-foreground/80 transition-colors"

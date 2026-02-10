@@ -16,7 +16,46 @@ import { celo } from "viem/chains";
 
 export const maxDuration = 60;
 
-export async function POST() {
+// Rate limit: 1 request per 30 seconds per IP
+const ipCooldowns = new Map<string, number>();
+const COOLDOWN_MS = 30_000;
+
+function verifyAuth(request: Request): { ok: boolean; via: "bearer" | "ratelimit" | "denied" } {
+  // Bearer token — server-to-server / cron calls
+  const secret = process.env.AGENT_API_SECRET;
+  const auth = request.headers.get("authorization");
+  if (secret && auth === `Bearer ${secret}`) {
+    return { ok: true, via: "bearer" };
+  }
+
+  // Browser calls — rate-limited by IP
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const now = Date.now();
+  const last = ipCooldowns.get(ip) ?? 0;
+  if (now - last < COOLDOWN_MS) {
+    return { ok: false, via: "denied" };
+  }
+  ipCooldowns.set(ip, now);
+
+  // Cleanup old entries every ~50 requests
+  if (ipCooldowns.size > 50) {
+    for (const [k, v] of ipCooldowns) {
+      if (now - v > COOLDOWN_MS * 10) ipCooldowns.delete(k);
+    }
+  }
+
+  return { ok: true, via: "ratelimit" };
+}
+
+export async function POST(request: Request) {
+  const auth = verifyAuth(request);
+  if (!auth.ok) {
+    return new Response(
+      JSON.stringify({ error: "Rate limited — wait 30 seconds" }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(

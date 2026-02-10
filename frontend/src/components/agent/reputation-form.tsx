@@ -22,7 +22,7 @@ export function ReputationForm() {
   const { isConnected } = useAccount();
   const agentId = useAgentId();
   const [submitted, setSubmitted] = useState(false);
-  const { writeContract, isPending, isSuccess, isError } = useWriteContract();
+  const { writeContract, isPending, isError } = useWriteContract();
 
   const handleSubmit = () => {
     if (score === 0) return;

@@ -58,62 +58,12 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Fallback: manual x402 handling (no thirdweb key)
-  const { encodePaymentRequiredHeader, decodePaymentSignatureHeader } =
-    await import("@x402/core/http");
-
-  if (!paymentData) {
-    const paymentRequired = {
-      x402Version: 2,
-      resource: {
-        url: "/api/premium-signals",
-        description:
-          "Access premium FX trading signals with entry/exit prices and detailed reasoning",
-        mimeType: "application/json",
-      },
-      accepts: [
-        {
-          scheme: "exact",
-          network: "eip155:42220" as const,
-          asset: "0x765DE816845861e75A25fCA122bb6898B8B1282a",
-          amount: "10000",
-          payTo,
-          maxTimeoutSeconds: 300,
-          extra: {},
-        },
-      ],
-    };
-    const encoded = encodePaymentRequiredHeader(paymentRequired);
-    return new NextResponse(JSON.stringify(paymentRequired), {
-      status: 402,
-      headers: {
-        "Content-Type": "application/json",
-        "X-PAYMENT-REQUIRED": encoded,
-      },
-    });
-  }
-
-  try {
-    const payload = decodePaymentSignatureHeader(paymentData);
-    if (
-      payload.x402Version &&
-      payload.payload &&
-      payload.accepted?.network === "eip155:42220"
-    ) {
-      const market = request.nextUrl.searchParams.get(
-        "market"
-      ) as MarketType | null;
-      const signals = getPremiumSignals(market ?? undefined);
-      return NextResponse.json(signals);
-    }
-    return NextResponse.json(
-      { error: "Invalid payment payload" },
-      { status: 400 }
-    );
-  } catch {
-    return NextResponse.json(
-      { error: "Failed to decode payment" },
-      { status: 400 }
-    );
-  }
+  // x402 payment verification requires thirdweb — no insecure fallback
+  return NextResponse.json(
+    {
+      error: "Payment verification unavailable",
+      message: "x402 payment requires THIRDWEB_SECRET_KEY to be configured for settlement verification",
+    },
+    { status: 503 }
+  );
 }

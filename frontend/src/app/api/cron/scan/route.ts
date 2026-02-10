@@ -15,9 +15,15 @@ export async function GET(request: NextRequest) {
       ? `https://${process.env.VERCEL_URL}`
       : "http://localhost:3000";
 
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const agentSecret = process.env.AGENT_API_SECRET;
+    if (agentSecret) {
+      headers["Authorization"] = `Bearer ${agentSecret}`;
+    }
+
     const res = await fetch(`${baseUrl}/api/agent/analyze`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
     });
 
     // Analyze endpoint returns SSE — read the stream and extract the final event

@@ -13,7 +13,6 @@ import {
   useReputationFeedback,
 } from "@/hooks/use-agent-profile";
 import { REPUTATION_REGISTRY_ADDRESS } from "@/config/contracts";
-import { useAgentId } from "@/hooks/use-agent-profile";
 import { formatAddress, formatTimeAgo } from "@/lib/format";
 import { Star, MessageSquare, ExternalLink, ShieldCheck } from "lucide-react";
 
@@ -46,19 +45,17 @@ function valueToStars(value: number): number {
 }
 
 export function ReputationDisplay() {
-  const agentId = useAgentId();
   const { data: summary } = useReputationSummary();
   const { data: feedbackData } = useReputationFeedback();
-  const [now, setNow] = useState<number | null>(null);
-
-  // Compute timestamps only on client to avoid hydration mismatch
+  // Client-only timestamp to avoid hydration mismatch
+  const [now, setNow] = useState(0);
   useEffect(() => {
     setNow(Date.now());
   }, []);
 
   const seedFeedback = seedFeedbackData.map((f) => ({
     ...f,
-    timestamp: (now ?? 0) - (f.offsetDays ?? 1) * 24 * 60 * 60 * 1000,
+    timestamp: now - (f.offsetDays ?? 1) * 24 * 60 * 60 * 1000,
   }));
 
   const onChainCount = summary ? Number((summary as [bigint, bigint, number])[0]) : 0;
@@ -80,7 +77,7 @@ export function ReputationDisplay() {
           reviewer: client,
           value: Number(values[i]),
           tag2: tag2s[i] || "",
-          timestamp: (now ?? 0) - (offsets[i] ?? (i * 2.3 + 1)) * 24 * 60 * 60 * 1000,
+          timestamp: now - (offsets[i] ?? (i * 2.3 + 1)) * 24 * 60 * 60 * 1000,
         }));
       })()
     : seedFeedback;
@@ -144,7 +141,7 @@ export function ReputationDisplay() {
                     </a>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {now ? formatTimeAgo(entry.timestamp) : ""}
+                    {formatTimeAgo(entry.timestamp)}
                   </span>
                 </div>
                 {entry.tag2 && (

@@ -25,7 +25,6 @@ export function PerformanceMetrics() {
   const avgConfidence = Math.round(
     signals.reduce((sum, s) => sum + s.confidence, 0) / total
   );
-  const premiumCount = signals.filter((s) => s.tier === "premium").length;
   const markets = new Set(signals.map((s) => s.market)).size;
 
   // Calculate "win rate" from premium signals with entry/target

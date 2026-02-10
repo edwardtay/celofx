@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Outfit, JetBrains_Mono } from "next/font/google";
 import { Providers } from "./providers";
-import { siteConfig } from "@/config/site";
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({

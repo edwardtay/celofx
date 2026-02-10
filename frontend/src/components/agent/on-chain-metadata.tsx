@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAgentTokenURI, useAgentId } from "@/hooks/use-agent-profile";
 import {
   Code2,
@@ -23,25 +23,32 @@ export function OnChainMetadata() {
   const [metadataSource, setMetadataSource] = useState<string | null>(null);
 
   // Parse metadata when tokenURI loads
-  useEffect(() => {
-    if (!tokenURI || metadata || isLoading) return;
-    const uri = tokenURI as string;
+  const parseTokenURI = useCallback(async (uri: string) => {
     if (uri.startsWith("data:")) {
       try {
         const json = atob(uri.split(",")[1]);
-        setMetadata(JSON.parse(json));
+        const parsed: Record<string, unknown> = JSON.parse(json);
+        setMetadata(parsed);
         setMetadataSource("data URI (base64 encoded on-chain)");
       } catch {
         setMetadataSource("data URI (failed to parse)");
       }
     } else if (uri.startsWith("http")) {
       setMetadataSource(uri);
-      fetch(uri)
-        .then((r) => r.json())
-        .then((data) => setMetadata(data))
-        .catch(() => setMetadataSource("HTTP URI (failed to fetch)"));
+      try {
+        const r = await fetch(uri);
+        const data: Record<string, unknown> = await r.json();
+        setMetadata(data);
+      } catch {
+        setMetadataSource("HTTP URI (failed to fetch)");
+      }
     }
-  }, [tokenURI, metadata, isLoading]);
+  }, []);
+
+  useEffect(() => {
+    if (!tokenURI || metadata || isLoading) return;
+    parseTokenURI(tokenURI as string);
+  }, [tokenURI, metadata, isLoading, parseTokenURI]);
 
   return (
     <div className="border rounded-lg p-4 space-y-3">

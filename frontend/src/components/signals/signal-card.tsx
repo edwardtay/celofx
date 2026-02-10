@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -41,9 +41,13 @@ const directionConfig = {
 
 export function SignalCard({ signal }: { signal: Signal }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [isNew, setIsNew] = useState(false);
   const dir = directionConfig[signal.direction];
   const Icon = dir.icon;
-  const isNew = Date.now() - signal.timestamp < 60 * 60 * 1000;
+
+  useEffect(() => {
+    setIsNew(Date.now() - signal.timestamp < 60 * 60 * 1000);
+  }, [signal.timestamp]);
 
   return (
     <>

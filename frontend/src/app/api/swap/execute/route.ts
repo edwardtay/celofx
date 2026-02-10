@@ -2,13 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildSwapTx, TOKENS, type MentoToken } from "@/lib/mento-sdk";
 import { addTrade, updateTrade } from "@/lib/trade-store";
 import type { Trade } from "@/lib/types";
-import { createPublicClient, createWalletClient, http, type Hash } from "viem";
+import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 
 export const maxDuration = 60;
 
+const MAX_AMOUNT = 5; // Max notional per swap (USD equivalent)
+const ALLOWED_TOKENS = new Set(["cUSD", "cEUR", "cREAL"]);
+
+function verifyAuth(request: NextRequest): boolean {
+  const secret = process.env.AGENT_API_SECRET;
+  if (!secret) return false;
+  const auth = request.headers.get("authorization");
+  return auth === `Bearer ${secret}`;
+}
+
 export async function POST(request: NextRequest) {
+  if (!verifyAuth(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await request.json();
   const { fromToken, toToken, amount } = body as {
     fromToken: MentoToken;
@@ -18,6 +32,19 @@ export async function POST(request: NextRequest) {
 
   if (!fromToken || !toToken || !amount) {
     return NextResponse.json({ error: "Missing fromToken, toToken, or amount" }, { status: 400 });
+  }
+
+  if (!ALLOWED_TOKENS.has(fromToken) || !ALLOWED_TOKENS.has(toToken)) {
+    return NextResponse.json({ error: "Invalid token pair" }, { status: 400 });
+  }
+
+  if (fromToken === toToken) {
+    return NextResponse.json({ error: "fromToken and toToken must differ" }, { status: 400 });
+  }
+
+  const numAmount = parseFloat(amount);
+  if (isNaN(numAmount) || numAmount <= 0 || numAmount > MAX_AMOUNT) {
+    return NextResponse.json({ error: `Amount must be between 0 and ${MAX_AMOUNT}` }, { status: 400 });
   }
 
   const privateKey = process.env.AGENT_PRIVATE_KEY;
