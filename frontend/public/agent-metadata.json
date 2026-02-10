@@ -1,16 +1,31 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-  "name": "$AAA",
-  "description": "Alpha Acceleration Agent — Cross-market alpha analyst scanning crypto, stocks, forex, and commodities to surface high-conviction trading signals. Powered by Claude AI.",
-  "image": "",
+  "name": "CeloFX",
+  "description": "Autonomous FX arbitrage agent on Celo. Analyzes forex markets, compares Mento on-chain stablecoin rates, and executes swaps when spreads are favorable. Powered by Claude AI.",
+  "image": "https://celofx.vercel.app/celofx-logo.png",
   "services": [
     {
       "name": "web",
-      "endpoint": "https://aaa-agent-steel.vercel.app"
+      "endpoint": "https://celofx.vercel.app"
+    },
+    {
+      "name": "agentWallet",
+      "endpoint": "eip155:42220:0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23"
+    },
+    {
+      "name": "MCP",
+      "endpoint": "https://celofx.vercel.app/api/mcp",
+      "version": "2025-06-18"
+    },
+    {
+      "name": "A2A",
+      "endpoint": "https://celofx.vercel.app/.well-known/agent-card.json",
+      "version": "0.3.0"
     }
   ],
   "x402Support": true,
   "active": true,
+  "updatedAt": "2026-02-11T00:00:00Z",
   "registrations": [],
   "supportedTrust": ["reputation"]
 }

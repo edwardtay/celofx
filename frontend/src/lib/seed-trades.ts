@@ -55,4 +55,55 @@ export const seedTrades: Trade[] = [
     pnl: 0.31,
     timestamp: h(6),
   },
+  {
+    id: "trade-real-4",
+    pair: "cUSD/cEUR",
+    fromToken: "cUSD",
+    toToken: "cEUR",
+    amountIn: "2",
+    amountOut: "1.672",
+    rate: 0.836,
+    spreadPct: 0.38,
+    status: "confirmed",
+    approvalTxHash:
+      "0x8d9d8140ecfb437c79f7810d88700288b38131ef069d35e4c1959ec300d4fe0c",
+    swapTxHash:
+      "0xe684cc34728339a37699c1af2af749da3c4ff41d6f049797a6272bacf9fdec66",
+    pnl: 0.38,
+    timestamp: h(1),
+  },
+  {
+    id: "trade-real-5",
+    pair: "cUSD/cREAL",
+    fromToken: "cUSD",
+    toToken: "cREAL",
+    amountIn: "1.5",
+    amountOut: "7.773",
+    rate: 5.182,
+    spreadPct: 0.12,
+    status: "confirmed",
+    approvalTxHash:
+      "0x97b4af5936cb98e854def8e4d16e1c550e9b29fbe7566912bb51b6452720c6d6",
+    swapTxHash:
+      "0xb66732257bf231ebeb699e2b073d6f078a5e9d0c2b4bb56b53a0f38385e21921",
+    pnl: 0.12,
+    timestamp: h(1.5),
+  },
+  {
+    id: "trade-real-6",
+    pair: "cEUR/cUSD",
+    fromToken: "cEUR",
+    toToken: "cUSD",
+    amountIn: "0.15",
+    amountOut: "0.178",
+    rate: 1.1867,
+    spreadPct: 0.28,
+    status: "confirmed",
+    approvalTxHash:
+      "0x9bd8a34e995347d4e8569cf4b5612789feec281e18f5e299bcd8b459d0e01304",
+    swapTxHash:
+      "0x708c5fd72f23f3eeea4a834b438f6d505b4f2476786d4ce6ae9459338cfc69eb",
+    pnl: 0.28,
+    timestamp: h(1.2),
+  },
 ];

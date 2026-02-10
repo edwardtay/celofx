@@ -5,7 +5,7 @@ import { defineChain } from "thirdweb/chains";
 import { getPremiumSignals } from "@/lib/signal-store";
 import type { MarketType } from "@/lib/types";
 
-const payTo = (process.env.AGENT_WALLET_ADDRESS?.trim() ||
+const payTo = (process.env.AGENT_OWNER_ADDRESS?.trim() ||
   "0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23") as `0x${string}`;
 
 // Celo Mainnet

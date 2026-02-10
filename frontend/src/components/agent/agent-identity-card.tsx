@@ -58,11 +58,11 @@ export function AgentIdentityCard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="/agent-avatar.png"
+              src="/celofx-logo.png"
               alt="CeloFX Agent"
               width={40}
               height={40}
-              className="size-10 rounded-full object-cover"
+              className="size-10 rounded object-cover"
             />
             <div>
               <CardTitle className="text-lg font-display">

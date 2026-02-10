@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { siteConfig } from "@/config/site";
@@ -38,7 +39,14 @@ export function Navbar() {
     <header className="border-b border-border bg-card">
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-8">
-          <Link href="/" className="font-display text-xl tracking-tight">
+          <Link href="/" className="flex items-center gap-2 font-display text-xl tracking-tight">
+            <Image
+              src="/celofx-logo.png"
+              alt="CeloFX"
+              width={28}
+              height={28}
+              className="size-7 rounded"
+            />
             {siteConfig.name}
           </Link>
           <nav className="hidden md:flex items-center gap-1">
