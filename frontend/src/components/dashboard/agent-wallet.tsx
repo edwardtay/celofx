@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import type { Trade } from "@/lib/types";
 
-const AGENT_ADDRESS = "0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23" as const;
+// Execution wallet — holds stablecoins and executes Mento swaps
+const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303" as const;
 
 const erc20Abi = [
   {

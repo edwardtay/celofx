@@ -45,7 +45,7 @@ export function LiveStats() {
         </span>
       )}
       <a
-        href="https://celoscan.io/address/0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23"
+        href="https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303"
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center gap-1 hover:text-foreground transition-colors"

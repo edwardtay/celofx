@@ -24,7 +24,7 @@ export async function GET() {
 
   return NextResponse.json({
     agentId: 4,
-    wallet: "0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23",
+    wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
     chain: "celo",
     registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     performance: {

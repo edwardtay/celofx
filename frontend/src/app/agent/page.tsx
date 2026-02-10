@@ -80,7 +80,7 @@ export default function AgentPage() {
             <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
               <span>Cron: every 15 min (Cloudflare Worker)</span>
               <span>Threshold: spread &gt; 0.3%</span>
-              <span>Wallet: 0x1e67...b23</span>
+              <span>Wallet: 0x6652...303</span>
             </div>
           </div>
         </div>
