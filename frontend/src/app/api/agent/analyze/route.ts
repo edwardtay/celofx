@@ -99,7 +99,7 @@ export async function POST() {
                 break;
               }
               case "fetch_commodities": {
-                const data = fetchCommodityPrices();
+                const data = await fetchCommodityPrices();
                 result = JSON.stringify(data);
                 const top = data.slice(0, 2).map((d: { symbol: string; price: number }) => `${d.symbol} $${d.price.toLocaleString()}`).join(", ");
                 const entry = { tool: "fetch_commodities", summary: top || "Fetched commodity prices" };

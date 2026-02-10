@@ -3,7 +3,7 @@ import { fetchCommodityPrices } from "@/lib/market-data";
 
 export async function GET() {
   try {
-    const prices = fetchCommodityPrices();
+    const prices = await fetchCommodityPrices();
     return NextResponse.json(prices, {
       headers: { "Cache-Control": "public, max-age=60" },
     });
