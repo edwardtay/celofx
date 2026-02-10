@@ -141,9 +141,15 @@ export function AgentStatus() {
       setSnapshots((prev) => [...prev, commodities]);
       fetchedSnapshots++;
 
-      // Phase 2: Send to Claude
+      // Phase 2: Send to Claude (with 55s client-side timeout)
       setPhase("thinking");
-      const res = await fetch("/api/agent/analyze", { method: "POST" });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 55_000);
+      const res = await fetch("/api/agent/analyze", {
+        method: "POST",
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
       const data = await res.json();
 
       if (data.success) {

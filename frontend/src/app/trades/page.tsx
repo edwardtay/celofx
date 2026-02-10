@@ -13,22 +13,29 @@ export default function TradesPage() {
   const stats = useMemo(() => {
     if (!trades?.length) return null;
     const confirmed = trades.filter((t) => t.status === "confirmed");
+    const failed = trades.filter((t) => t.status === "failed");
+    const settled = confirmed.length + failed.length;
     const totalVolume = confirmed.reduce(
       (sum, t) => sum + parseFloat(t.amountIn),
       0
     );
     const successRate =
-      trades.length > 0 ? (confirmed.length / trades.length) * 100 : 0;
+      settled > 0 ? (confirmed.length / settled) * 100 : 0;
     const avgSpread =
       confirmed.length > 0
         ? confirmed.reduce((sum, t) => sum + t.spreadPct, 0) /
           confirmed.length
         : 0;
+    const cumulativePnl = confirmed.reduce(
+      (sum, t) => sum + (t.pnl ?? 0),
+      0
+    );
     return {
       totalVolume,
       successRate,
       avgSpread,
       tradeCount: confirmed.length,
+      cumulativePnl,
     };
   }, [trades]);
 
@@ -44,7 +51,16 @@ export default function TradesPage() {
         </div>
 
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="border rounded-lg p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
+                <Activity className="size-3" />
+                Executed
+              </div>
+              <p className="text-lg font-mono font-semibold">
+                {stats.tradeCount}
+              </p>
+            </div>
             <div className="border rounded-lg p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
                 <BarChart3 className="size-3" />
@@ -74,11 +90,11 @@ export default function TradesPage() {
             </div>
             <div className="border rounded-lg p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
-                <Activity className="size-3" />
-                Executed
+                <TrendingUp className="size-3" />
+                Cumulative P&L
               </div>
-              <p className="text-lg font-mono font-semibold">
-                {stats.tradeCount}
+              <p className={`text-lg font-mono font-semibold ${stats.cumulativePnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                {stats.cumulativePnl >= 0 ? "+" : ""}{stats.cumulativePnl.toFixed(2)}%
               </p>
             </div>
           </div>
