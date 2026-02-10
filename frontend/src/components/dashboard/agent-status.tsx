@@ -100,6 +100,7 @@ export function AgentStatus() {
     setGeneratedSignals([]);
     setToolCalls([]);
     setIterations(null);
+    let fetchedSnapshots = 0;
 
     try {
       // Phase 1: Fetch Mento rates first (the core product)
@@ -110,6 +111,7 @@ export function AgentStatus() {
         <DollarSign className="size-3" />
       );
       setSnapshots((prev) => [...prev, mento]);
+      fetchedSnapshots++;
 
       // Phase 2: Fetch supporting market data
       setPhase("forex");
@@ -119,6 +121,7 @@ export function AgentStatus() {
         <DollarSign className="size-3" />
       );
       setSnapshots((prev) => [...prev, forex]);
+      fetchedSnapshots++;
 
       setPhase("crypto");
       const crypto = await fetchMarket(
@@ -127,6 +130,7 @@ export function AgentStatus() {
         <Bitcoin className="size-3" />
       );
       setSnapshots((prev) => [...prev, crypto]);
+      fetchedSnapshots++;
 
       setPhase("commodities");
       const commodities = await fetchMarket(
@@ -135,6 +139,7 @@ export function AgentStatus() {
         <Gem className="size-3" />
       );
       setSnapshots((prev) => [...prev, commodities]);
+      fetchedSnapshots++;
 
       // Phase 2: Send to Claude
       setPhase("thinking");
@@ -213,13 +218,13 @@ export function AgentStatus() {
       } else {
         setError(data.error || "Analysis failed");
         // Keep phase as "done" if we have snapshots, so market data stays visible
-        if (snapshots.length > 0) setPhase("done");
+        if (fetchedSnapshots > 0) setPhase("done");
         else setPhase("idle");
       }
     } catch {
       setError("Claude AI timed out — market data collected, try again for full analysis");
       // Keep snapshots visible so judges see the market data we already fetched
-      if (snapshots.length > 0) setPhase("done");
+      if (fetchedSnapshots > 0) setPhase("done");
       else setPhase("idle");
     } finally {
       setAnalyzing(false);
