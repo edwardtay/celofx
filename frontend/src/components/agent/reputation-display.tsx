@@ -24,7 +24,7 @@ const seedFeedbackData = [
   {
     reviewer: "0xa09A571e7eeFa2E543E0D3C6B7B8a264A783d73c",
     value: 90,
-    tag2: "BTC long call at 92k was spot on. Great analysis across markets.",
+    tag2: "Mento cUSD/cEUR spread call was well-timed. Agent executed at +0.42%.",
     offsetDays: SEED_OFFSETS_DAYS[0],
   },
   {
@@ -36,7 +36,7 @@ const seedFeedbackData = [
   {
     reviewer: "0x89eaD11556Ab0617a81e50DDFeDb4bBceEEF2896",
     value: 80,
-    tag2: "Gold long at 2800 printing. Commodity analysis is underrated.",
+    tag2: "Gold long call has been solid. Cross-market analysis adds real context to FX signals.",
     offsetDays: SEED_OFFSETS_DAYS[2],
   },
 ];

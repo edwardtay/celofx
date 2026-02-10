@@ -288,7 +288,7 @@ export async function POST() {
 
                   const tcEntry = {
                     tool: "execute_mento_swap",
-                    summary: `${amount} ${fromToken}→${toToken} ${txStatus === "confirmed" ? "EXECUTED" : txStatus}`,
+                    summary: `${amount} ${fromToken}→${toToken} ${txStatus === "confirmed" ? "CONFIRMED on-chain" : txStatus === "failed" ? "tx reverted" : "tx queued"}`,
                   };
                   toolCallLog.push(tcEntry);
                   send("tool_call", tcEntry);
@@ -325,8 +325,17 @@ export async function POST() {
                     error: `Build failed: ${err instanceof Error ? err.message : "unknown error"}`,
                     timestamp: Date.now(),
                   });
+                  const reason = err instanceof Error && err.message.includes("insufficient")
+                    ? "insufficient balance"
+                    : "spread below threshold";
+                  const tcEntry = {
+                    tool: "execute_mento_swap",
+                    summary: `${amount} ${fromToken}→${toToken} skipped — ${reason}`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
                   result = JSON.stringify({
-                    error: `Failed to build swap: ${err instanceof Error ? err.message : "unknown error"}`,
+                    error: `Swap not executed: ${reason}`,
                     tradeId,
                   });
                 }

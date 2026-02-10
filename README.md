@@ -10,13 +10,13 @@ AI-powered FX arbitrage agent on Celo. Compares real forex rates with Mento on-c
 
 ### Demo Flow (2 minutes)
 
-1. **Dashboard** ([celofx.vercel.app](https://celofx.vercel.app)) — See Agent #4 status, live agent wallet (CELO balance, 3 trades, +0.88% P&L), Mento FX spread comparisons, top signals, and market data
+1. **Dashboard** ([celofx.vercel.app](https://celofx.vercel.app)) — See the FX Arbitrage Agent status, live agent wallet (CELO balance, 3 trades, +0.88% P&L), Mento FX spread comparisons, top signals, and market data
 2. **Click "Scan Markets"** — Watch the agent fetch Mento on-chain rates, forex, crypto, and commodities, then Claude AI generates 5 cross-market signals with tool-call logging (~30s)
 3. **Mento FX Spreads** — Real-time comparison: Mento Broker `getAmountOut()` vs real EUR/USD and USD/BRL forex rates. When spread > 0.3%, agent auto-swaps
 4. **Trades** ([/trades](https://celofx.vercel.app/trades)) — 3 real on-chain swaps with Celoscan links for both approval and swap transactions. $5.00 volume, 100% success rate, +0.88% cumulative P&L
 5. **Signals** ([/signals](https://celofx.vercel.app/signals)) — AI-generated signals across 4 markets: Mento FX, Forex, Crypto, Commodities
 6. **Premium** ([/premium](https://celofx.vercel.app/premium)) — x402 paywall: real HTTP 402 response, EIP-712 payment signing, $0.01 in cUSD. [Demo link](https://celofx.vercel.app/premium?demo=true) works without wallet
-7. **Agent** ([/agent](https://celofx.vercel.app/agent)) — On-chain identity (Agent #4), reputation (5 feedbacks), execution timeline, architecture diagram
+7. **Agent** ([/agent](https://celofx.vercel.app/agent)) — On-chain identity (FX Arbitrage Agent, ERC-8004 #4), reputation (5 feedbacks), execution timeline, architecture diagram
 
 ### What Makes This Different
 
@@ -24,7 +24,7 @@ AI-powered FX arbitrage agent on Celo. Compares real forex rates with Mento on-c
 - **Autonomous execution** — Agent has its own wallet (`0x1e67...2b23`), private key, and daily cron job. No human intervention required
 - **Mento FX arbitrage** — Compares real forex rates (EUR/USD, USD/BRL) with Mento Broker on-chain rates to find stablecoin swap opportunities
 - **7 agent tools** — `fetch_mento_rates`, `fetch_forex`, `fetch_crypto`, `fetch_commodities`, `generate_signal`, `generate_fx_action`, `execute_mento_swap`
-- **Tool-call logging** — Every Claude tool invocation is logged and displayed in a terminal UI during analysis
+- **Real-time SSE streaming** — Every Claude tool invocation streams to the UI in real-time via Server-Sent Events. Watch the agent think live.
 - **Both ERC-8004 registries** — Identity (agent profile on-chain) AND Reputation (user feedback on-chain)
 - **Real x402 implementation** — HTTP 402 headers, `@x402/core` encoding, `@x402/fetch` client, EIP-712 signatures
 - **Celo mainnet** — Not testnet. Real cUSD payments, real Mento swaps, real on-chain data

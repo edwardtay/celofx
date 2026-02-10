@@ -64,7 +64,7 @@ export function AgentIdentityCard() {
                 {displayName}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Agent #{agentId.toString()}
+                FX Arbitrage Agent · ERC-8004 #{agentId.toString()}
               </p>
             </div>
           </div>
