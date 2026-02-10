@@ -26,6 +26,11 @@
   "x402Support": true,
   "active": true,
   "updatedAt": "2026-02-11T00:00:00Z",
-  "registrations": [],
+  "registrations": [
+    {
+      "agentId": 4,
+      "agentRegistry": "eip155:42220:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+    }
+  ],
   "supportedTrust": ["reputation"]
 }
