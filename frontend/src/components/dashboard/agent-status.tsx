@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -69,6 +69,8 @@ export function AgentStatus() {
   >([]);
   const [iterations, setIterations] = useState<number | null>(null);
   const [persistedScanTime, setPersistedScanTime] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const terminalRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   // Map market name → icon for restoring cached snapshots
@@ -104,6 +106,21 @@ export function AgentStatus() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Elapsed time counter during analysis
+  useEffect(() => {
+    if (!analyzing) { setElapsed(0); return; }
+    const start = Date.now();
+    const interval = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(interval);
+  }, [analyzing]);
+
+  // Auto-scroll terminal as tool calls stream in
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [toolCalls]);
 
   const fetchMarket = useCallback(
     async (
@@ -365,6 +382,7 @@ export function AgentStatus() {
             {analyzing && (
               <span className="text-xs text-muted-foreground animate-pulse">
                 {phaseLabel[phase]}
+                {elapsed > 0 && <span className="font-mono ml-1">{elapsed}s</span>}
               </span>
             )}
             {!analyzing && lastAnalysis && (
@@ -510,7 +528,7 @@ export function AgentStatus() {
                     </span>
                   )}
                 </div>
-                <div className="bg-zinc-950 rounded-md p-2 font-mono text-[11px] space-y-0.5 max-h-32 overflow-y-auto">
+                <div ref={terminalRef} className="bg-zinc-950 rounded-md p-2 font-mono text-[11px] space-y-0.5 max-h-32 overflow-y-auto">
                   {toolCalls.map((tc, i) => (
                     <div key={i} className="flex items-start gap-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
                       <ChevronRight className="size-3 text-emerald-400 shrink-0 mt-0.5" />
