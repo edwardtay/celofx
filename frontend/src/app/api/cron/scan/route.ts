@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Call the analyze endpoint internally
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : "http://localhost:3000";
@@ -21,12 +20,46 @@ export async function GET(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
 
-    const data = await res.json();
+    // Analyze endpoint returns SSE — read the stream and extract the final event
+    if (!res.body) {
+      return NextResponse.json({ error: "No response body" }, { status: 500 });
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finalData: Record<string, unknown> | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop()!;
+
+      for (const part of parts) {
+        if (!part.trim()) continue;
+        const lines = part.split("\n");
+        let eventType = "";
+        let dataStr = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) eventType = line.slice(7);
+          else if (line.startsWith("data: ")) dataStr = line.slice(6);
+        }
+        if (eventType === "complete" && dataStr) {
+          try { finalData = JSON.parse(dataStr); } catch { /* skip */ }
+        }
+        if (eventType === "error" && dataStr) {
+          try { finalData = JSON.parse(dataStr); } catch { /* skip */ }
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
-      ...data,
+      ...(finalData ?? {}),
     });
   } catch (err) {
     return NextResponse.json(

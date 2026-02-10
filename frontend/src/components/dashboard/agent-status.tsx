@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Bitcoin,
-  BarChart3,
   DollarSign,
   Gem,
   Brain,
@@ -21,7 +20,7 @@ import {
   Terminal,
   ChevronRight,
 } from "lucide-react";
-import { formatCurrency, formatPercent } from "@/lib/format";
+import { formatPercent } from "@/lib/format";
 import { formatTimeAgo } from "@/lib/format";
 import type { AssetPrice } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -169,8 +168,12 @@ export function AgentStatus() {
       setSnapshots((prev) => [...prev, commodities]);
       fetchedSnapshots++;
 
-      // Phase 2: Send to Claude (with 55s client-side timeout)
+      // Phase 3: Stream Claude analysis via SSE
       setPhase("thinking");
+      // Clear previous tool calls to show fresh stream
+      setToolCalls([]);
+      setGeneratedSignals([]);
+
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 55_000);
       const res = await fetch("/api/agent/analyze", {
@@ -178,35 +181,74 @@ export function AgentStatus() {
         signal: controller.signal,
       });
       clearTimeout(timeout);
-      const data = await res.json();
 
-      if (data.success) {
-        // Replace previous results with fresh data
-        if (data.toolCalls?.length) {
-          setToolCalls(data.toolCalls);
-        }
-        if (data.iterations) {
-          setIterations(data.iterations);
-        }
+      if (!res.ok || !res.body) {
+        throw new Error("Analysis request failed");
+      }
 
-        // Clear previous signals, then show new ones one by one
-        if (data.signals?.length) {
-          setGeneratedSignals([]);
-          for (const signal of data.signals) {
-            setGeneratedSignals((prev) => [
-              ...prev,
-              {
-                asset: signal.asset,
-                direction: signal.direction,
-                confidence: signal.confidence,
-              },
-            ]);
-            await new Promise((r) => setTimeout(r, 300));
+      // Parse SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalData: Record<string, unknown> | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Split on double newlines (SSE event delimiter)
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop()!; // Keep incomplete part
+
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          const lines = part.split("\n");
+          let eventType = "";
+          let dataStr = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) eventType = line.slice(7);
+            else if (line.startsWith("data: ")) dataStr = line.slice(6);
           }
+          if (!eventType || !dataStr) continue;
 
-          // Persist signals to localStorage so they survive cold starts
+          try {
+            const parsed = JSON.parse(dataStr);
+
+            if (eventType === "tool_call") {
+              setToolCalls((prev) => [...prev, { tool: parsed.tool, summary: parsed.summary }]);
+            } else if (eventType === "signal") {
+              setGeneratedSignals((prev) => [
+                ...prev,
+                { asset: parsed.asset, direction: parsed.direction, confidence: parsed.confidence },
+              ]);
+            } else if (eventType === "iteration") {
+              setIterations(parsed.iteration);
+            } else if (eventType === "complete") {
+              finalData = parsed;
+            } else if (eventType === "error") {
+              setError(parsed.error || "Analysis failed");
+            }
+          } catch {
+            // Skip malformed JSON
+          }
+        }
+      }
+
+      if (finalData && (finalData as { success?: boolean }).success) {
+        const data = finalData as {
+          success: boolean;
+          signalCount: number;
+          signals: Array<{ id: string; asset: string; direction: string; confidence: number } & Record<string, unknown>>;
+          trades: Array<{ status: string } & Record<string, unknown>>;
+          toolCalls: Array<{ tool: string; summary: string }>;
+          iterations: number;
+        };
+
+        // Persist signals to localStorage
+        if (data.signals?.length) {
           const cachedSigs = getCachedSignals();
-          const merged = mergeSignals(data.signals, cachedSigs);
+          const merged = mergeSignals(data.signals as never[], cachedSigs);
           setCachedSignals(merged);
 
           queryClient.setQueryData<unknown[]>(
@@ -215,7 +257,7 @@ export function AgentStatus() {
               const existing = (old ?? []) as Record<string, unknown>[];
               const existingIds = new Set(existing.map((s) => s.id));
               const newSignals = data.signals.filter(
-                (s: Record<string, unknown>) => !existingIds.has(s.id)
+                (s) => !existingIds.has(s.id)
               );
               return [...newSignals, ...existing];
             }
@@ -229,11 +271,9 @@ export function AgentStatus() {
           const tradesRes = await fetch("/api/trades");
           const tradesData = await tradesRes.json();
           if (Array.isArray(tradesData)) {
-            // Persist trades to localStorage
             const cachedTrades = getCachedTrades();
             const mergedTrades = mergeTrades(tradesData, cachedTrades);
             setCachedTrades(mergedTrades);
-
             setTradeCount(
               mergedTrades.filter(
                 (t: { status: string }) => t.status === "confirmed"
@@ -251,10 +291,10 @@ export function AgentStatus() {
         setSignalCount(data.signalCount);
         setPhase("done");
 
-        // Persist full scan result so it shows on page load
+        // Persist full scan result
         setLastScanResult({
           toolCalls: data.toolCalls ?? [],
-          signals: (data.signals ?? []).map((s: { asset: string; direction: string; confidence: number }) => ({
+          signals: (data.signals ?? []).map((s) => ({
             asset: s.asset,
             direction: s.direction,
             confidence: s.confidence,
@@ -269,18 +309,17 @@ export function AgentStatus() {
           })),
           iterations: data.iterations ?? 0,
           signalCount: data.signalCount ?? 0,
-          tradeCount: null, // updated below if available
+          tradeCount: null,
           timestamp: scanTime,
         });
-      } else {
-        setError(data.error || "Analysis failed");
-        // Keep phase as "done" if we have snapshots, so market data stays visible
+      } else if (!error) {
+        // Stream ended without complete event
+        setError("Analysis incomplete — try again");
         if (fetchedSnapshots > 0) setPhase("done");
         else setPhase("idle");
       }
     } catch {
       setError("Claude AI timed out — market data collected, try again for full analysis");
-      // Keep snapshots visible so judges see the market data we already fetched
       if (fetchedSnapshots > 0) setPhase("done");
       else setPhase("idle");
     } finally {
@@ -412,7 +451,7 @@ export function AgentStatus() {
             </div>
 
             {/* AI thinking phase */}
-            {phase === "thinking" && (
+            {phase === "thinking" && toolCalls.length === 0 && (
               <div className="flex items-center gap-2 text-xs pt-1 border-t">
                 <Brain className="size-3 text-muted-foreground animate-pulse" />
                 <span className="text-muted-foreground">
@@ -461,6 +500,9 @@ export function AgentStatus() {
                     <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                       Agent Tool Calls
                     </p>
+                    {analyzing && phase === "thinking" && (
+                      <Loader2 className="size-2.5 animate-spin text-emerald-500" />
+                    )}
                   </div>
                   {iterations && (
                     <span className="text-[10px] text-muted-foreground font-mono">
@@ -470,13 +512,18 @@ export function AgentStatus() {
                 </div>
                 <div className="bg-zinc-950 rounded-md p-2 font-mono text-[11px] space-y-0.5 max-h-32 overflow-y-auto">
                   {toolCalls.map((tc, i) => (
-                    <div key={i} className="flex items-start gap-1.5">
+                    <div key={i} className="flex items-start gap-1.5 animate-in fade-in slide-in-from-left-2 duration-300">
                       <ChevronRight className="size-3 text-emerald-400 shrink-0 mt-0.5" />
                       <span className="text-emerald-400">{tc.tool}</span>
                       <span className="text-zinc-500">→</span>
                       <span className="text-zinc-300 truncate">{tc.summary}</span>
                     </div>
                   ))}
+                  {analyzing && phase === "thinking" && (
+                    <div className="flex items-center gap-1.5 text-zinc-500">
+                      <span className="animate-pulse">▌</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
