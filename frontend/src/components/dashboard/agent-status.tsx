@@ -34,6 +34,8 @@ import {
   mergeTrades,
   getLastScanTime,
   setLastScanTime,
+  getLastScanResult,
+  setLastScanResult,
 } from "@/lib/local-cache";
 
 type AnalysisPhase =
@@ -70,10 +72,38 @@ export function AgentStatus() {
   const [persistedScanTime, setPersistedScanTime] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  // Restore last scan time from localStorage on mount
+  // Map market name → icon for restoring cached snapshots
+  const marketIcons: Record<string, React.ReactNode> = {
+    "Mento FX": <DollarSign className="size-3" />,
+    Forex: <DollarSign className="size-3" />,
+    Crypto: <Bitcoin className="size-3" />,
+    Commodities: <Gem className="size-3" />,
+  };
+
+  // Restore last scan results from localStorage on mount
   useEffect(() => {
     const saved = getLastScanTime();
     if (saved) setPersistedScanTime(saved);
+
+    const cached = getLastScanResult();
+    if (cached) {
+      setToolCalls(cached.toolCalls);
+      setGeneratedSignals(cached.signals);
+      setIterations(cached.iterations);
+      setSignalCount(cached.signalCount);
+      if (cached.tradeCount !== null) setTradeCount(cached.tradeCount);
+      setSnapshots(
+        cached.snapshots.map((s) => ({
+          market: s.market,
+          icon: marketIcons[s.market] ?? <DollarSign className="size-3" />,
+          assets: s.assets as AssetPrice[],
+          loaded: true,
+        }))
+      );
+      setPhase("done");
+      setLastAnalysis(new Date(cached.timestamp).toLocaleTimeString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchMarket = useCallback(
@@ -221,6 +251,28 @@ export function AgentStatus() {
         setLastAnalysis(new Date().toLocaleTimeString());
         setSignalCount(data.signalCount);
         setPhase("done");
+
+        // Persist full scan result so it shows on page load
+        setLastScanResult({
+          toolCalls: data.toolCalls ?? [],
+          signals: (data.signals ?? []).map((s: { asset: string; direction: string; confidence: number }) => ({
+            asset: s.asset,
+            direction: s.direction,
+            confidence: s.confidence,
+          })),
+          snapshots: [mento, forex, crypto, commodities].map((s) => ({
+            market: s.market,
+            assets: s.assets.map((a) => ({
+              symbol: a.symbol,
+              price: a.price,
+              change24h: a.change24h,
+            })),
+          })),
+          iterations: data.iterations ?? 0,
+          signalCount: data.signalCount ?? 0,
+          tradeCount: null, // updated below if available
+          timestamp: scanTime,
+        });
       } else {
         setError(data.error || "Analysis failed");
         // Keep phase as "done" if we have snapshots, so market data stays visible
