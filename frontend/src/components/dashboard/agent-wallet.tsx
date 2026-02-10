@@ -63,6 +63,7 @@ export function AgentWallet() {
     trades: [],
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     async function fetchBalances() {
@@ -131,7 +132,7 @@ export function AgentWallet() {
           });
         }
       } catch {
-        // Silently fail
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -170,11 +171,13 @@ export function AgentWallet() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
             ))}
           </div>
+        ) : error ? (
+          <p className="text-xs text-muted-foreground py-2">Unable to load wallet data — Celo RPC may be slow. Refresh to retry.</p>
         ) : (
           <>
             {/* Primary stats — what the agent has DONE */}
@@ -190,7 +193,7 @@ export function AgentWallet() {
               <div className="border rounded-lg p-3 space-y-1">
                 <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wider">
                   <TrendingUp className="size-2.5" />
-                  Cumulative P&L
+                  Spread Captured
                 </div>
                 <p className={`text-xl font-mono font-bold ${stats.cumulativePnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                   {stats.cumulativePnl >= 0 ? "+" : ""}{stats.cumulativePnl.toFixed(2)}%

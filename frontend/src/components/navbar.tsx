@@ -79,21 +79,29 @@ export function Navbar() {
       </div>
       {mobileOpen && (
         <nav className="md:hidden px-6 pb-3 flex flex-col gap-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "px-3 py-2 text-sm rounded-md transition-colors",
-                pathname === link.href
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            const count = link.countKey ? counts[link.countKey] : 0;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-1.5",
+                  pathname === link.href
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                )}
+              >
+                {link.label}
+                {count > 0 && (
+                  <span className="text-[10px] font-mono bg-muted-foreground/10 text-muted-foreground px-1.5 py-0.5 rounded-full leading-none">
+                    {count}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </nav>
       )}
     </header>

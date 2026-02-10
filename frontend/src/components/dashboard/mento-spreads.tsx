@@ -146,9 +146,14 @@ export function MentoSpreads() {
               </CardContent>
             </Card>
           </>
-        ) : rates ? (
+        ) : rates && rates.length > 0 ? (
           rates.map((rate) => <SpreadCard key={rate.pair} rate={rate} />)
-        ) : null}
+        ) : (
+          <div className="col-span-2 text-center py-6 text-muted-foreground">
+            <p className="text-sm">Unable to fetch Mento rates</p>
+            <p className="text-xs mt-1">Celo RPC may be slow — refresh to retry</p>
+          </div>
+        )}
       </div>
     </div>
   );
