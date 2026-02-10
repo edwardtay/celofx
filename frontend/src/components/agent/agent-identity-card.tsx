@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAgentTokenURI, useAgentOwner, useAgentId } from "@/hooks/use-agent-profile";
 import { formatAddress } from "@/lib/format";
-import { Bot, ExternalLink, Activity } from "lucide-react";
+import { ExternalLink, Activity } from "lucide-react";
+import Image from "next/image";
 import { IDENTITY_REGISTRY_ADDRESS } from "@/config/contracts";
 import { useEffect, useState } from "react";
 import { useSignals } from "@/hooks/use-signals";
@@ -56,9 +57,13 @@ export function AgentIdentityCard() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-full bg-primary text-primary-foreground">
-              <Bot className="size-5" />
-            </div>
+            <Image
+              src="/agent-avatar.png"
+              alt="CeloFX Agent"
+              width={40}
+              height={40}
+              className="size-10 rounded-full object-cover"
+            />
             <div>
               <CardTitle className="text-lg font-display">
                 {displayName}
