@@ -7,7 +7,7 @@ import { formatAddress } from "@/lib/format";
 import { createPublicClient, http, formatUnits } from "viem";
 import { celo } from "viem/chains";
 import { MENTO_TOKENS } from "@/config/contracts";
-import { Wallet, ExternalLink, Bot, TrendingUp, Clock } from "lucide-react";
+import { Wallet, ExternalLink, Bot, TrendingUp, Clock, ArrowRightLeft } from "lucide-react";
 import type { Trade } from "@/lib/types";
 
 const AGENT_ADDRESS = "0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23" as const;
@@ -217,17 +217,34 @@ export function AgentWallet() {
           )}
         </div>
 
-        {!loading && stats.cumulativePnl > 0 && (
+        {!loading && stats.tradeCount > 0 && (
           <div className="flex items-center justify-between border-t pt-2">
-            <div className="flex items-center gap-1.5 text-xs">
-              <TrendingUp className="size-3 text-emerald-600" />
-              <span className="text-muted-foreground">Cumulative P&L:</span>
-              <span className="font-mono font-semibold text-emerald-600">
-                +{stats.cumulativePnl.toFixed(2)}%
-              </span>
+            <div className="flex items-center gap-1.5 text-xs flex-wrap">
+              {stats.cumulativePnl > 0 ? (
+                <>
+                  <TrendingUp className="size-3 text-emerald-600" />
+                  <span className="text-muted-foreground">Cumulative P&L:</span>
+                  <span className="font-mono font-semibold text-emerald-600">
+                    +{stats.cumulativePnl.toFixed(2)}%
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ArrowRightLeft className="size-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">P&L:</span>
+                  <span className="font-mono font-semibold">
+                    {stats.cumulativePnl.toFixed(2)}%
+                  </span>
+                </>
+              )}
               <span className="text-muted-foreground">
-                across {stats.tradeCount} trades
+                across {stats.tradeCount} swap{stats.tradeCount !== 1 ? "s" : ""}
               </span>
+              {balances.every((b) => parseFloat(b.balance) === 0) && stats.tradeCount > 0 && (
+                <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                  Stablecoins fully deployed
+                </span>
+              )}
             </div>
             {stats.latestSwapHash && (
               <a

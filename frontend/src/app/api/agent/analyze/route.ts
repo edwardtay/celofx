@@ -29,6 +29,7 @@ export async function POST() {
   const client = new Anthropic({ apiKey });
   let signalCount = 0;
   const swapTxs: Array<{ fromToken: string; toToken: string; amount: string; rate: number; expectedOut: string }> = [];
+  const toolCallLog: Array<{ tool: string; summary: string; timestamp: number }> = [];
 
   try {
     const messages: Anthropic.MessageParam[] = [
@@ -78,16 +79,22 @@ export async function POST() {
           case "fetch_crypto": {
             const data = await fetchCryptoPrices();
             result = JSON.stringify(data);
+            const top = data.slice(0, 3).map((d: { symbol: string; price: number }) => `${d.symbol} $${d.price.toLocaleString()}`).join(", ");
+            toolCallLog.push({ tool: "fetch_crypto", summary: top || "Fetched crypto prices", timestamp: Date.now() });
             break;
           }
           case "fetch_forex": {
             const data = await fetchForexRates();
             result = JSON.stringify(data);
+            const top = data.slice(0, 3).map((d: { symbol: string; price: number }) => `${d.symbol} ${d.price}`).join(", ");
+            toolCallLog.push({ tool: "fetch_forex", summary: top || "Fetched forex rates", timestamp: Date.now() });
             break;
           }
           case "fetch_commodities": {
             const data = fetchCommodityPrices();
             result = JSON.stringify(data);
+            const top = data.slice(0, 2).map((d: { symbol: string; price: number }) => `${d.symbol} $${d.price.toLocaleString()}`).join(", ");
+            toolCallLog.push({ tool: "fetch_commodities", summary: top || "Fetched commodity prices", timestamp: Date.now() });
             break;
           }
           case "fetch_mento_rates": {
@@ -96,6 +103,7 @@ export async function POST() {
               const onChainData = await getMentoOnChainRates();
               if (onChainData.length > 0) {
                 result = JSON.stringify(onChainData);
+                toolCallLog.push({ tool: "fetch_mento_rates", summary: `${onChainData.length} pairs from Broker (on-chain)`, timestamp: Date.now() });
                 break;
               }
             } catch {
@@ -103,6 +111,7 @@ export async function POST() {
             }
             const data = await fetchMentoRates();
             result = JSON.stringify(data);
+            toolCallLog.push({ tool: "fetch_mento_rates", summary: `${data.length} Mento pairs (CoinGecko)`, timestamp: Date.now() });
             break;
           }
           case "generate_fx_action": {
@@ -127,6 +136,7 @@ export async function POST() {
               signalId: signal.id,
               message: `FX action: SWAP ${input.fromToken} → ${input.toToken} (${signal.confidence}% confidence)`,
             });
+            toolCallLog.push({ tool: "generate_fx_action", summary: `${input.fromToken}→${input.toToken} ${input.spreadPct || ""}% spread`, timestamp: Date.now() });
             break;
           }
           case "generate_signal": {
@@ -152,6 +162,7 @@ export async function POST() {
               signalId: signal.id,
               message: `Signal generated: ${signal.direction.toUpperCase()} ${signal.asset} (${signal.confidence}% confidence)`,
             });
+            toolCallLog.push({ tool: "generate_signal", summary: `${signal.direction.toUpperCase()} ${signal.asset} ${signal.confidence}%`, timestamp: Date.now() });
             break;
           }
           case "execute_mento_swap": {
@@ -260,6 +271,12 @@ export async function POST() {
               addSignal(signal);
               signalCount++;
 
+              toolCallLog.push({
+                tool: "execute_mento_swap",
+                summary: `${amount} ${fromToken}→${toToken} ${txStatus === "confirmed" ? "EXECUTED" : txStatus}`,
+                timestamp: Date.now(),
+              });
+
               result = JSON.stringify({
                 success: true,
                 signalId: signal.id,
@@ -329,6 +346,8 @@ export async function POST() {
       signals: agentSignals,
       trades: agentTrades,
       swaps: swapTxs,
+      toolCalls: toolCallLog,
+      iterations,
       message: `Analysis complete. Generated ${signalCount} signals${swapTxs.length > 0 ? ` and ${swapTxs.length} swap(s)` : ""}.`,
     });
   } catch {

@@ -18,6 +18,8 @@ import {
   TrendingUp,
   TrendingDown,
   Clock,
+  Terminal,
+  ChevronRight,
 } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { formatTimeAgo } from "@/lib/format";
@@ -61,6 +63,10 @@ export function AgentStatus() {
   const [generatedSignals, setGeneratedSignals] = useState<
     { asset: string; direction: string; confidence: number }[]
   >([]);
+  const [toolCalls, setToolCalls] = useState<
+    { tool: string; summary: string }[]
+  >([]);
+  const [iterations, setIterations] = useState<number | null>(null);
   const [persistedScanTime, setPersistedScanTime] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
@@ -92,6 +98,8 @@ export function AgentStatus() {
     setError(null);
     setSnapshots([]);
     setGeneratedSignals([]);
+    setToolCalls([]);
+    setIterations(null);
 
     try {
       // Phase 1: Fetch Mento rates first (the core product)
@@ -134,6 +142,14 @@ export function AgentStatus() {
       const data = await res.json();
 
       if (data.success) {
+        // Capture tool call log from API
+        if (data.toolCalls?.length) {
+          setToolCalls(data.toolCalls);
+        }
+        if (data.iterations) {
+          setIterations(data.iterations);
+        }
+
         // Show signals appearing one by one
         if (data.signals?.length) {
           for (const signal of data.signals) {
@@ -373,6 +389,35 @@ export function AgentStatus() {
                       ) : null}
                       {sig.asset} {sig.confidence}%
                     </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tool call log — shows Claude's actual tool invocations */}
+            {toolCalls.length > 0 && (
+              <div className="border-t pt-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Terminal className="size-3 text-muted-foreground" />
+                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+                      Agent Tool Calls
+                    </p>
+                  </div>
+                  {iterations && (
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {iterations} iteration{iterations !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                <div className="bg-zinc-950 rounded-md p-2 font-mono text-[11px] space-y-0.5 max-h-32 overflow-y-auto">
+                  {toolCalls.map((tc, i) => (
+                    <div key={i} className="flex items-start gap-1.5">
+                      <ChevronRight className="size-3 text-emerald-400 shrink-0 mt-0.5" />
+                      <span className="text-emerald-400">{tc.tool}</span>
+                      <span className="text-zinc-500">→</span>
+                      <span className="text-zinc-300 truncate">{tc.summary}</span>
+                    </div>
                   ))}
                 </div>
               </div>
