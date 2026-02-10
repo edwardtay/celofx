@@ -42,9 +42,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${instrumentSerif.variable} ${outfit.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+        suppressHydrationWarning
       >
         <Providers>{children}</Providers>
       </body>

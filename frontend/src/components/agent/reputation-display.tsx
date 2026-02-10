@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -17,24 +18,26 @@ import { formatAddress, formatTimeAgo } from "@/lib/format";
 import { Star, MessageSquare, ExternalLink, ShieldCheck } from "lucide-react";
 
 // Verified on-chain feedback (real Celoscan transactions)
-const seedFeedback = [
+// Using fixed relative offsets (in days) instead of Date.now() to avoid SSR hydration mismatch
+const SEED_OFFSETS_DAYS = [1.5, 4.3, 6.7];
+const seedFeedbackData = [
   {
     reviewer: "0xa09A571e7eeFa2E543E0D3C6B7B8a264A783d73c",
     value: 90,
     tag2: "BTC long call at 92k was spot on. Great analysis across markets.",
-    timestamp: Date.now() - 1.5 * 24 * 60 * 60 * 1000,
+    offsetDays: SEED_OFFSETS_DAYS[0],
   },
   {
     reviewer: "0xa09A571e7eeFa2E543E0D3C6B7B8a264A783d73c",
     value: 80,
     tag2: "Forex signals have been consistently profitable. EUR/USD short was perfect timing.",
-    timestamp: Date.now() - 4.3 * 24 * 60 * 60 * 1000,
+    offsetDays: SEED_OFFSETS_DAYS[1],
   },
   {
     reviewer: "0x89eaD11556Ab0617a81e50DDFeDb4bBceEEF2896",
     value: 80,
     tag2: "Gold long at 2800 printing. Commodity analysis is underrated.",
-    timestamp: Date.now() - 6.7 * 24 * 60 * 60 * 1000,
+    offsetDays: SEED_OFFSETS_DAYS[2],
   },
 ];
 
@@ -46,6 +49,17 @@ export function ReputationDisplay() {
   const agentId = useAgentId();
   const { data: summary } = useReputationSummary();
   const { data: feedbackData } = useReputationFeedback();
+  const [now, setNow] = useState<number | null>(null);
+
+  // Compute timestamps only on client to avoid hydration mismatch
+  useEffect(() => {
+    setNow(Date.now());
+  }, []);
+
+  const seedFeedback = seedFeedbackData.map((f) => ({
+    ...f,
+    timestamp: (now ?? 0) - (f.offsetDays ?? 1) * 24 * 60 * 60 * 1000,
+  }));
 
   const onChainCount = summary ? Number((summary as [bigint, bigint, number])[0]) : 0;
   const summaryValue = summary ? Number((summary as [bigint, bigint, number])[1]) : 0;
@@ -53,7 +67,7 @@ export function ReputationDisplay() {
   const hasOnChainData = onChainCount > 0;
   const avgValue = hasOnChainData
     ? summaryValue / Math.pow(10, summaryDecimals) / onChainCount
-    : seedFeedback.reduce((sum, f) => sum + f.value, 0) / seedFeedback.length;
+    : seedFeedbackData.reduce((sum, f) => sum + f.value, 0) / seedFeedbackData.length;
   const avgStars = Math.round(avgValue / 20);
 
   type FeedbackResult = [string[], bigint[], bigint[], number[], string[], string[], boolean[]];
@@ -66,7 +80,7 @@ export function ReputationDisplay() {
           reviewer: client,
           value: Number(values[i]),
           tag2: tag2s[i] || "",
-          timestamp: Date.now() - (offsets[i] ?? (i * 2.3 + 1)) * 24 * 60 * 60 * 1000,
+          timestamp: (now ?? 0) - (offsets[i] ?? (i * 2.3 + 1)) * 24 * 60 * 60 * 1000,
         }));
       })()
     : seedFeedback;
@@ -130,7 +144,7 @@ export function ReputationDisplay() {
                     </a>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {formatTimeAgo(entry.timestamp)}
+                    {now ? formatTimeAgo(entry.timestamp) : ""}
                   </span>
                 </div>
                 {entry.tag2 && (
