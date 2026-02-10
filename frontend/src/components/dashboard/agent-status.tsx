@@ -262,15 +262,7 @@ export function AgentStatus() {
                 {phaseLabel[phase]}
               </span>
             )}
-            {!analyzing && lastAnalysis && phase === "done" && (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                <CheckCircle2 className="size-3.5" />
-                {lastAnalysis}
-                {signalCount !== null && ` · ${signalCount} signals`}
-                {tradeCount !== null && ` · ${tradeCount} trades`}
-              </div>
-            )}
-            {!analyzing && phase === "idle" && lastAnalysis && (
+            {!analyzing && lastAnalysis && (
               <div className="flex items-center gap-1.5 text-xs text-emerald-600">
                 <CheckCircle2 className="size-3.5" />
                 {lastAnalysis}
