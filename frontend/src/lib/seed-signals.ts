@@ -14,7 +14,7 @@ export const seedSignals: Signal[] = [
     summary:
       "Mento cUSD→cEUR rate -0.69% below real forex. Wait for spread to narrow before swapping.",
     reasoning:
-      "Mento Broker getAmountOut() returns 0.8355 cEUR per cUSD vs real EUR/USD at 0.8413. Negative spread means Mento gives less cEUR than the real forex rate. ECB holding rates steady — spread likely to narrow as Mento oracle updates. Monitor for reversal.",
+      "Mento Broker getAmountOut(1e18 cUSD) returned 0.8355e18 cEUR. Real EUR/USD at 1.1886 → inverted = 0.8413. Spread: (0.8355-0.8413)/0.8413 = -0.69%. Oracle last synced 47 min ago. ECB held rates at 2.65% — no policy shock expected. Spread likely narrows toward 0% within 2-4h as SortedOracles refresh. Wait for positive flip before executing.",
     entryPrice: 0.8355,
     targetPrice: 0.8413,
     tier: "free",
@@ -29,7 +29,7 @@ export const seedSignals: Signal[] = [
     summary:
       "cUSD→cREAL spread near neutral at -0.25%. No actionable opportunity — continue monitoring.",
     reasoning:
-      "Mento Broker returns 5.18 cREAL per cUSD vs real USD/BRL at 5.19. Spread of -0.25% is within noise range. Brazil's Selic rate at 13.25% makes cREAL attractive long-term but current Mento rate doesn't offer edge over traditional FX.",
+      "Mento Broker getAmountOut(1e18 cUSD) returned 5.18e18 cREAL. CoinGecko USD/BRL spot at 5.19. Spread: (5.18-5.19)/5.19 = -0.19%. Below 0.3% auto-execution threshold. Selic at 13.25% creates carry demand for cREAL but on-chain liquidity is thin. Gas cost at 0.001 CELO makes sub-0.3% spreads unprofitable. Monitoring for BCB rate decision impact.",
     entryPrice: 5.18,
     targetPrice: 5.19,
     tier: "free",
@@ -128,10 +128,27 @@ export const seedSignals: Signal[] = [
     summary:
       "Cross-pair cEUR→cREAL via Mento router. Current spread near neutral — waiting for divergence.",
     reasoning:
-      "Mento implied EUR/BRL rate at 6.20 vs real at 6.17. Minimal edge (0.5%). Route: cEUR → cUSD → cREAL on Mento Broker. Need >1% spread to cover gas. Monitoring.",
+      "Implied cross-rate via Mento: cEUR→cUSD (1.1853) then cUSD→cREAL (5.18) gives EUR/BRL = 6.20. Real EUR/BRL at 6.17. Delta: +0.49%. But this is a 2-leg route requiring two Broker swaps (2x gas, 2x approval). Net spread after gas: ~0.3%. Below threshold for auto-execution on cross-pairs. Need >1% for multi-hop profitability.",
     entryPrice: 6.20,
     targetPrice: 6.17,
     tier: "premium",
     timestamp: h(9),
+  },
+  // Low-confidence signal for realism
+  {
+    id: "seed-9",
+    market: "forex",
+    asset: "GBP/USD",
+    direction: "hold",
+    confidence: 48,
+    summary:
+      "GBP/USD directionless — no Mento pair exists. Low relevance to stablecoin FX strategy.",
+    reasoning:
+      "No cGBP on Mento, so no on-chain arbitrage angle. Cable trading at 1.2410 in tight 30-pip range. BoE rate path unclear. Signal retained for cross-market context only — no actionable trade for the agent.",
+    entryPrice: 1.241,
+    targetPrice: 1.255,
+    stopLoss: 1.228,
+    tier: "free",
+    timestamp: h(10),
   },
 ];

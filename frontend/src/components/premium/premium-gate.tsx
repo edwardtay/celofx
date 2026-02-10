@@ -308,7 +308,7 @@ export function PremiumGate({
             {!walletClient && !isDemo && (
               <div className="flex flex-col items-center gap-1">
                 <p className="text-xs text-amber-600">
-                  Connect your wallet on Celo to unlock
+                  Connect wallet to pay $0.01 cUSD via x402
                 </p>
                 <a
                   href="/premium?demo=true"

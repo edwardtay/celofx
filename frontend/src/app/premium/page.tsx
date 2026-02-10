@@ -38,7 +38,7 @@ const x402ResponseExample = `// GET /api/premium-signals -> HTTP 402
 }`;
 
 export default function PremiumPage() {
-  const [showSpec, setShowSpec] = useState(false);
+  const [showSpec, setShowSpec] = useState(true);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -54,7 +54,7 @@ export default function PremiumPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div className="border rounded-lg p-4 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Zap className="size-4 text-amber-500" />

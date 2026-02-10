@@ -63,7 +63,7 @@ export default function Home() {
 
         <TrackRecord />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <Link href="/agent" className="flex items-start gap-3 border rounded-lg p-3 hover:bg-accent/50 transition-colors group">
             <Shield className="size-4 mt-0.5 text-muted-foreground shrink-0" />
             <div className="flex-1">

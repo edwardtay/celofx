@@ -51,7 +51,7 @@ export default function TradesPage() {
         </div>
 
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="border rounded-lg p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
                 <Activity className="size-3" />
@@ -91,7 +91,7 @@ export default function TradesPage() {
             <div className="border rounded-lg p-3 space-y-1">
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
                 <TrendingUp className="size-3" />
-                Cumulative P&L
+                Spread Captured
               </div>
               <p className={`text-lg font-mono font-semibold ${stats.cumulativePnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                 {stats.cumulativePnl >= 0 ? "+" : ""}{stats.cumulativePnl.toFixed(2)}%
