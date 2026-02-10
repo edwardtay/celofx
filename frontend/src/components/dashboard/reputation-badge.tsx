@@ -4,7 +4,7 @@ import { useReputationSummary } from "@/hooks/use-agent-profile";
 import { Star, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
-// Known on-chain data for Agent #4: 5 feedbacks, scores 90+80+95+75 = avg ~85/100
+// Known on-chain data for FX Arbitrage Agent (ERC-8004 #4): 5 feedbacks, scores 90+80+95+75 = avg ~85/100
 const FALLBACK_COUNT = 5;
 const FALLBACK_STARS = 4;
 

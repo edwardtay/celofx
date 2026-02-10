@@ -82,44 +82,38 @@ export default async function Image() {
           Autonomous FX Agent
         </div>
 
-        {/* Market pills */}
+        {/* Live stats */}
         <div
           style={{
             display: "flex",
-            gap: "12px",
+            gap: "24px",
             marginBottom: "32px",
           }}
         >
           {[
-            { label: "cUSD", color: "#35d07f" },
-            { label: "cEUR", color: "#3b82f6" },
-            { label: "cBRL", color: "#f59e0b" },
-            { label: "Forex", color: "#8b5cf6" },
-          ].map((m) => (
+            { label: "On-Chain Swaps", value: "3", color: "#10b981" },
+            { label: "Cumulative P&L", value: "+0.88%", color: "#10b981" },
+            { label: "Markets", value: "4", color: "#3b82f6" },
+            { label: "Signals", value: "8", color: "#8b5cf6" },
+          ].map((s) => (
             <div
-              key={m.label}
+              key={s.label}
               style={{
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
-                gap: "6px",
-                padding: "8px 16px",
-                borderRadius: "20px",
-                border: `2px solid ${m.color}30`,
-                background: `${m.color}10`,
-                fontSize: "18px",
-                color: m.color,
-                fontWeight: 600,
+                padding: "12px 20px",
+                borderRadius: "12px",
+                border: "1px solid #e5ddd4",
+                background: "#ffffff",
               }}
             >
-              <div
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  background: m.color,
-                }}
-              />
-              {m.label}
+              <div style={{ fontSize: "28px", fontWeight: 700, color: s.color }}>
+                {s.value}
+              </div>
+              <div style={{ fontSize: "13px", color: "#8b7d6e" }}>
+                {s.label}
+              </div>
             </div>
           ))}
         </div>
@@ -127,11 +121,11 @@ export default async function Image() {
         {/* Bottom tagline */}
         <div
           style={{
-            fontSize: "18px",
+            fontSize: "16px",
             color: "#8b7d6e",
           }}
         >
-          Mento stablecoin trading · ERC-8004 verified · x402 micropayments · Celo
+          FX Arbitrage Agent · ERC-8004 · Mento Broker · x402 · Celo mainnet
         </div>
       </div>
     ),

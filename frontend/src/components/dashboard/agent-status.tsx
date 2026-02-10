@@ -341,7 +341,7 @@ export function AgentStatus() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <Activity className="size-4 text-emerald-500" />
-              <span className="text-sm font-medium">Agent #4</span>
+              <span className="text-sm font-medium">FX Arbitrage Agent</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />

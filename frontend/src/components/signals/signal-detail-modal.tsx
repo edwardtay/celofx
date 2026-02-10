@@ -135,7 +135,7 @@ export function SignalDetailModal({
           <div className="flex items-center justify-between text-xs text-muted-foreground border-t pt-3">
             <div className="flex items-center gap-1.5">
               <Bot className="size-3" />
-              Agent #4 · ERC-8004
+              FX Arbitrage Agent · ERC-8004
             </div>
             <span>{formatTimeAgo(signal.timestamp)}</span>
           </div>

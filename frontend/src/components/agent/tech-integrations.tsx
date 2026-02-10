@@ -6,7 +6,7 @@ const integrations = [
   {
     name: "ERC-8004",
     desc: "Agent identity + reputation registry",
-    detail: "Agent #4 registered with on-chain metadata, 5 reputation feedbacks stored permanently",
+    detail: "FX Arbitrage Agent registered with on-chain metadata, 5 reputation feedbacks stored permanently",
     link: "https://celoscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     color: "border-l-emerald-500",
   },

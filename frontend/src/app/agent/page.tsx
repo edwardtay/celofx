@@ -18,7 +18,7 @@ export default function AgentPage() {
       <main className="flex-1 px-6 py-6 max-w-4xl mx-auto w-full space-y-6">
         <div>
           <h1 className="text-2xl font-display tracking-tight">
-            Agent Profile
+            FX Arbitrage Agent
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Identity and reputation stored permanently on Celo via ERC-8004
@@ -111,7 +111,7 @@ export default function AgentPage() {
                 className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ExternalLink className="size-3 shrink-0" />
-                Agent #4 registration
+                ERC-8004 registration (#4)
               </a>
               <a
                 href="https://celoscan.io/tx/0x238e1f606bcdab5789ef4f7dc5c69147e2ff5779bfd2a69605de3793636be70c"
