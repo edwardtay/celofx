@@ -126,10 +126,8 @@ export function AgentStatus() {
   const runAnalysis = async () => {
     setAnalyzing(true);
     setError(null);
-    setSnapshots([]);
-    setGeneratedSignals([]);
-    setToolCalls([]);
-    setIterations(null);
+    setSnapshots([]); // Snapshots rebuild immediately as markets load
+    // Keep previous tool calls + signals visible until new ones arrive
     let fetchedSnapshots = 0;
 
     try {
@@ -183,7 +181,7 @@ export function AgentStatus() {
       const data = await res.json();
 
       if (data.success) {
-        // Capture tool call log from API
+        // Replace previous results with fresh data
         if (data.toolCalls?.length) {
           setToolCalls(data.toolCalls);
         }
@@ -191,8 +189,9 @@ export function AgentStatus() {
           setIterations(data.iterations);
         }
 
-        // Show signals appearing one by one
+        // Clear previous signals, then show new ones one by one
         if (data.signals?.length) {
+          setGeneratedSignals([]);
           for (const signal of data.signals) {
             setGeneratedSignals((prev) => [
               ...prev,
