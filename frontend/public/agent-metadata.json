@@ -21,6 +21,19 @@
       "name": "A2A",
       "endpoint": "https://celofx.vercel.app/.well-known/agent-card.json",
       "version": "0.3.0"
+    },
+    {
+      "name": "OASF",
+      "endpoint": "https://github.com/agntcy/oasf/",
+      "version": "0.8.0",
+      "skills": [
+        "analytical_skills/mathematical_reasoning",
+        "tool_interaction"
+      ],
+      "domains": [
+        "finance_and_business/investment_services",
+        "finance_and_business/finance"
+      ]
     }
   ],
   "x402Support": true,
