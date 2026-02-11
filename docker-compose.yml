@@ -1,6 +1,6 @@
 services:
   celofx:
-    build: .
+    image: edwardtay/celofx:latest
     ports:
       - "3000:3000"
     volumes:
@@ -11,5 +11,8 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - AGENT_PRIVATE_KEY=${AGENT_PRIVATE_KEY}
       - AGENT_WALLET_ADDRESS=0x6652AcDc623b7CCd52E115161d84b949bAf3a303
+      - AGENT_OWNER_ADDRESS=0x6652AcDc623b7CCd52E115161d84b949bAf3a303
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
+      - AGENT_API_SECRET=${AGENT_API_SECRET}
+      - CRON_SECRET=${CRON_SECRET}
     restart: unless-stopped

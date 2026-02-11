@@ -16,6 +16,7 @@ import {
   BarChart3,
   Activity,
   ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import type { Trade } from "@/lib/types";
 
@@ -65,6 +66,7 @@ export function AgentWallet() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [teeStatus, setTeeStatus] = useState<"active" | "self-declared" | null>(null);
 
   useEffect(() => {
     async function fetchBalances() {
@@ -74,6 +76,12 @@ export function AgentWallet() {
           { symbol: "cEUR", address: MENTO_TOKENS.cEUR },
           { symbol: "cREAL", address: MENTO_TOKENS.cREAL },
         ] as const;
+
+        // Fetch TEE status
+        fetch("/api/attestation")
+          .then((r) => r.json())
+          .then((d) => setTeeStatus(d?.tee?.status ?? "self-declared"))
+          .catch(() => setTeeStatus("self-declared"));
 
         const [tokenResults, nativeBalance, tradesRes] = await Promise.all([
           Promise.all(
@@ -159,6 +167,21 @@ export function AgentWallet() {
               <Bot className="size-2.5" />
               Autonomous
             </Badge>
+            {teeStatus && (
+              <a href="/api/attestation" target="_blank" rel="noopener noreferrer">
+                <Badge
+                  variant="outline"
+                  className={`gap-1 text-[10px] ${
+                    teeStatus === "active"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                  }`}
+                >
+                  <ShieldCheck className="size-2.5" />
+                  {teeStatus === "active" ? "TEE Verified" : "TEE Self-Declared"}
+                </Badge>
+              </a>
+            )}
           </div>
           <a
             href={`https://celoscan.io/address/${AGENT_ADDRESS}`}

@@ -13,6 +13,7 @@ import type { Signal, Trade, MarketType, SignalDirection, SignalTier } from "@/l
 import { createWalletClient, http, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
+import { getAttestation, getTeeHeaders } from "@/lib/tee";
 
 export const maxDuration = 60;
 
@@ -73,6 +74,13 @@ export async function POST(request: Request) {
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
         );
       }
+
+      const teeAttestation = await getAttestation();
+      send("tee_status", {
+        status: teeAttestation.status,
+        verified: teeAttestation.verified,
+        provider: "Phala Cloud",
+      });
 
       const client = new Anthropic({ apiKey });
       let signalCount = 0;
@@ -349,6 +357,7 @@ export async function POST(request: Request) {
                       approvalTxHash: approvalHash,
                       swapTxHash: swapHash,
                     },
+                    teeAttestation,
                     message: txStatus === "confirmed"
                       ? `Swap executed on-chain: ${amount} ${fromToken} → ${swapResult.summary.expectedOut} ${toToken}`
                       : txStatus === "pending"
@@ -416,6 +425,11 @@ export async function POST(request: Request) {
           swaps: swapTxs,
           toolCalls: toolCallLog,
           iterations,
+          tee: {
+            status: teeAttestation.status,
+            verified: teeAttestation.verified,
+            quote: teeAttestation.quote,
+          },
           message: `Analysis complete. Generated ${signalCount} signals${swapTxs.length > 0 ? ` and ${swapTxs.length} swap(s)` : ""}.`,
         });
       } catch (err) {
@@ -431,6 +445,7 @@ export async function POST(request: Request) {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
+      ...getTeeHeaders(),
     },
   });
 }

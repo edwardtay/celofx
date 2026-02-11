@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAttestation } from "@/lib/tee";
 
 export const maxDuration = 60;
 
@@ -9,6 +10,8 @@ export async function GET(request: NextRequest) {
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const teeAttestation = await getAttestation();
 
   try {
     const baseUrl = process.env.VERCEL_URL
@@ -65,6 +68,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
+      tee: {
+        status: teeAttestation.status,
+        verified: teeAttestation.verified,
+        timestamp: teeAttestation.timestamp,
+      },
       ...(finalData ?? {}),
     });
   } catch (err) {

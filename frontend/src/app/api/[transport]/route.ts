@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getMentoOnChainRates } from "@/lib/mento-sdk";
 import { getSignals } from "@/lib/signal-store";
 import { getTrades } from "@/lib/trade-store";
+import { getAttestation } from "@/lib/tee";
 
 const handler = createMcpHandler(
   (server) => {
@@ -91,12 +92,14 @@ const handler = createMcpHandler(
       async () => {
         const trades = getTrades();
         const confirmed = trades.filter((t) => t.status === "confirmed");
+        const tee = await getAttestation();
         return {
           content: [{
             type: "text" as const,
             text: JSON.stringify({
               total: trades.length,
               confirmed: confirmed.length,
+              teeVerified: tee.verified,
               trades: trades.map((t) => ({
                 pair: t.pair,
                 amountIn: t.amountIn,
@@ -131,6 +134,7 @@ const handler = createMcpHandler(
           : 0;
         const cumulativePnl = confirmed.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
         const pairs = [...new Set(confirmed.map((t) => t.pair))];
+        const tee = await getAttestation();
 
         return {
           content: [{
@@ -141,6 +145,10 @@ const handler = createMcpHandler(
               chain: "Celo",
               registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
               reputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+              tee: {
+                status: tee.status,
+                verified: tee.verified,
+              },
               performance: {
                 totalTrades: confirmed.length,
                 successRate: trades.length > 0 ? Math.round((confirmed.length / trades.length) * 100) : 0,
@@ -171,6 +179,7 @@ const handler = createMcpHandler(
         inputSchema: {},
       },
       async () => {
+        const tee = await getAttestation();
         return {
           content: [{
             type: "text" as const,
@@ -184,6 +193,13 @@ const handler = createMcpHandler(
                 registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
                 reputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
                 standard: "ERC-8004",
+              },
+              tee: {
+                status: tee.status,
+                verified: tee.verified,
+                hardware: "Intel TDX",
+                provider: "Phala Cloud",
+                attestationEndpoint: "https://celofx.vercel.app/api/attestation",
               },
               protocols: {
                 mcp: "https://celofx.vercel.app/api/mcp",

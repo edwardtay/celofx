@@ -5,6 +5,7 @@ import type { Trade } from "@/lib/types";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
+import { getAttestation, getTeeHeaders } from "@/lib/tee";
 
 export const maxDuration = 60;
 
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const teeAttestation = await getAttestation();
   const body = await request.json();
   const { fromToken, toToken, amount } = body as {
     fromToken: MentoToken;
@@ -111,23 +113,27 @@ export async function POST(request: NextRequest) {
       swapTxHash: swapHash,
     });
 
-    return NextResponse.json({
-      success: true,
-      tradeId,
-      approvalTxHash: approvalHash,
-      swapTxHash: swapHash,
-      rate: swapResult.summary.rate,
-      amountOut: swapResult.summary.expectedOut,
-      celoscanUrl: `https://celoscan.io/tx/${swapHash}`,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        tradeId,
+        approvalTxHash: approvalHash,
+        swapTxHash: swapHash,
+        rate: swapResult.summary.rate,
+        amountOut: swapResult.summary.expectedOut,
+        celoscanUrl: `https://celoscan.io/tx/${swapHash}`,
+        teeAttestation,
+      },
+      { headers: getTeeHeaders() }
+    );
   } catch (err) {
     updateTrade(tradeId, {
       status: "failed",
       error: err instanceof Error ? err.message : "unknown error",
     });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Swap failed", tradeId },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Swap failed", tradeId, teeAttestation },
+      { status: 500, headers: getTeeHeaders() }
     );
   }
 }

@@ -23,6 +23,13 @@
       "version": "0.3.0"
     },
     {
+      "name": "TEE",
+      "endpoint": "https://0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5-3000.dstack-pha-prod9.phala.network/api/attestation",
+      "version": "dstack-dev-0.5.6",
+      "hardware": "Intel TDX",
+      "provider": "Phala Cloud"
+    },
+    {
       "name": "OASF",
       "endpoint": "https://github.com/agntcy/oasf/",
       "version": "0.8.0",
@@ -54,6 +61,9 @@
   "tee": {
     "hardware": "Intel TDX",
     "provider": "Phala Cloud",
-    "attestationEndpoint": "https://celofx.vercel.app/api/attestation"
+    "attestationEndpoint": "https://0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5-3000.dstack-pha-prod9.phala.network/api/attestation",
+    "fallbackEndpoint": "https://celofx.vercel.app/api/attestation",
+    "cvmAppId": "0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5",
+    "cvmDashboard": "https://cloud.phala.com/dashboard/cvms/app_0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5"
   }
 }

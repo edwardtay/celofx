@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getTrades, getTradeCount } from "@/lib/trade-store";
+import { getAttestation } from "@/lib/tee";
 
 export async function GET() {
+  const teeAttestation = await getAttestation();
   const allTrades = getTrades();
   const confirmed = allTrades.filter((t) => t.status === "confirmed");
   const failed = allTrades.filter((t) => t.status === "failed");
@@ -27,6 +29,13 @@ export async function GET() {
     wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
     chain: "celo",
     registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    tee: {
+      status: teeAttestation.status,
+      verified: teeAttestation.verified,
+      timestamp: teeAttestation.timestamp,
+      hardware: "Intel TDX",
+      provider: "Phala Cloud",
+    },
     performance: {
       totalTrades: getTradeCount(),
       confirmedTrades: confirmed.length,

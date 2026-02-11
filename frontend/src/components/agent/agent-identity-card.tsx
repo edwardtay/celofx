@@ -2,9 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
 import { useAgentOwner, useAgentId } from "@/hooks/use-agent-profile";
 import { formatAddress } from "@/lib/format";
-import { ExternalLink, Activity } from "lucide-react";
+import { ExternalLink, Activity, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import { IDENTITY_REGISTRY_ADDRESS } from "@/config/contracts";
 import { useSignals } from "@/hooks/use-signals";
@@ -13,6 +14,14 @@ export function AgentIdentityCard() {
   const agentId = useAgentId();
   const { data: owner, isLoading: ownerLoading } = useAgentOwner();
   const { data: signals } = useSignals();
+  const [teeStatus, setTeeStatus] = useState<"active" | "self-declared" | null>(null);
+
+  useEffect(() => {
+    fetch("/api/attestation")
+      .then((r) => r.json())
+      .then((d) => setTeeStatus(d?.tee?.status ?? "self-declared"))
+      .catch(() => setTeeStatus("self-declared"));
+  }, []);
 
   const isLoading = ownerLoading;
 
@@ -76,6 +85,13 @@ export function AgentIdentityCard() {
             <p className="text-xs text-muted-foreground mb-1">Markets</p>
             <p className="text-xs">Forex, Mento Stablecoins</p>
           </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Trust</p>
+            <div className="flex items-center gap-1">
+              <ShieldCheck className={`size-3 ${teeStatus === "active" ? "text-emerald-600" : "text-amber-600"}`} />
+              <p className="text-xs">Intel TDX (Phala Cloud)</p>
+            </div>
+          </div>
         </div>
 
         {signals && signals.length > 0 && (
@@ -125,6 +141,15 @@ export function AgentIdentityCard() {
           >
             NFT #{agentId.toString()}
             <ExternalLink className="size-3" />
+          </a>
+          <a
+            href="/api/attestation"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            TEE Attestation
+            <ShieldCheck className="size-3" />
           </a>
         </div>
       </CardContent>

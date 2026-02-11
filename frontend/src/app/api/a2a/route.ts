@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMentoOnChainRates } from "@/lib/mento-sdk";
 import { getSignals } from "@/lib/signal-store";
 import { getTrades } from "@/lib/trade-store";
+import { getAttestation } from "@/lib/tee";
 
 const tasks = new Map<string, Record<string, unknown>>();
 
@@ -17,7 +18,7 @@ function getTextFromParts(parts: Array<{ kind?: string; type?: string; text?: st
     .toLowerCase();
 }
 
-async function handleMessage(text: string) {
+async function handleMessage(text: string): Promise<string> {
   // Route to skill based on keywords
   if (text.includes("rate") || text.includes("spread") || text.includes("mento") || text.includes("forex")) {
     try {
@@ -93,6 +94,7 @@ async function handleMessage(text: string) {
   }
 
   // Default: agent identity + capabilities
+  const tee = await getAttestation();
   return JSON.stringify({
     type: "agent_info",
     name: "CeloFX",
@@ -101,6 +103,12 @@ async function handleMessage(text: string) {
     chain: "Celo",
     standard: "ERC-8004",
     wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
+    tee: {
+      status: tee.status,
+      verified: tee.verified,
+      hardware: "Intel TDX",
+      provider: "Phala Cloud",
+    },
     protocols: ["MCP", "A2A", "x402", "OASF"],
     skills: ["fx_rate_analysis", "execute_swap", "portfolio_status", "performance_tracking"],
     website: "https://celofx.vercel.app",
@@ -128,12 +136,18 @@ export async function POST(request: NextRequest) {
       const userText = getTextFromParts(message.parts || []);
 
       const result = await handleMessage(userText);
+      const teeAttestation = await getAttestation();
 
       const task = {
         id: taskId,
         contextId,
         kind: "task",
         status: { state: "completed", timestamp: new Date().toISOString() },
+        teeAttestation: {
+          status: teeAttestation.status,
+          verified: teeAttestation.verified,
+          timestamp: teeAttestation.timestamp,
+        },
         artifacts: [
           {
             artifactId: uuid(),

@@ -4,6 +4,7 @@ import { createThirdwebClient } from "thirdweb";
 import { defineChain } from "thirdweb/chains";
 import { getPremiumSignals } from "@/lib/signal-store";
 import type { MarketType } from "@/lib/types";
+import { getTeeHeaders } from "@/lib/tee";
 
 const payTo = (process.env.AGENT_OWNER_ADDRESS?.trim() ||
   "0x6652AcDc623b7CCd52E115161d84b949bAf3a303") as `0x${string}`;
@@ -48,13 +49,13 @@ export async function GET(request: NextRequest) {
       ) as MarketType | null;
       const signals = getPremiumSignals(market ?? undefined);
       return NextResponse.json(signals, {
-        headers: result.responseHeaders,
+        headers: { ...result.responseHeaders, ...getTeeHeaders() },
       });
     }
 
     return new NextResponse(JSON.stringify(result.responseBody), {
       status: result.status,
-      headers: result.responseHeaders,
+      headers: { ...result.responseHeaders, ...getTeeHeaders() },
     });
   }
 
@@ -64,6 +65,6 @@ export async function GET(request: NextRequest) {
       error: "Payment verification unavailable",
       message: "x402 payment requires THIRDWEB_SECRET_KEY to be configured for settlement verification",
     },
-    { status: 503 }
+    { status: 503, headers: getTeeHeaders() }
   );
 }

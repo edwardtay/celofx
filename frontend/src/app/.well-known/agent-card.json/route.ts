@@ -24,6 +24,12 @@ export async function GET() {
       schemes: ["none"],
       credentials: null,
     },
+    tee: {
+      hardware: "Intel TDX",
+      provider: "Phala Cloud",
+      attestationEndpoint: "https://0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5-3000.dstack-pha-prod9.phala.network/api/attestation",
+      cvmDashboard: "https://cloud.phala.com/dashboard/cvms/app_0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5",
+    },
     skills: [
       {
         id: "fx_rate_analysis",

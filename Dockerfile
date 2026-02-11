@@ -1,5 +1,5 @@
 FROM node:22-slim AS base
-RUN corepack enable && corepack prepare pnpm@10.12.1 --activate
+RUN npm install -g pnpm@10.12.1
 WORKDIR /app
 
 # Install dependencies
