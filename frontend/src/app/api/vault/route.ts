@@ -9,7 +9,7 @@ import {
 } from "@/lib/vault-store";
 import { getTrades } from "@/lib/trade-store";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
-import { createPublicClient, createWalletClient, http, parseUnits, encodeFunctionData } from "viem";
+import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, encodeFunctionData } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { MENTO_TOKENS } from "@/config/contracts";
@@ -166,6 +166,28 @@ export async function POST(request: NextRequest) {
         chain: celo,
         transport: http("https://forno.celo.org"),
       });
+
+      // Verify agent wallet has sufficient cUSD balance
+      const agentBalance = await publicClient.readContract({
+        address: MENTO_TOKENS.cUSD as `0x${string}`,
+        abi: [{
+          type: "function",
+          name: "balanceOf",
+          inputs: [{ name: "account", type: "address" }],
+          outputs: [{ name: "", type: "uint256" }],
+          stateMutability: "view",
+        }] as const,
+        functionName: "balanceOf",
+        args: [AGENT_ADDRESS as `0x${string}`],
+      });
+
+      const balanceFloat = parseFloat(formatUnits(agentBalance, 18));
+      if (balanceFloat < withdrawalAmount) {
+        return NextResponse.json(
+          { error: `Insufficient agent balance: ${balanceFloat.toFixed(2)} cUSD available, ${withdrawalAmount.toFixed(2)} cUSD needed` },
+          { status: 400 }
+        );
+      }
 
       const amountWei = parseUnits(withdrawalAmount.toFixed(6), 18);
       const feeCurrency = MENTO_TOKENS.cUSD as `0x${string}`;

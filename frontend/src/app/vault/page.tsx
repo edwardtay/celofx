@@ -58,6 +58,8 @@ export default function VaultPage() {
     "idle" | "confirm" | "approving" | "transferring" | "recording" | "done"
   >("idle");
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [depositError, setDepositError] = useState<string | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   // Read user's cUSD balance
   const { data: rawBalance } = useReadContract({
@@ -125,6 +127,7 @@ export default function VaultPage() {
       transferHash
     ) {
       setStep("recording");
+      setDepositError(null);
       fetch("/api/vault", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -135,7 +138,11 @@ export default function VaultPage() {
           txHash: transferHash,
         }),
       })
-        .then(() => {
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: "Recording failed" }));
+            throw new Error(err.error || "Recording failed");
+          }
           setStep("done");
           setDepositAmount("");
           fetchData();
@@ -145,7 +152,10 @@ export default function VaultPage() {
             resetTransfer();
           }, 3000);
         })
-        .catch(() => setStep("idle"));
+        .catch((err) => {
+          setDepositError(err instanceof Error ? err.message : "Deposit recording failed");
+          setStep("idle");
+        });
     }
   }, [
     transferConfirmed,
@@ -160,6 +170,7 @@ export default function VaultPage() {
 
   const handleDepositClick = () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0) return;
+    setDepositError(null);
     setStep("confirm");
   };
 
@@ -177,8 +188,9 @@ export default function VaultPage() {
   const handleWithdraw = async (depositId: string) => {
     if (!address) return;
     setWithdrawingId(depositId);
+    setWithdrawError(null);
     try {
-      await fetch("/api/vault", {
+      const res = await fetch("/api/vault", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,7 +199,14 @@ export default function VaultPage() {
           depositor: address,
         }),
       });
+      const json = await res.json();
+      if (!res.ok) {
+        setWithdrawError(json.error || "Withdrawal failed");
+        return;
+      }
       await fetchData();
+    } catch {
+      setWithdrawError("Withdrawal failed — please try again");
     } finally {
       setWithdrawingId(null);
     }
@@ -438,6 +457,12 @@ export default function VaultPage() {
                         Exceeds your cUSD balance
                       </p>
                     )}
+                    {depositError && (
+                      <p className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        {depositError}
+                      </p>
+                    )}
                   </div>
 
                   <div className="border-t pt-2 space-y-1">
@@ -535,6 +560,12 @@ export default function VaultPage() {
                     </div>
                   </div>
 
+                  {withdrawError && (
+                    <p className="text-xs text-red-600 flex items-center gap-1 border border-red-200 bg-red-50 rounded-lg p-2">
+                      <AlertTriangle className="size-3 shrink-0" />
+                      {withdrawError}
+                    </p>
+                  )}
                   <div className="space-y-1">
                     {data.position.deposits.map((d) => {
                       const currentVal =

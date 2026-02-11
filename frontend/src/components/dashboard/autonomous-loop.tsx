@@ -69,10 +69,15 @@ export function AutonomousLoop() {
   const [stats, setStats] = useState<BackendStats | null>(null);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/stats`)
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(() => {});
+    const fetchStats = () => {
+      fetch(`${BACKEND_URL}/stats`)
+        .then((r) => r.json())
+        .then(setStats)
+        .catch(() => {});
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 30_000);
+    return () => clearInterval(interval);
   }, []);
 
   return (

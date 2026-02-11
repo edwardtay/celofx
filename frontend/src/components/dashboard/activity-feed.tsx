@@ -30,20 +30,31 @@ export function ActivityFeed() {
   const activities = useMemo(() => {
     const items: ActivityItem[] = [];
 
-    // Add trades
+    // Add trades (confirmed and failed)
     if (trades?.length) {
-      for (const trade of trades.filter((t) => t.status === "confirmed")) {
-        items.push({
-          id: `trade-${trade.id}`,
-          type: "trade",
-          label: `Swapped ${trade.pair}`,
-          detail: `${trade.amountIn} → ${trade.amountOut} (+${trade.spreadPct.toFixed(2)}%)`,
-          timestamp: trade.timestamp,
-          link: trade.swapTxHash
-            ? `https://celoscan.io/tx/${trade.swapTxHash}`
-            : undefined,
-          color: "text-emerald-600",
-        });
+      for (const trade of trades) {
+        if (trade.status === "confirmed") {
+          items.push({
+            id: `trade-${trade.id}`,
+            type: "trade",
+            label: `Swapped ${trade.pair}`,
+            detail: `${trade.amountIn} → ${trade.amountOut} (+${trade.spreadPct.toFixed(2)}%)`,
+            timestamp: trade.timestamp,
+            link: trade.swapTxHash
+              ? `https://celoscan.io/tx/${trade.swapTxHash}`
+              : undefined,
+            color: "text-emerald-600",
+          });
+        } else if (trade.status === "failed") {
+          items.push({
+            id: `trade-${trade.id}`,
+            type: "trade",
+            label: `Failed ${trade.pair}`,
+            detail: trade.error || `Spread ${trade.spreadPct.toFixed(2)}%`,
+            timestamp: trade.timestamp,
+            color: "text-red-500",
+          });
+        }
       }
     }
 

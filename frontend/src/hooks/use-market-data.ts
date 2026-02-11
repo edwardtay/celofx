@@ -24,7 +24,7 @@ export function useMentoData() {
       if (!res.ok) throw new Error("Failed to fetch Mento data");
       return res.json();
     },
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 }
 

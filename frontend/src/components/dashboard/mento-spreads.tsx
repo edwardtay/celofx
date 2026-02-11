@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMentoData } from "@/hooks/use-market-data";
 import { cn } from "@/lib/utils";
@@ -108,7 +109,17 @@ function SpreadCard({ rate }: { rate: MentoRate }) {
 }
 
 export function MentoSpreads() {
-  const { data: rates, isLoading } = useMentoData();
+  const { data: rates, isLoading, dataUpdatedAt } = useMentoData();
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const updatedAgo = dataUpdatedAt
+    ? Math.floor((now - dataUpdatedAt) / 1000)
+    : null;
 
   return (
     <div className="space-y-2">
@@ -120,16 +131,23 @@ export function MentoSpreads() {
           </span>
         </div>
         {rates && (
-          <a
-            href="https://celoscan.io/address/0x777A8255cA72412f0d706dc03C9D1987306B4CaD"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-muted-foreground flex items-center gap-1.5 hover:text-foreground transition-colors"
-          >
-            <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            On-chain via getAmountOut()
-            <ExternalLink className="size-2.5" />
-          </a>
+          <div className="flex items-center gap-3">
+            {updatedAgo !== null && (
+              <span className="text-[10px] text-muted-foreground font-mono">
+                {updatedAgo < 5 ? "just now" : updatedAgo < 60 ? `${updatedAgo}s ago` : `${Math.floor(updatedAgo / 60)}m ago`}
+              </span>
+            )}
+            <a
+              href="https://celoscan.io/address/0x777A8255cA72412f0d706dc03C9D1987306B4CaD"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-muted-foreground flex items-center gap-1.5 hover:text-foreground transition-colors"
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              On-chain via getAmountOut()
+              <ExternalLink className="size-2.5" />
+            </a>
+          </div>
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
