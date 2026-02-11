@@ -55,7 +55,7 @@ async function main() {
   });
 
   // Agent metadata URI — use the Vercel-hosted file
-  const agentURI = "https://aaa-agent-steel.vercel.app/agent-metadata.json";
+  const agentURI = "https://celofx.vercel.app/agent-metadata.json";
 
   console.log("Agent URI:", agentURI);
   console.log("Sending registration tx...");

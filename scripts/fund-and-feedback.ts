@@ -7,7 +7,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 
 const REPUTATION_REGISTRY = "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63" as const;
-const AGENT_ID = 4n;
+const AGENT_ID = 10n;
 const ZERO_BYTES32 = "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
 
 const reputationAbi = [
@@ -66,7 +66,7 @@ async function main() {
       address: REPUTATION_REGISTRY,
       abi: reputationAbi,
       functionName: "giveFeedback",
-      args: [AGENT_ID, fb.value, 0, "quality", fb.tag2, "https://aaa-agent-steel.vercel.app", "", ZERO_BYTES32],
+      args: [AGENT_ID, fb.value, 0, "quality", fb.tag2, "https://celofx.vercel.app", "", ZERO_BYTES32],
     });
 
     console.log("Tx:", hash);

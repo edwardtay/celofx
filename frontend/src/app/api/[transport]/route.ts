@@ -136,7 +136,7 @@ const handler = createMcpHandler(
           content: [{
             type: "text" as const,
             text: JSON.stringify({
-              agentId: 4,
+              agentId: 10,
               wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
               chain: "Celo",
               registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
@@ -176,7 +176,7 @@ const handler = createMcpHandler(
             type: "text" as const,
             text: JSON.stringify({
               name: "CeloFX",
-              agentId: 4,
+              agentId: 10,
               chain: "Celo",
               chainId: 42220,
               wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",

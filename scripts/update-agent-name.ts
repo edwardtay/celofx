@@ -1,5 +1,5 @@
 /**
- * Update ERC-8004 Agent #4 metadata to "CeloFX"
+ * Update ERC-8004 Agent #10 metadata to "CeloFX"
  *
  * Calls setAgentURI() with a data URI containing the new metadata JSON.
  *
@@ -18,7 +18,7 @@ import { celo } from "viem/chains";
 
 const IDENTITY_REGISTRY =
   "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432" as const;
-const AGENT_ID = 4n;
+const AGENT_ID = 10n;
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as `0x${string}`;
 
 const identityRegistryAbi = [
@@ -103,9 +103,9 @@ async function main() {
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   console.log("Status:", receipt.status);
-  console.log("\nAgent #4 name updated to 'CeloFX'!");
+  console.log("\nAgent #10 name updated to 'CeloFX'!");
   console.log(`View: https://celoscan.io/tx/${hash}`);
-  console.log("Check: https://8004scan.io/agents/celo/4");
+  console.log("Check: https://8004scan.io/agents/celo/10");
 }
 
 main().catch(console.error);

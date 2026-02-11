@@ -101,7 +101,6 @@ const ERC20_ABI = [
 
 const ALLOWED_ORIGINS = [
   "https://celofx.vercel.app",
-  "https://aaa-agent-steel.vercel.app",
   "http://localhost:3000",
 ];
 

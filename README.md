@@ -21,7 +21,7 @@ AI-powered FX arbitrage agent on Celo. Compares real forex rates with Mento on-c
 ### What Makes This Different
 
 - **Real on-chain trades** — 3 executed Mento swaps with real tx hashes on Celoscan (not simulated)
-- **Autonomous execution** — Agent has its own wallet (`0x1e67...2b23`), private key, and daily cron job. No human intervention required
+- **Autonomous execution** — Agent has its own wallet (`0x6652...a303`), private key, and daily cron job. No human intervention required
 - **Mento FX arbitrage** — Compares real forex rates (EUR/USD, USD/BRL) with Mento Broker on-chain rates to find stablecoin swap opportunities
 - **7 agent tools** — `fetch_mento_rates`, `fetch_forex`, `fetch_crypto`, `fetch_commodities`, `generate_signal`, `generate_fx_action`, `execute_mento_swap`
 - **Real-time SSE streaming** — Every Claude tool invocation streams to the UI in real-time via Server-Sent Events. Watch the agent think live.
@@ -33,7 +33,7 @@ AI-powered FX arbitrage agent on Celo. Compares real forex rates with Mento on-c
 
 | What | Link |
 |------|------|
-| Agent Wallet | [celoscan.io/address/0x1e67...2b23](https://celoscan.io/address/0x1e67A381c93F34afAed8c1A7E5E35746f8bE2b23) |
+| Agent Wallet | [celoscan.io/address/0x6652...a303](https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303) |
 | Swap: cUSD → cEUR | [celoscan.io/tx/0x9978b5...](https://celoscan.io/tx/0x9978b5be04f1641ef99c98caa3115ca4654a77fbb7e4bdffef87ae045fb9d808) |
 | Swap: cUSD → cREAL | [celoscan.io/tx/0xf06729...](https://celoscan.io/tx/0xf0672921205c035c95a3c52d3e83875f282b52118001bbbe84e8307d436dc7a3) |
 | Swap: cEUR → cUSD | [celoscan.io/tx/0x49e855...](https://celoscan.io/tx/0x49e855cd09b86eec045fa9fceda35b7cc23e1d3cb11dc223525dbf1c0c26ff18) |
@@ -89,7 +89,7 @@ CeloFX is an autonomous FX agent that:
           ┌────────────┐ ┌──────────┐       ┌────────────────┐
           │ Claude AI  │ │  Agent   │       │ Celo Mainnet   │
           │ 7 Tools    │ │  Wallet  │       │   (on-chain)   │
-          │ 3 iters    │ │  0x1e67  │       └────────────────┘
+          │ 3 iters    │ │  0x6652  │       └────────────────┘
           └────────────┘ └──────────┘
 ```
 

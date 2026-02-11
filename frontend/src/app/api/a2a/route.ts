@@ -49,7 +49,7 @@ async function handleMessage(text: string) {
     const cumulativePnl = confirmed.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
     return JSON.stringify({
       type: "performance",
-      agentId: 4,
+      agentId: 10,
       wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
       totalTrades: confirmed.length,
       successRate: "100%",
@@ -97,7 +97,7 @@ async function handleMessage(text: string) {
     type: "agent_info",
     name: "CeloFX",
     description: "Autonomous FX arbitrage agent on Celo",
-    agentId: 4,
+    agentId: 10,
     chain: "Celo",
     standard: "ERC-8004",
     wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",

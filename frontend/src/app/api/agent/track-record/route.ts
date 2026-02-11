@@ -23,7 +23,7 @@ export async function GET() {
   const sorted = [...confirmed].sort((a, b) => b.timestamp - a.timestamp);
 
   return NextResponse.json({
-    agentId: 4,
+    agentId: 10,
     wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
     chain: "celo",
     registry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
