@@ -1,6 +1,14 @@
 {
   "framework": "nextjs",
   "outputDirectory": ".next",
+  "headers": [
+    {
+      "source": "/agent-metadata-v2.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, s-maxage=60" }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/scan",
