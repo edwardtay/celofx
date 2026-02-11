@@ -192,6 +192,14 @@ export async function getOnChainQuote(
   };
 }
 
+/**
+ * Minimum profitable spread threshold.
+ * Derived from: Celo gas cost (~$0.001 per tx, negligible) + slippage safety buffer (0.05%)
+ * + minimum profit margin (0.25%). getAmountOut() returns net-of-protocol-fee rates,
+ * so this threshold IS the expected profit per trade.
+ */
+export const MIN_PROFITABLE_SPREAD_PCT = 0.3;
+
 export interface MentoOnChainRate {
   pair: string;
   mentoRate: number;
@@ -201,14 +209,17 @@ export interface MentoOnChainRate {
   direction: "buy" | "sell" | "neutral";
   source: "on-chain";
   exchangeId: string;
+  forexAge?: number; // seconds since forex data was fetched
 }
 
 /**
  * Get Mento on-chain rates and compare with real forex rates.
- * This is the key differentiation — real protocol data, not CoinGecko proxy.
+ * Checks BOTH directions per pair (cUSD→cEUR and cEUR→cUSD) to find
+ * the profitable side. Tracks forex data freshness.
  */
 export async function getMentoOnChainRates(): Promise<MentoOnChainRate[]> {
   // Fetch real forex rates from Frankfurter
+  const forexFetchTime = Date.now();
   const forexRes = await fetch(
     "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL",
     { signal: AbortSignal.timeout(8000) }
@@ -219,16 +230,19 @@ export async function getMentoOnChainRates(): Promise<MentoOnChainRate[]> {
 
   const realEurPerUsd = forex.rates?.EUR ?? 0.926;
   const realBrlPerUsd = forex.rates?.BRL ?? 5.7;
+  const forexAge = () => Math.round((Date.now() - forexFetchTime) / 1000);
 
-  // Fetch on-chain Mento rates in parallel
-  const [cUsdToEur, cUsdToReal] = await Promise.allSettled([
+  // Fetch on-chain Mento rates in BOTH directions, in parallel
+  const [cUsdToEur, cEurToUsd, cUsdToReal, cRealToUsd] = await Promise.allSettled([
     getOnChainQuote("cUSD", "cEUR", "1"),
+    getOnChainQuote("cEUR", "cUSD", "1"),
     getOnChainQuote("cUSD", "cREAL", "1"),
+    getOnChainQuote("cREAL", "cUSD", "1"),
   ]);
 
   const rates: MentoOnChainRate[] = [];
 
-  // cUSD/cEUR
+  // cUSD → cEUR (forward: buying cEUR with cUSD)
   if (cUsdToEur.status === "fulfilled") {
     const mentoRate = cUsdToEur.value.rate;
     const spread = mentoRate - realEurPerUsd;
@@ -240,13 +254,34 @@ export async function getMentoOnChainRates(): Promise<MentoOnChainRate[]> {
       spread: Number(spread.toFixed(6)),
       spreadPct: Number(spreadPct.toFixed(3)),
       direction:
-        spreadPct > 0.1 ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
+        spreadPct > MIN_PROFITABLE_SPREAD_PCT ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
       source: "on-chain",
       exchangeId: cUsdToEur.value.exchangeId,
+      forexAge: forexAge(),
     });
   }
 
-  // cUSD/cREAL
+  // cEUR → cUSD (reverse: selling cEUR for cUSD)
+  if (cEurToUsd.status === "fulfilled") {
+    const mentoRate = cEurToUsd.value.rate; // USD per EUR from Mento
+    const realUsdPerEur = 1 / realEurPerUsd;
+    const spread = mentoRate - realUsdPerEur;
+    const spreadPct = (spread / realUsdPerEur) * 100;
+    rates.push({
+      pair: "cEUR/cUSD",
+      mentoRate: Number(mentoRate.toFixed(6)),
+      forexRate: Number(realUsdPerEur.toFixed(6)),
+      spread: Number(spread.toFixed(6)),
+      spreadPct: Number(spreadPct.toFixed(3)),
+      direction:
+        spreadPct > MIN_PROFITABLE_SPREAD_PCT ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
+      source: "on-chain",
+      exchangeId: cEurToUsd.value.exchangeId,
+      forexAge: forexAge(),
+    });
+  }
+
+  // cUSD → cREAL (forward: buying cREAL with cUSD)
   if (cUsdToReal.status === "fulfilled") {
     const mentoRate = cUsdToReal.value.rate;
     const spread = mentoRate - realBrlPerUsd;
@@ -258,9 +293,30 @@ export async function getMentoOnChainRates(): Promise<MentoOnChainRate[]> {
       spread: Number(spread.toFixed(4)),
       spreadPct: Number(spreadPct.toFixed(3)),
       direction:
-        spreadPct > 0.1 ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
+        spreadPct > MIN_PROFITABLE_SPREAD_PCT ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
       source: "on-chain",
       exchangeId: cUsdToReal.value.exchangeId,
+      forexAge: forexAge(),
+    });
+  }
+
+  // cREAL → cUSD (reverse: selling cREAL for cUSD)
+  if (cRealToUsd.status === "fulfilled") {
+    const mentoRate = cRealToUsd.value.rate; // USD per BRL from Mento
+    const realUsdPerBrl = 1 / realBrlPerUsd;
+    const spread = mentoRate - realUsdPerBrl;
+    const spreadPct = (spread / realUsdPerBrl) * 100;
+    rates.push({
+      pair: "cREAL/cUSD",
+      mentoRate: Number(mentoRate.toFixed(6)),
+      forexRate: Number(realUsdPerBrl.toFixed(6)),
+      spread: Number(spread.toFixed(6)),
+      spreadPct: Number(spreadPct.toFixed(3)),
+      direction:
+        spreadPct > MIN_PROFITABLE_SPREAD_PCT ? "buy" : spreadPct < -0.1 ? "sell" : "neutral",
+      source: "on-chain",
+      exchangeId: cRealToUsd.value.exchangeId,
+      forexAge: forexAge(),
     });
   }
 

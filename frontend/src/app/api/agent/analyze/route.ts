@@ -6,7 +6,7 @@ import {
   fetchCommodityPrices,
   fetchMentoRates,
 } from "@/lib/market-data";
-import { getMentoOnChainRates, buildSwapTx, type MentoToken, TOKENS } from "@/lib/mento-sdk";
+import { getMentoOnChainRates, buildSwapTx, type MentoToken, TOKENS, MIN_PROFITABLE_SPREAD_PCT } from "@/lib/mento-sdk";
 import { addSignal } from "@/lib/signal-store";
 import { addTrade, updateTrade } from "@/lib/trade-store";
 import type { Signal, Trade, MarketType, SignalDirection, SignalTier } from "@/lib/types";
@@ -243,18 +243,17 @@ export async function POST(request: Request) {
 
                 // ── PROFITABILITY GUARD ──
                 // Verify on-chain rate vs forex before executing. Protects vault depositors.
-                const MIN_PROFITABLE_SPREAD = 0.3; // %
-                if (spreadPct < MIN_PROFITABLE_SPREAD) {
+                if (spreadPct < MIN_PROFITABLE_SPREAD_PCT) {
                   const tcEntry = {
                     tool: "execute_mento_swap",
-                    summary: `${fromToken}→${toToken} BLOCKED — spread ${spreadPct.toFixed(2)}% below +${MIN_PROFITABLE_SPREAD}% threshold`,
+                    summary: `${fromToken}→${toToken} BLOCKED — spread ${spreadPct.toFixed(2)}% below +${MIN_PROFITABLE_SPREAD_PCT}% threshold`,
                   };
                   toolCallLog.push(tcEntry);
                   send("tool_call", tcEntry);
                   result = JSON.stringify({
-                    error: `Swap rejected: spread ${spreadPct.toFixed(2)}% is below the +${MIN_PROFITABLE_SPREAD}% profitability threshold. Only positive spreads (Mento gives MORE than forex) above ${MIN_PROFITABLE_SPREAD}% are executed. Current spread is ${spreadPct < 0 ? "negative (Mento gives less than forex — would lose money)" : "too small to cover fees"}. Vault capital protected.`,
+                    error: `Swap rejected: spread ${spreadPct.toFixed(2)}% is below the +${MIN_PROFITABLE_SPREAD_PCT}% profitability threshold. Only positive spreads (Mento gives MORE than forex) above ${MIN_PROFITABLE_SPREAD_PCT}% are executed. Current spread is ${spreadPct < 0 ? "negative (Mento gives less than forex — would lose money)" : "too small to cover fees"}. Vault capital protected.`,
                     spreadPct,
-                    threshold: MIN_PROFITABLE_SPREAD,
+                    threshold: MIN_PROFITABLE_SPREAD_PCT,
                   });
                   break;
                 }
@@ -279,7 +278,7 @@ export async function POST(request: Request) {
 
                   if (expectedForex) {
                     const realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
-                    if (realSpread < MIN_PROFITABLE_SPREAD) {
+                    if (realSpread < MIN_PROFITABLE_SPREAD_PCT) {
                       const tcEntry = {
                         tool: "execute_mento_swap",
                         summary: `${fromToken}→${toToken} BLOCKED — verified spread ${realSpread.toFixed(2)}% (on-chain check)`,
@@ -287,7 +286,7 @@ export async function POST(request: Request) {
                       toolCallLog.push(tcEntry);
                       send("tool_call", tcEntry);
                       result = JSON.stringify({
-                        error: `Swap rejected after on-chain verification: real spread is ${realSpread.toFixed(2)}% (Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}). Need > +${MIN_PROFITABLE_SPREAD}% to be profitable. Vault capital protected.`,
+                        error: `Swap rejected after on-chain verification: real spread is ${realSpread.toFixed(2)}% (Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}). Need > +${MIN_PROFITABLE_SPREAD_PCT}% to be profitable. Vault capital protected.`,
                         verifiedSpread: realSpread,
                         mentoRate: freshQuote.rate,
                         forexRate: expectedForex,

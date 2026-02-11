@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildSwapTx, TOKENS, type MentoToken } from "@/lib/mento-sdk";
+import { buildSwapTx, TOKENS, type MentoToken, MIN_PROFITABLE_SPREAD_PCT } from "@/lib/mento-sdk";
 import { addTrade, updateTrade } from "@/lib/trade-store";
 import type { Trade } from "@/lib/types";
 import { createPublicClient, createWalletClient, http } from "viem";
@@ -74,9 +74,9 @@ export async function POST(request: NextRequest) {
     const expectedForex = forexMap[pairKey];
     if (expectedForex) {
       const realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
-      if (realSpread < 0.3) {
+      if (realSpread < MIN_PROFITABLE_SPREAD_PCT) {
         return NextResponse.json({
-          error: `Swap rejected: spread ${realSpread.toFixed(2)}% is not profitable (need > +0.3%). Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}. Vault capital protected.`,
+          error: `Swap rejected: spread ${realSpread.toFixed(2)}% is not profitable (need > +${MIN_PROFITABLE_SPREAD_PCT}%). Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}. Vault capital protected.`,
           spread: realSpread,
         }, { status: 400 });
       }

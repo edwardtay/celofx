@@ -148,6 +148,9 @@ export interface MentoRate {
   spread: number;
   spreadPct: number;
   direction: "buy" | "sell" | "neutral";
+  source?: "on-chain" | "coingecko";
+  exchangeId?: string;
+  forexAge?: number; // seconds since forex data was fetched
 }
 
 export async function fetchMentoRates(): Promise<MentoRate[]> {

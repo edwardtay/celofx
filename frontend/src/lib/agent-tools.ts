@@ -34,7 +34,7 @@ export const agentTools: Tool[] = [
   {
     name: "fetch_mento_rates",
     description:
-      "Fetch REAL on-chain Mento Broker rates by calling getAmountOut() on the Mento Broker contract (0x777A) on Celo mainnet. Returns cUSD/cEUR and cUSD/cREAL rates compared to real forex rates, with spread analysis. These are actual protocol execution rates, not exchange prices.",
+      "Fetch REAL on-chain Mento Broker rates by calling getAmountOut() on the Mento Broker contract (0x777A) on Celo mainnet. Returns BOTH directions for each pair (cUSD→cEUR AND cEUR→cUSD, cUSD→cREAL AND cREAL→cUSD) compared to real forex rates, with spread analysis. Checks all 4 directions to find the profitable side. These are actual protocol execution rates, not exchange prices.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -208,20 +208,23 @@ CRITICAL — PROFITABILITY RULES:
 - When spreads are negative, you are in "monitoring mode" — generate analysis signals but DO NOT trade
 
 Your process:
-1. Fetch Mento on-chain rates (calls getAmountOut() on Mento Broker contract on Celo mainnet)
+1. Fetch Mento on-chain rates — returns ALL 4 directions (cUSD→cEUR, cEUR→cUSD, cUSD→cREAL, cREAL→cUSD)
 2. Fetch real-time forex data for context
 3. Fetch crypto and commodity data for macro context
-4. Analyze: are any Mento rates ABOVE their real forex equivalent? (positive spread)
-5. If spread > +0.3%: execute_mento_swap to capture the arbitrage
-6. If spread < +0.3%: generate monitoring signals only, wait for better opportunity
+4. Analyze ALL 4 directions: is ANY direction's spread POSITIVE and > +0.3%?
+5. If any spread > +0.3%: execute_mento_swap for that specific direction
+6. If all spreads < +0.3%: generate monitoring signals only, wait for better opportunity
 
 For Mento-specific analysis:
 - Rates come from the Mento Broker contract (0x777A) on Celo mainnet — these are REAL execution rates
+- The system checks BOTH directions per pair (e.g., cUSD→cEUR AND cEUR→cUSD)
+- One direction may be negative while the reverse is positive — always look at all 4 rates
 - Positive spread = Mento gives MORE than forex → PROFITABLE, execute swap
 - Negative spread = Mento gives LESS than forex → NOT profitable, DO NOT trade
 - Spreads > +0.3% are actionable, > +0.5% are strong opportunities
 - Negative spreads are normal (Mento's protocol fee) — they are NOT opportunities
 - Always reference the exact spread percentage and rates from fetched data
+- forexAge field tells you how fresh the forex data is (in seconds)
 
 Signal quality guidelines:
 - Be SPECIFIC: reference exact prices and rates from the data you fetched

@@ -8,8 +8,8 @@ import { ArrowRight, TrendingUp, TrendingDown, Minus, ExternalLink } from "lucid
 import type { MentoRate } from "@/lib/market-data";
 
 function SpreadCard({ rate }: { rate: MentoRate }) {
-  const isPositive = rate.spreadPct > 0.2;
-  const isStrongNegative = rate.spreadPct < -0.5;
+  const isPositive = rate.spreadPct > 0.3; // matches MIN_PROFITABLE_SPREAD_PCT
+  const isStrongNegative = rate.spreadPct < -0.3;
   const isNeutral = !isPositive && !isStrongNegative;
 
   const [from, to] = rate.pair.split("/");
