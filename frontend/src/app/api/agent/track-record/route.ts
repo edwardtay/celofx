@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTrades, getTradeCount } from "@/lib/trade-store";
+import { getVaultMetrics } from "@/lib/vault-store";
 import { getAttestation } from "@/lib/tee";
 
 export async function GET() {
@@ -60,6 +61,10 @@ export async function GET() {
           timestamp: sorted[0].timestamp,
         }
       : null,
+    vault: (() => {
+      const vm = getVaultMetrics(allTrades);
+      return { tvl: vm.tvl, depositors: vm.depositors, sharePrice: vm.sharePrice };
+    })(),
     trades: confirmed.map((t) => ({
       id: t.id,
       pair: t.pair,

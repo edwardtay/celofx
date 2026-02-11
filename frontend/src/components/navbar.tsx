@@ -14,6 +14,7 @@ const navLinks = [
   { href: "/", label: "Dashboard" },
   { href: "/signals", label: "Signals", countKey: "signals" as const },
   { href: "/trades", label: "Trades", countKey: "trades" as const },
+  { href: "/vault", label: "Vault" },
   { href: "/premium", label: "Premium" },
   { href: "/agent", label: "Agent" },
 ];

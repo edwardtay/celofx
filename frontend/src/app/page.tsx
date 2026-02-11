@@ -6,10 +6,12 @@ import { TopSignals } from "@/components/dashboard/top-signals";
 import { AgentStatus } from "@/components/dashboard/agent-status";
 import { AgentWallet } from "@/components/dashboard/agent-wallet";
 import { ReputationBadge } from "@/components/dashboard/reputation-badge";
+import { SelfClawBadge } from "@/components/dashboard/selfclaw-badge";
 import { PerformanceMetrics } from "@/components/dashboard/performance-metrics";
 import { MarketSentiment } from "@/components/dashboard/market-sentiment";
 import { TrackRecord } from "@/components/dashboard/track-record";
 import { AutonomousLoop } from "@/components/dashboard/autonomous-loop";
+import { VaultOverview } from "@/components/vault/vault-overview";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { LiveStats } from "@/components/dashboard/live-stats";
 import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
@@ -24,18 +26,20 @@ export default function Home() {
           <div>
             <h1 className="text-2xl font-display tracking-tight">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-              Real-time Mento Broker rates, forex spreads, and AI-generated FX signals.
+              Autonomous FX agent — finds Mento stablecoin spreads, trades them, and grows the vault.
             </p>
             <LiveStats />
           </div>
-          <ReputationBadge />
+          <div className="flex items-center gap-2 flex-wrap">
+            <SelfClawBadge compact />
+            <ReputationBadge />
+          </div>
         </div>
 
+        {/* Above the fold: the story — agent running → vault earning → spreads available */}
         <AgentStatus />
 
-        <AgentWallet />
-
-        <AutonomousLoop />
+        <VaultOverview />
 
         <MentoSpreads />
 
@@ -51,6 +55,11 @@ export default function Home() {
           </div>
           <TopSignals />
         </div>
+
+        {/* Below the fold: proof and details */}
+        <AgentWallet />
+
+        <AutonomousLoop />
 
         <MarketOverview />
 

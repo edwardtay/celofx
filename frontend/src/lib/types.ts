@@ -51,6 +51,29 @@ export interface FeedbackEntry {
   timestamp: number;
 }
 
+export type DepositStatus = "active" | "withdrawn";
+
+export interface VaultDeposit {
+  id: string;
+  depositor: string;
+  amount: number;
+  sharesIssued: number;
+  sharePriceAtEntry: number;
+  txHash: string;
+  status: DepositStatus;
+  withdrawTxHash?: string;
+  timestamp: number;
+}
+
+export interface VaultMetrics {
+  tvl: number;
+  totalShares: number;
+  sharePrice: number;
+  depositors: number;
+  apyEstimate: number;
+  cumulativePnl: number;
+}
+
 export type TradeStatus = "pending" | "confirmed" | "failed";
 
 export interface Trade {

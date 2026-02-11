@@ -276,6 +276,8 @@ export function AgentStatus() {
                 (t: { status: string }) => t.status === "confirmed"
               ).length
             );
+            // Notify vault to refresh immediately after new trades
+            window.dispatchEvent(new CustomEvent("celofx:trade-executed"));
           }
         } catch {
           // ignore
