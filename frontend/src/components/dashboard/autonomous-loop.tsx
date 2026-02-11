@@ -130,7 +130,7 @@ export function AutonomousLoop() {
         ))}
       </div>
       <p className="text-[10px] text-muted-foreground">
-        Cloudflare Worker runs every 15 min — fetches Mento on-chain rates, compares with forex, generates signals. No human intervention.
+        Cloudflare Worker runs every 15 min — fetches Mento on-chain rates, compares with forex. Only executes swaps when spread is profitable (+0.3%). Protects vault capital.
       </p>
     </div>
   );

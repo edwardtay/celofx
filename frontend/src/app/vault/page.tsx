@@ -226,8 +226,8 @@ export default function VaultPage() {
             Capital Vault
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-            Deposit cUSD to the agent&apos;s trading pool. Profits from Mento
-            spread arbitrage accrue proportionally to your shares.
+            Deposit cUSD to the agent&apos;s trading pool. The agent monitors Mento
+            rates 24/7 and only trades when spreads are profitable — protecting your capital.
           </p>
         </div>
 
@@ -478,8 +478,8 @@ export default function VaultPage() {
                         },
                         {
                           n: "2",
-                          label: "Trade",
-                          desc: "Agent trades Mento spreads",
+                          label: "Monitor",
+                          desc: "Agent waits for profitable spread",
                         },
                         {
                           n: "3",

@@ -90,17 +90,17 @@ function SpreadCard({ rate }: { rate: MentoRate }) {
         {/* Action hint */}
         {isPositive && (
           <p className="text-xs text-emerald-700">
-            Mento gives {Math.abs(rate.spreadPct).toFixed(2)}% more {to} per {from} than real forex — auto-executes above 0.3%
+            Mento gives {Math.abs(rate.spreadPct).toFixed(2)}% more {to} per {from} than real forex — profitable, auto-executes above +0.3%
           </p>
         )}
         {isStrongNegative && (
           <p className="text-xs text-red-600">
-            Spread at {rate.spreadPct.toFixed(2)}% — agent waiting for oracle update (threshold: +0.3%)
+            Mento gives {Math.abs(rate.spreadPct).toFixed(2)}% less than forex — not profitable. Agent waiting for favorable rate.
           </p>
         )}
         {isNeutral && (
           <p className="text-xs text-amber-700">
-            Spread at {rate.spreadPct > 0 ? "+" : ""}{rate.spreadPct.toFixed(2)}% — agent monitoring, auto-executes above +0.3%
+            Spread at {rate.spreadPct > 0 ? "+" : ""}{rate.spreadPct.toFixed(2)}% — monitoring. Agent only trades when spread exceeds +0.3%
           </p>
         )}
       </CardContent>

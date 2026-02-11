@@ -241,7 +241,61 @@ export async function POST(request: Request) {
                 const amount = input.amount as string;
                 const spreadPct = (input.spreadPct as number) || 0;
 
+                // ── PROFITABILITY GUARD ──
+                // Verify on-chain rate vs forex before executing. Protects vault depositors.
+                const MIN_PROFITABLE_SPREAD = 0.3; // %
+                if (spreadPct < MIN_PROFITABLE_SPREAD) {
+                  const tcEntry = {
+                    tool: "execute_mento_swap",
+                    summary: `${fromToken}→${toToken} BLOCKED — spread ${spreadPct.toFixed(2)}% below +${MIN_PROFITABLE_SPREAD}% threshold`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({
+                    error: `Swap rejected: spread ${spreadPct.toFixed(2)}% is below the +${MIN_PROFITABLE_SPREAD}% profitability threshold. Only positive spreads (Mento gives MORE than forex) above ${MIN_PROFITABLE_SPREAD}% are executed. Current spread is ${spreadPct < 0 ? "negative (Mento gives less than forex — would lose money)" : "too small to cover fees"}. Vault capital protected.`,
+                    spreadPct,
+                    threshold: MIN_PROFITABLE_SPREAD,
+                  });
+                  break;
+                }
+
                 try {
+                  // Double-check: fetch fresh on-chain rate to verify profitability
+                  const { getOnChainQuote } = await import("@/lib/mento-sdk");
+                  const freshQuote = await getOnChainQuote(fromToken, toToken, "1");
+                  // Fetch forex for comparison
+                  const forexCheck = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL", { signal: AbortSignal.timeout(5000) })
+                    .then(r => r.json())
+                    .catch(() => ({ rates: { EUR: 0.926, BRL: 5.7 } }));
+
+                  const forexRateMap: Record<string, number> = {
+                    "cUSD/cEUR": forexCheck.rates?.EUR ?? 0.926,
+                    "cUSD/cREAL": forexCheck.rates?.BRL ?? 5.7,
+                    "cEUR/cUSD": 1 / (forexCheck.rates?.EUR ?? 0.926),
+                    "cREAL/cUSD": 1 / (forexCheck.rates?.BRL ?? 5.7),
+                  };
+                  const pairKey = `${fromToken}/${toToken}`;
+                  const expectedForex = forexRateMap[pairKey];
+
+                  if (expectedForex) {
+                    const realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
+                    if (realSpread < MIN_PROFITABLE_SPREAD) {
+                      const tcEntry = {
+                        tool: "execute_mento_swap",
+                        summary: `${fromToken}→${toToken} BLOCKED — verified spread ${realSpread.toFixed(2)}% (on-chain check)`,
+                      };
+                      toolCallLog.push(tcEntry);
+                      send("tool_call", tcEntry);
+                      result = JSON.stringify({
+                        error: `Swap rejected after on-chain verification: real spread is ${realSpread.toFixed(2)}% (Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}). Need > +${MIN_PROFITABLE_SPREAD}% to be profitable. Vault capital protected.`,
+                        verifiedSpread: realSpread,
+                        mentoRate: freshQuote.rate,
+                        forexRate: expectedForex,
+                      });
+                      break;
+                    }
+                  }
+
                   const swapResult = await buildSwapTx(fromToken, toToken, amount);
                   swapTxs.push({
                     fromToken,

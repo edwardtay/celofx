@@ -57,6 +57,31 @@ export async function POST(request: NextRequest) {
   const tradeId = `trade-${Date.now()}`;
 
   try {
+    // Profitability check: verify spread is positive before executing
+    const { getOnChainQuote } = await import("@/lib/mento-sdk");
+    const freshQuote = await getOnChainQuote(fromToken, toToken, "1");
+    const forexRes = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL", { signal: AbortSignal.timeout(5000) })
+      .then(r => r.json())
+      .catch(() => ({ rates: { EUR: 0.926, BRL: 5.7 } }));
+
+    const forexMap: Record<string, number> = {
+      "cUSD/cEUR": forexRes.rates?.EUR ?? 0.926,
+      "cUSD/cREAL": forexRes.rates?.BRL ?? 5.7,
+      "cEUR/cUSD": 1 / (forexRes.rates?.EUR ?? 0.926),
+      "cREAL/cUSD": 1 / (forexRes.rates?.BRL ?? 5.7),
+    };
+    const pairKey = `${fromToken}/${toToken}`;
+    const expectedForex = forexMap[pairKey];
+    if (expectedForex) {
+      const realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
+      if (realSpread < 0.3) {
+        return NextResponse.json({
+          error: `Swap rejected: spread ${realSpread.toFixed(2)}% is not profitable (need > +0.3%). Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}. Vault capital protected.`,
+          spread: realSpread,
+        }, { status: 400 });
+      }
+    }
+
     // Build swap tx
     const swapResult = await buildSwapTx(fromToken, toToken, amount);
 

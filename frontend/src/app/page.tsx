@@ -26,7 +26,7 @@ export default function Home() {
           <div>
             <h1 className="text-2xl font-display tracking-tight">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-              Autonomous FX agent — finds Mento stablecoin spreads, trades them, and grows the vault.
+              Monitors Mento stablecoin rates 24/7 — only trades when the spread is profitable.
             </p>
             <LiveStats />
           </div>
