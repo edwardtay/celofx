@@ -116,6 +116,29 @@ async function handleMessage(text: string): Promise<string> {
   });
 }
 
+// GET returns agent capabilities (8004scan probes with GET)
+export async function GET() {
+  return NextResponse.json({
+    jsonrpc: "2.0",
+    result: {
+      name: "CeloFX",
+      protocolVersion: "0.3.0",
+      capabilities: {
+        streaming: false,
+        pushNotifications: false,
+      },
+      skills: [
+        { id: "fx_rate_analysis", name: "FX Rate Analysis" },
+        { id: "execute_swap", name: "Execute Mento Swap" },
+        { id: "portfolio_status", name: "Portfolio Status" },
+        { id: "performance_tracking", name: "Performance Tracking" },
+      ],
+      supportedMethods: ["message/send", "tasks/get", "tasks/cancel"],
+    },
+    id: null,
+  });
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { jsonrpc, id, method, params } = body;
