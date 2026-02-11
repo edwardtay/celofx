@@ -27,15 +27,12 @@
       "endpoint": "https://github.com/agntcy/oasf/",
       "version": "0.8.0",
       "skills": [
-        "analytical_skills/mathematical_reasoning",
-        "analytical_skills/data_analysis",
+        "analytical_skills",
         "tool_interaction",
-        "domain_expertise/financial_markets"
+        "advanced_reasoning_planning"
       ],
       "domains": [
-        "finance_and_business/investment_services",
-        "finance_and_business/finance",
-        "finance_and_business/trading"
+        "finance_and_business"
       ],
       "capabilities": [
         "autonomous_execution",
