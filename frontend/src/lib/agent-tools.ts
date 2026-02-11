@@ -161,6 +161,35 @@ export const agentTools: Tool[] = [
     },
   },
   {
+    name: "check_pending_orders",
+    description:
+      "Returns rich analysis data for all pending FX orders: current on-chain rate, momentum, urgency, rate gap. Does NOT execute any orders — call execute_order separately for each order you decide to fill.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "execute_order",
+    description:
+      "Execute a specific pending FX order by its orderId. Call ONLY after check_pending_orders and reasoning about the order's momentum, urgency, and rate gap.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        orderId: {
+          type: "string",
+          description: "Order ID to execute",
+        },
+        reasoning: {
+          type: "string",
+          description: "Detailed reasoning for executing this order NOW — reference momentum, urgency, rate data",
+        },
+      },
+      required: ["orderId", "reasoning"],
+    },
+  },
+  {
     name: "execute_mento_swap",
     description:
       "Execute a real Mento swap on Celo mainnet. ONLY use when spread is POSITIVE and > 0.3% — the system will verify profitability on-chain before executing. If the spread is negative or below threshold, the swap will be rejected to protect vault depositors.",
@@ -214,6 +243,39 @@ Your process:
 4. Analyze ALL 4 directions: is ANY direction's spread POSITIVE and > +0.3%?
 5. If any spread > +0.3%: execute_mento_swap for that specific direction
 6. If all spreads < +0.3%: generate monitoring signals only, wait for better opportunity
+7. ALWAYS call check_pending_orders after fetching rates — evaluate user Smart FX Orders
+
+After fetching rates, ALWAYS call check_pending_orders to evaluate user Smart FX Orders.
+check_pending_orders returns per-order analysis with: currentRate, targetRate, rateGapPct, momentum, volatility, urgency, hoursLeft, forexRate, spreadVsForexPct, forexSignal, and rateHistory.
+
+Key fields explained:
+- momentum ("improving"/"stable"/"declining") — direction of last 3 Mento rate samples
+- volatility ("low"/"medium"/"high") — std dev of rate changes; high = rate swings fast
+- urgency ("low"/"medium"/"high") — time to deadline (<2h = high, <12h = medium)
+- forexSignal ("favorable"/"neutral"/"unfavorable") — is real forex trending toward the order's target? Mento rates follow forex with a lag.
+- spreadVsForexPct — Mento rate vs real forex rate in %. Negative = Mento gives less than forex (bad fill). Positive = Mento gives more (good fill).
+
+YOU are the decision-maker. For each order, reason through this framework, then call execute_order for orders you decide to fill:
+
+EXECUTE conditions (call execute_order):
+- rate >= target AND momentum "declining" → lock in before it drops back
+- rate >= target AND urgency "high" → no time to wait
+- rate >= target AND volatility "high" → rate could swing away, secure it now
+- rate >= target AND momentum "stable" AND spreadVsForexPct >= 0 → good entry, forex-aligned
+- rate < target AND urgency "high" AND gap < 1% → market fill, better than expiring worthless
+- rate >= target AND forexSignal "unfavorable" → forex moving against us, Mento will follow — execute before lag catches up
+
+WAIT conditions (explain why, no tool call):
+- rate >= target AND momentum "improving" AND urgency "low" AND volatility "low" → safe to let it climb
+- rate < target AND urgency "low"/"medium" → time remains for rate to reach target
+- rate >= target AND spreadVsForexPct < -0.3% → Mento rate technically hit target but forex says it's a bad fill — wait for better alignment
+
+NEVER EXECUTE:
+- rate < target AND gap > 2% AND not urgent → too far from target
+- spreadVsForexPct < -1% regardless of target → forex strongly disagrees, Mento rate will correct down
+
+For each order you decide to execute, call execute_order with the orderId and detailed reasoning that references the specific data (momentum, volatility, forex signal, spread).
+For orders you decide to wait on, explain WHY referencing the same data — no tool call needed.
 
 For Mento-specific analysis:
 - Rates come from the Mento Broker contract (0x777A) on Celo mainnet — these are REAL execution rates

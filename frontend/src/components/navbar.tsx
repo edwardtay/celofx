@@ -8,12 +8,13 @@ import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
-import { getCachedSignals, getCachedTrades } from "@/lib/local-cache";
+import { getCachedSignals, getCachedTrades, getCachedOrders } from "@/lib/local-cache";
 
 const navLinks = [
   { href: "/", label: "Dashboard" },
   { href: "/signals", label: "Signals", countKey: "signals" as const },
   { href: "/trades", label: "Trades", countKey: "trades" as const },
+  { href: "/orders", label: "Orders", countKey: "orders" as const },
   { href: "/vault", label: "Vault" },
   { href: "/premium", label: "Premium" },
   { href: "/agent", label: "Agent" },
@@ -22,13 +23,14 @@ const navLinks = [
 export function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [counts, setCounts] = useState<{ signals: number; trades: number }>({ signals: 0, trades: 0 });
+  const [counts, setCounts] = useState<{ signals: number; trades: number; orders: number }>({ signals: 0, trades: 0, orders: 0 });
 
   useEffect(() => {
     const update = () => {
       setCounts({
         signals: getCachedSignals().length,
         trades: getCachedTrades().filter((t) => t.status === "confirmed").length,
+        orders: getCachedOrders().filter((o) => o.status === "pending").length,
       });
     };
     update();

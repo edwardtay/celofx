@@ -233,6 +233,320 @@ export async function POST(request: Request) {
                 send("signal", { asset: signal.asset, direction: signal.direction, confidence: signal.confidence });
                 break;
               }
+              case "check_pending_orders": {
+                const { getOrders: fetchOrders, updateOrder: patchOrder } = await import("@/lib/order-store");
+                const { getOnChainQuote } = await import("@/lib/mento-sdk");
+
+                const pendingOrders = fetchOrders({ status: "pending" });
+                const now = Date.now();
+                const orderAnalysis: Array<Record<string, unknown>> = [];
+                let expired = 0;
+
+                // Fetch forex rates once for all orders
+                const forexRes = await fetch(
+                  "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL",
+                  { signal: AbortSignal.timeout(5000) }
+                ).then(r => r.json()).catch(() => ({ rates: { EUR: 0.926, BRL: 5.7 } }));
+                const forexMap: Record<string, number> = {
+                  "cUSD/cEUR": forexRes.rates?.EUR ?? 0.926,
+                  "cUSD/cREAL": forexRes.rates?.BRL ?? 5.7,
+                  "cEUR/cUSD": 1 / (forexRes.rates?.EUR ?? 0.926),
+                  "cREAL/cUSD": 1 / (forexRes.rates?.BRL ?? 5.7),
+                };
+
+                for (const order of pendingOrders) {
+                  // Expired?
+                  if (now > order.deadline) {
+                    patchOrder(order.id, { status: "expired", lastCheckedAt: now, checksCount: (order.checksCount || 0) + 1 });
+                    expired++;
+                    send("order_check", { orderId: order.id, decision: "expired", pair: `${order.fromToken}/${order.toToken}` });
+                    continue;
+                  }
+
+                  // Get fresh on-chain quote
+                  try {
+                    const quote = await getOnChainQuote(
+                      order.fromToken as MentoToken,
+                      order.toToken as MentoToken,
+                      "1"
+                    );
+
+                    // Append to rateHistory (cap at 20)
+                    const history = [...(order.rateHistory || []), { rate: quote.rate, timestamp: now }].slice(-20);
+                    patchOrder(order.id, {
+                      lastCheckedAt: now,
+                      checksCount: (order.checksCount || 0) + 1,
+                      rateHistory: history,
+                    });
+
+                    // Compute momentum from last 3 data points
+                    let momentum: "improving" | "stable" | "declining" = "stable";
+                    if (history.length >= 3) {
+                      const recent = history.slice(-3);
+                      const delta = recent[2].rate - recent[0].rate;
+                      const noiseThreshold = order.targetRate * 0.0005; // 0.05% of target
+                      if (delta > noiseThreshold) momentum = "improving";
+                      else if (delta < -noiseThreshold) momentum = "declining";
+                    }
+
+                    // Compute volatility from rate history (std dev of % changes)
+                    let volatility: "low" | "medium" | "high" = "low";
+                    if (history.length >= 4) {
+                      const pctChanges: number[] = [];
+                      for (let i = 1; i < history.length; i++) {
+                        pctChanges.push(((history[i].rate - history[i - 1].rate) / history[i - 1].rate) * 100);
+                      }
+                      const mean = pctChanges.reduce((a, b) => a + b, 0) / pctChanges.length;
+                      const variance = pctChanges.reduce((sum, v) => sum + (v - mean) ** 2, 0) / pctChanges.length;
+                      const stdDev = Math.sqrt(variance);
+                      if (stdDev > 0.15) volatility = "high";
+                      else if (stdDev > 0.05) volatility = "medium";
+                    }
+
+                    // Compute urgency
+                    const hoursLeft = (order.deadline - now) / 3_600_000;
+                    let urgency: "low" | "medium" | "high" = "low";
+                    if (hoursLeft < 2) urgency = "high";
+                    else if (hoursLeft < 12) urgency = "medium";
+
+                    // Rate gap vs target
+                    const rateGapPct = ((quote.rate - order.targetRate) / order.targetRate) * 100;
+
+                    // Spread vs real forex
+                    const pair = `${order.fromToken}/${order.toToken}`;
+                    const forexRate = forexMap[pair];
+                    const spreadVsForexPct = forexRate
+                      ? ((quote.rate - forexRate) / forexRate) * 100
+                      : null;
+
+                    // Forex trend signal: is forex moving toward or away from order's target?
+                    let forexSignal: "favorable" | "neutral" | "unfavorable" = "neutral";
+                    if (forexRate) {
+                      const forexGap = ((forexRate - order.targetRate) / order.targetRate) * 100;
+                      // If forex is already above target, trend is favorable (Mento follows forex)
+                      if (forexGap > 0.3) forexSignal = "favorable";
+                      else if (forexGap < -0.5) forexSignal = "unfavorable";
+                    }
+
+                    orderAnalysis.push({
+                      orderId: order.id,
+                      pair,
+                      amountIn: order.amountIn,
+                      currentRate: quote.rate,
+                      targetRate: order.targetRate,
+                      rateGapPct: Number(rateGapPct.toFixed(3)),
+                      meetsTarget: quote.rate >= order.targetRate,
+                      momentum,
+                      volatility,
+                      urgency,
+                      hoursLeft: Number(hoursLeft.toFixed(1)),
+                      forexRate: forexRate ? Number(forexRate.toFixed(6)) : null,
+                      spreadVsForexPct: spreadVsForexPct !== null ? Number(spreadVsForexPct.toFixed(3)) : null,
+                      forexSignal,
+                      rateHistory: history.slice(-5).map(h => ({ rate: h.rate, ago: `${((now - h.timestamp) / 3_600_000).toFixed(1)}h` })),
+                      checksCount: (order.checksCount || 0) + 1,
+                    });
+
+                    send("order_check", {
+                      orderId: order.id,
+                      decision: "analyzed",
+                      currentRate: quote.rate,
+                      targetRate: order.targetRate,
+                      momentum,
+                      volatility,
+                      urgency,
+                      forexSignal,
+                      pair,
+                    });
+                  } catch {
+                    patchOrder(order.id, { lastCheckedAt: now, checksCount: (order.checksCount || 0) + 1 });
+                    orderAnalysis.push({
+                      orderId: order.id,
+                      pair: `${order.fromToken}/${order.toToken}`,
+                      error: "Failed to fetch on-chain quote",
+                    });
+                  }
+                }
+
+                const tcEntry = {
+                  tool: "check_pending_orders",
+                  summary: `${orderAnalysis.length} analyzed, ${expired} expired — awaiting your execute_order calls`,
+                };
+                toolCallLog.push(tcEntry);
+                send("tool_call", tcEntry);
+
+                result = JSON.stringify({
+                  orders: orderAnalysis,
+                  expired,
+                  instructions: orderAnalysis.length > 0
+                    ? "Review each order's momentum, volatility, urgency, forexSignal, and spreadVsForexPct. Call execute_order for each order you decide to fill, with detailed reasoning."
+                    : "No pending orders to evaluate.",
+                });
+                break;
+              }
+              case "execute_order": {
+                const input = toolUse.input as Record<string, unknown>;
+                const orderId = input.orderId as string;
+                const reasoning = input.reasoning as string;
+
+                const { getOrder: fetchOrder, updateOrder: patchOrder } = await import("@/lib/order-store");
+                const { getOnChainQuote } = await import("@/lib/mento-sdk");
+
+                const order = fetchOrder(orderId);
+                if (!order || order.status !== "pending") {
+                  const tcEntry = { tool: "execute_order", summary: `${orderId} — not found or not pending` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({ error: `Order ${orderId} not found or not in pending status` });
+                  break;
+                }
+
+                const now = Date.now();
+
+                // Check deadline
+                if (now > order.deadline) {
+                  patchOrder(orderId, { status: "expired", lastCheckedAt: now });
+                  const tcEntry = { tool: "execute_order", summary: `${orderId} — expired` };
+                  toolCallLog.push(tcEntry);
+                  send("order_check", { orderId, decision: "expired", pair: `${order.fromToken}/${order.toToken}` });
+                  result = JSON.stringify({ error: "Order has expired", orderId });
+                  break;
+                }
+
+                // Fetch fresh on-chain quote
+                let quote: { rate: number };
+                try {
+                  quote = await getOnChainQuote(
+                    order.fromToken as MentoToken,
+                    order.toToken as MentoToken,
+                    "1"
+                  );
+                } catch {
+                  const tcEntry = { tool: "execute_order", summary: `${orderId} — quote fetch failed` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({ error: "Failed to fetch on-chain quote", orderId });
+                  break;
+                }
+
+                // Rate verification: must meet target, UNLESS urgent market order
+                const hoursLeft = (order.deadline - now) / 3_600_000;
+                const gapPct = ((quote.rate - order.targetRate) / order.targetRate) * 100;
+                if (quote.rate < order.targetRate) {
+                  const isUrgentMarketOrder = hoursLeft < 2 && Math.abs(gapPct) < 1;
+                  if (!isUrgentMarketOrder) {
+                    const tcEntry = { tool: "execute_order", summary: `${orderId} — rate ${quote.rate.toFixed(4)} below target ${order.targetRate}` };
+                    toolCallLog.push(tcEntry);
+                    send("tool_call", tcEntry);
+                    result = JSON.stringify({
+                      error: `Rate ${quote.rate.toFixed(4)} is below target ${order.targetRate} (gap: ${gapPct.toFixed(2)}%). Not urgent enough to fill at market.`,
+                      orderId,
+                      currentRate: quote.rate,
+                      targetRate: order.targetRate,
+                      gapPct: Number(gapPct.toFixed(3)),
+                    });
+                    break;
+                  }
+                }
+
+                // Execute swap
+                try {
+                  const swapResult = await buildSwapTx(
+                    order.fromToken as MentoToken,
+                    order.toToken as MentoToken,
+                    order.amountIn
+                  );
+
+                  let txHash: string | undefined;
+                  const privateKey = process.env.AGENT_PRIVATE_KEY;
+
+                  if (privateKey) {
+                    const normalizedKey = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as `0x${string}`;
+                    const account = privateKeyToAccount(normalizedKey);
+                    const wallet = createWalletClient({
+                      account,
+                      chain: celo,
+                      transport: http("https://forno.celo.org"),
+                    });
+                    const feeCurrency = TOKENS.cUSD as `0x${string}`;
+
+                    const approvalHash = await wallet.sendTransaction({
+                      to: TOKENS[order.fromToken as MentoToken],
+                      data: swapResult.approvalTx.data as `0x${string}`,
+                      feeCurrency,
+                    });
+
+                    const { createPublicClient } = await import("viem");
+                    const publicClient = createPublicClient({
+                      chain: celo,
+                      transport: http("https://forno.celo.org"),
+                    });
+                    await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+
+                    const swapHash = await wallet.sendTransaction({
+                      to: swapResult.swapTx.to,
+                      data: swapResult.swapTx.data as `0x${string}`,
+                      feeCurrency,
+                    });
+                    await publicClient.waitForTransactionReceipt({ hash: swapHash });
+                    txHash = swapHash;
+                  }
+
+                  patchOrder(orderId, {
+                    status: "executed",
+                    executedAt: now,
+                    executedRate: quote.rate,
+                    executedTxHash: txHash,
+                    agentReasoning: reasoning,
+                    lastCheckedAt: now,
+                  });
+
+                  const orderTrade: Trade = {
+                    id: `trade-order-${orderId}-${now}`,
+                    pair: `${order.fromToken}/${order.toToken}`,
+                    fromToken: order.fromToken,
+                    toToken: order.toToken,
+                    amountIn: order.amountIn,
+                    amountOut: swapResult.summary.expectedOut,
+                    rate: quote.rate,
+                    spreadPct: 0,
+                    status: txHash ? "confirmed" : "pending",
+                    swapTxHash: txHash,
+                    timestamp: now,
+                  };
+                  addTrade(orderTrade);
+
+                  const tcEntry = {
+                    tool: "execute_order",
+                    summary: `${orderId} EXECUTED — ${order.amountIn} ${order.fromToken}→${order.toToken} @ ${quote.rate.toFixed(4)}`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  send("order_check", { orderId, decision: "executed", rate: quote.rate, pair: `${order.fromToken}/${order.toToken}` });
+
+                  result = JSON.stringify({
+                    success: true,
+                    orderId,
+                    executedRate: quote.rate,
+                    amountIn: order.amountIn,
+                    expectedOut: swapResult.summary.expectedOut,
+                    txHash: txHash || "no-key",
+                    reasoning,
+                  });
+                } catch (err) {
+                  const tcEntry = {
+                    tool: "execute_order",
+                    summary: `${orderId} — swap failed: ${err instanceof Error ? err.message : "unknown"}`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({
+                    error: `Swap execution failed: ${err instanceof Error ? err.message : "unknown"}`,
+                    orderId,
+                  });
+                }
+                break;
+              }
               case "execute_mento_swap": {
                 const input = toolUse.input as Record<string, unknown>;
                 const tradeId = `trade-${Date.now()}-${signalCount}`;

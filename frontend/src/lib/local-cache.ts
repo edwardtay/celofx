@@ -1,7 +1,8 @@
-import type { Signal, Trade } from "./types";
+import type { Signal, Trade, FxOrder } from "./types";
 
 const SIGNALS_KEY = "celofx-signals";
 const TRADES_KEY = "celofx-trades";
+const ORDERS_KEY = "celofx-orders";
 const LAST_SCAN_KEY = "celofx-last-scan";
 const MAX_CACHED = 50;
 
@@ -89,6 +90,31 @@ export function mergeTrades(apiTrades: Trade[], cached: Trade[]): Trade[] {
   return Array.from(byId.values())
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, MAX_CACHED);
+}
+
+// Orders
+
+export function getCachedOrders(): FxOrder[] {
+  if (!isBrowser()) return [];
+  try {
+    const raw = localStorage.getItem(ORDERS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as FxOrder[];
+  } catch {
+    return [];
+  }
+}
+
+export function setCachedOrders(orders: FxOrder[]): void {
+  if (!isBrowser()) return;
+  try {
+    const sorted = orders
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, MAX_CACHED);
+    localStorage.setItem(ORDERS_KEY, JSON.stringify(sorted));
+  } catch {
+    // localStorage full or unavailable
+  }
 }
 
 // Last scan result (full — tool calls, signals, snapshots)

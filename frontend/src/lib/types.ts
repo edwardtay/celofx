@@ -92,3 +92,24 @@ export interface Trade {
   pnl?: number;
   timestamp: number;
 }
+
+export type OrderStatus = "pending" | "executed" | "expired" | "cancelled";
+
+export interface FxOrder {
+  id: string;
+  creator: string;
+  fromToken: string;
+  toToken: string;
+  amountIn: string;
+  targetRate: number;
+  deadline: number;
+  status: OrderStatus;
+  createdAt: number;
+  executedAt?: number;
+  executedRate?: number;
+  executedTxHash?: string;
+  agentReasoning?: string;
+  lastCheckedAt?: number;
+  checksCount?: number;
+  rateHistory?: { rate: number; timestamp: number }[];
+}
