@@ -6,33 +6,20 @@ import { useSignals } from "@/hooks/use-signals";
 import { useTrades } from "@/hooks/use-trades";
 import { useMemo } from "react";
 
-const historicalSignals = [
-  { asset: "cUSD/cEUR", direction: "long", hit: true },
-  { asset: "cUSD/cREAL", direction: "long", hit: true },
-  { asset: "EUR/USD", direction: "short", hit: true },
-  { asset: "cEUR/cREAL", direction: "long", hit: true },
-  { asset: "BTC/USD", direction: "long", hit: true },
-  { asset: "USD/BRL", direction: "long", hit: true },
-  { asset: "GBP/USD", direction: "short", hit: false },
-  { asset: "Gold (XAU)", direction: "long", hit: true },
-  { asset: "CELO/USD", direction: "long", hit: false },
-  { asset: "USD/JPY", direction: "long", hit: false },
-];
-
 export function TrackRecord() {
   const { data: signals } = useSignals();
   const { data: trades } = useTrades();
 
   const record = useMemo(() => {
-    // Start with historical data
-    const entries = [...historicalSignals];
+    const entries: Array<{ asset: string; direction: string; hit: boolean }> = [];
+    const seen = new Set<string>();
 
-    // Add real signals that resulted in trades (these are verified wins)
+    // Real executed trades — each is a verified on-chain result
     if (trades?.length) {
       const confirmed = trades.filter((t) => t.status === "confirmed");
       for (const trade of confirmed) {
-        // Only add if not already in historical
-        if (!entries.some((e) => e.asset === trade.pair)) {
+        if (!seen.has(trade.pair)) {
+          seen.add(trade.pair);
           entries.push({
             asset: trade.pair,
             direction: "long",
@@ -42,14 +29,11 @@ export function TrackRecord() {
       }
     }
 
-    // Add recent signals with high confidence as tracked predictions
+    // Signals from Claude analysis (live-generated)
     if (signals?.length) {
       for (const sig of signals) {
-        if (
-          sig.confidence >= 70 &&
-          !entries.some((e) => e.asset === sig.asset)
-        ) {
-          // Mento signals that led to trades are confirmed wins
+        if (!seen.has(sig.asset) && sig.confidence >= 65) {
+          seen.add(sig.asset);
           const matchedTrade = trades?.find(
             (t) => t.status === "confirmed" && t.pair === sig.asset
           );
@@ -70,6 +54,8 @@ export function TrackRecord() {
   const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
 
   const confirmedTrades = trades?.filter((t) => t.status === "confirmed").length ?? 0;
+
+  if (total === 0) return null;
 
   return (
     <div className="space-y-2">
@@ -121,7 +107,7 @@ export function TrackRecord() {
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        Combined signal accuracy from AI analysis and on-chain executed trades. All swap transactions verifiable on Celoscan.
+        Based on {confirmedTrades} verified on-chain swaps and AI-generated signals. All transactions verifiable on Celoscan.
       </p>
     </div>
   );
