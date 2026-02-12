@@ -25,8 +25,9 @@ import {
   CheckCircle2,
   ChevronRight,
   AlertTriangle,
+  PieChart,
 } from "lucide-react";
-import type { VaultDeposit, VaultMetrics } from "@/lib/types";
+import type { VaultDeposit, VaultMetrics, PortfolioCompositionView } from "@/lib/types";
 import { Sparkline } from "@/components/vault/sparkline";
 
 const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
@@ -53,6 +54,7 @@ interface VaultData {
 export default function VaultPage() {
   const { address, isConnected } = useAccount();
   const [data, setData] = useState<VaultData | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioCompositionView | null>(null);
   const [depositAmount, setDepositAmount] = useState("");
   const [step, setStep] = useState<
     "idle" | "confirm" | "approving" | "transferring" | "recording" | "done"
@@ -93,9 +95,16 @@ export default function VaultPage() {
 
   const fetchData = useCallback(async () => {
     const url = address ? `/api/vault?address=${address}` : "/api/vault";
-    const res = await fetch(url);
+    const [res, portfolioRes] = await Promise.all([
+      fetch(url),
+      fetch("/api/vault/portfolio").catch(() => null),
+    ]);
     const json = await res.json();
     setData(json);
+    if (portfolioRes?.ok) {
+      const pJson = await portfolioRes.json();
+      setPortfolio(pJson);
+    }
   }, [address]);
 
   useEffect(() => {
@@ -307,6 +316,97 @@ export default function VaultPage() {
                 showLabels
                 className="w-full"
               />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Portfolio Allocation */}
+        {portfolio && portfolio.holdings.length > 0 && (
+          <Card className="gap-0 py-0">
+            <CardContent className="py-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <PieChart className="size-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Portfolio Allocation</span>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] ${
+                    portfolio.needsRebalance
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  }`}
+                >
+                  {portfolio.needsRebalance
+                    ? `${portfolio.maxDriftPct.toFixed(1)}% drift`
+                    : "Balanced"}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                {portfolio.holdings.map((h) => {
+                  const isOverweight = h.driftPct > 0;
+                  const absDrift = Math.abs(h.driftPct);
+                  const driftColor =
+                    absDrift > 5 ? "text-amber-600" : "text-muted-foreground";
+                  return (
+                    <div key={h.token} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium w-12">{h.token}</span>
+                          <span className="font-mono text-muted-foreground">
+                            {h.balance.toFixed(2)}
+                          </span>
+                          <span className="text-muted-foreground">
+                            (${h.valueCusd.toFixed(2)})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-mono ${driftColor}`}>
+                            {isOverweight ? "+" : ""}
+                            {h.driftPct.toFixed(1)}%
+                          </span>
+                          <span className="font-mono text-muted-foreground text-[10px]">
+                            {h.actualPct.toFixed(1)}% / {h.targetPct}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                        {/* Target marker */}
+                        <div
+                          className="absolute top-0 h-full w-0.5 bg-muted-foreground/30 z-10"
+                          style={{ left: `${Math.min(h.targetPct, 100)}%` }}
+                        />
+                        {/* Actual fill */}
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            absDrift > 5
+                              ? "bg-amber-400"
+                              : "bg-emerald-400"
+                          }`}
+                          style={{ width: `${Math.min(h.actualPct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {portfolio.needsRebalance && (
+                <div className="flex items-start gap-2 border border-amber-200 bg-amber-50 rounded-lg p-2.5">
+                  <AlertTriangle className="size-3.5 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800">
+                    Portfolio drift exceeds 5%. Agent will rebalance on next scan.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
+                <span>
+                  Total: ${portfolio.totalValueCusd.toFixed(2)} cUSD
+                </span>
+                <span>Target: 60% cUSD / 25% cEUR / 15% cREAL</span>
+              </div>
             </CardContent>
           </Card>
         )}

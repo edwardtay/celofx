@@ -589,6 +589,70 @@ export async function POST(request: Request) {
                 }
                 break;
               }
+              case "check_portfolio_drift": {
+                const { getPortfolioComposition, getTargetAllocation, DRIFT_THRESHOLD_PCT } = await import("@/lib/portfolio-config");
+                try {
+                  const composition = await getPortfolioComposition();
+                  const allocation = getTargetAllocation();
+
+                  let recommendations: Array<{ action: string; fromToken: string; toToken: string; amount: string; reason: string }> = [];
+
+                  if (composition.needsRebalance && composition.totalValueCusd > 5) {
+                    // Find most overweight and most underweight
+                    const sorted = [...composition.holdings].sort((a, b) => b.driftPct - a.driftPct);
+                    const overweight = sorted[0];
+                    const underweight = sorted[sorted.length - 1];
+
+                    if (overweight && underweight && overweight.driftPct > 0 && underweight.driftPct < 0) {
+                      // Cap rebalance at 50 cUSD equivalent or half the drift
+                      const driftValue = Math.min(
+                        Math.abs(overweight.driftPct / 100) * composition.totalValueCusd,
+                        Math.abs(underweight.driftPct / 100) * composition.totalValueCusd,
+                        50
+                      );
+                      const swapAmount = Math.max(0.1, Number(driftValue.toFixed(2)));
+
+                      recommendations.push({
+                        action: "rebalance_swap",
+                        fromToken: overweight.token,
+                        toToken: underweight.token,
+                        amount: String(swapAmount),
+                        reason: `${overweight.token} is +${overweight.driftPct.toFixed(1)}% overweight, ${underweight.token} is ${underweight.driftPct.toFixed(1)}% underweight. Swap ${swapAmount} ${overweight.token} value to ${underweight.token} to reduce drift.`,
+                      });
+                    }
+                  }
+
+                  const tcEntry = {
+                    tool: "check_portfolio_drift",
+                    summary: composition.needsRebalance
+                      ? `Drift ${composition.maxDriftPct.toFixed(1)}% — rebalance needed`
+                      : `Portfolio balanced (max drift ${composition.maxDriftPct.toFixed(1)}%)`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  send("portfolio_drift", {
+                    maxDriftPct: composition.maxDriftPct,
+                    needsRebalance: composition.needsRebalance,
+                    holdings: composition.holdings.map(h => ({ token: h.token, actualPct: h.actualPct, targetPct: h.targetPct, driftPct: h.driftPct })),
+                  });
+
+                  result = JSON.stringify({
+                    composition,
+                    targetAllocation: allocation,
+                    driftThreshold: DRIFT_THRESHOLD_PCT,
+                    recommendations,
+                    instructions: composition.needsRebalance
+                      ? "Portfolio drift exceeds threshold. Execute recommended rebalance swaps using execute_mento_swap with spreadPct: 999 (rebalance bypass)."
+                      : "Portfolio is balanced. No rebalancing needed.",
+                  });
+                } catch (err) {
+                  const tcEntry = { tool: "check_portfolio_drift", summary: `Error: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({ error: err instanceof Error ? err.message : "Failed to check portfolio drift" });
+                }
+                break;
+              }
               case "execute_mento_swap": {
                 const input = toolUse.input as Record<string, unknown>;
                 const tradeId = `trade-${Date.now()}-${signalCount}`;
@@ -614,9 +678,13 @@ export async function POST(request: Request) {
                   break;
                 }
 
-                // ── PROFITABILITY GUARD ──
+                // ── REBALANCE DETECTION ──
+                // spreadPct === 999 signals a portfolio rebalance trade — bypass profitability checks
+                const isRebalanceTrade = spreadPct === 999;
+
+                // ── PROFITABILITY GUARD (skip for rebalance trades) ──
                 // Verify on-chain rate vs forex before executing. Protects vault depositors.
-                if (spreadPct < MIN_PROFITABLE_SPREAD_PCT) {
+                if (!isRebalanceTrade && spreadPct < MIN_PROFITABLE_SPREAD_PCT) {
                   const tcEntry = {
                     tool: "execute_mento_swap",
                     summary: `${fromToken}→${toToken} BLOCKED — spread ${spreadPct.toFixed(2)}% below +${MIN_PROFITABLE_SPREAD_PCT}% threshold`,
@@ -632,9 +700,11 @@ export async function POST(request: Request) {
                 }
 
                 try {
-                  // Double-check: fetch fresh on-chain rate to verify profitability
+                  // Double-check: fetch fresh on-chain rate to verify profitability (skip for rebalance trades)
                   const { getOnChainQuote } = await import("@/lib/mento-sdk");
                   const freshQuote = await getOnChainQuote(fromToken, toToken, "1");
+
+                  if (!isRebalanceTrade) {
                   // Fetch forex for comparison
                   const forexCheck = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL", { signal: AbortSignal.timeout(5000) })
                     .then(r => r.json())
@@ -667,15 +737,16 @@ export async function POST(request: Request) {
                       break;
                     }
                   }
+                  } // end if (!isRebalanceTrade)
 
                   // Commit decision hash before execution (auditability)
                   const swapDecisionHash = commitDecision({
                     orderId: tradeId,
                     action: "execute",
-                    reasoning: (input.reasoning as string) || `Mento swap ${fromToken}→${toToken} spread ${spreadPct.toFixed(2)}%`,
+                    reasoning: (input.reasoning as string) || `Mento swap ${fromToken}→${toToken} ${isRebalanceTrade ? "rebalance" : `spread ${spreadPct.toFixed(2)}%`}`,
                     timestamp: Date.now(),
                     currentRate: freshQuote.rate,
-                    targetRate: expectedForex || 0,
+                    targetRate: 0,
                     momentum: "n/a",
                     urgency: "immediate",
                   });

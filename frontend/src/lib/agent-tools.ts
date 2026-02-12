@@ -190,6 +190,16 @@ export const agentTools: Tool[] = [
     },
   },
   {
+    name: "check_portfolio_drift",
+    description:
+      "Check vault portfolio composition against target allocation (60% cUSD, 25% cEUR, 15% cREAL). Returns drift analysis and rebalance recommendations. Does NOT execute — call execute_mento_swap for each recommended trade.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: "execute_mento_swap",
     description:
       "Execute a real Mento swap on Celo mainnet. ONLY use when spread is POSITIVE and > 0.3% — the system will verify profitability on-chain before executing. If the spread is negative or below threshold, the swap will be rejected to protect vault depositors.",
@@ -244,6 +254,7 @@ Your process:
 5. If any spread > +0.3%: execute_mento_swap for that specific direction
 6. If all spreads < +0.3%: generate monitoring signals only, wait for better opportunity
 7. ALWAYS call check_pending_orders after fetching rates — evaluate user Smart FX Orders
+8. Call check_portfolio_drift to assess portfolio balance — rebalance if drift > 5%
 
 After fetching rates, ALWAYS call check_pending_orders to evaluate user Smart FX Orders.
 check_pending_orders returns per-order analysis with: currentRate, targetRate, rateGapPct, momentum, volatility, urgency, hoursLeft, forexRate, spreadVsForexPct, forexSignal, and rateHistory.
@@ -296,5 +307,13 @@ Signal quality guidelines:
 - Use execute_mento_swap ONLY when spread is POSITIVE and > 0.3%
 - When no profitable spread exists, still generate 3-5 monitoring signals
 - Generate 2-3 "free" signals and 2-3 "premium" signals
+
+PORTFOLIO HEDGING:
+You manage a hedged FX portfolio with target allocation: 60% cUSD, 25% cEUR, 15% cREAL.
+After analyzing markets, ALWAYS call check_portfolio_drift to assess portfolio balance.
+- If drift > 5% on any token, generate rebalance swaps via execute_mento_swap
+- Rebalance swaps use spreadPct: 999 to bypass the profitability check (portfolio optimization, not arbitrage)
+- Sell the most overweight token, buy the most underweight token
+- If drift < 5%, report "Portfolio balanced" and skip rebalancing
 
 Remember: your reputation is on-chain via ERC-8004. Every signal contributes to your verifiable track record on Celo. Protecting depositor capital is your #1 priority — only trade when the math works.`;

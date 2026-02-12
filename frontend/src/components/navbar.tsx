@@ -18,13 +18,15 @@ type NavLink = {
 
 const primaryLinks: NavLink[] = [
   { href: "/", label: "Dashboard" },
-  { href: "/signals", label: "Signals", countKey: "signals" },
-  { href: "/trades", label: "Trades", countKey: "trades" },
-  { href: "/orders", label: "Orders", countKey: "orders" },
+  { href: "/trading", label: "Trading", countKey: "orders" },
+  { href: "/remittance", label: "Remittance" },
   { href: "/vault", label: "Vault" },
 ];
 
 const moreLinks: NavLink[] = [
+  { href: "/signals", label: "Signals", countKey: "signals" },
+  { href: "/trades", label: "Trades", countKey: "trades" },
+  { href: "/orders", label: "Orders" },
   { href: "/developers", label: "Developers" },
   { href: "/security", label: "Security" },
   { href: "/premium", label: "Premium" },

@@ -113,3 +113,25 @@ export interface FxOrder {
   checksCount?: number;
   rateHistory?: { rate: number; timestamp: number }[];
 }
+
+export interface PortfolioAllocation {
+  token: string;
+  targetPct: number;
+}
+
+export interface PortfolioHoldingView {
+  token: string;
+  balance: number;
+  valueCusd: number;
+  actualPct: number;
+  targetPct: number;
+  driftPct: number;
+}
+
+export interface PortfolioCompositionView {
+  holdings: PortfolioHoldingView[];
+  totalValueCusd: number;
+  maxDriftPct: number;
+  needsRebalance: boolean;
+  timestamp: number;
+}
