@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,12 +18,23 @@ import {
   MapPin,
   ExternalLink,
   ChevronRight,
+  AlertTriangle,
 } from "lucide-react";
 import {
   useAccount,
   useSendTransaction,
   useWaitForTransactionReceipt,
 } from "wagmi";
+import {
+  addRemittanceTransaction,
+  updateRemittanceTransaction,
+  checkSpendingLimit,
+  type RemittanceTransaction,
+} from "@/lib/remittance-store";
+import { TransferHistory } from "@/components/remittance/transfer-history";
+import { RecurringTransfers } from "@/components/remittance/recurring-transfers";
+import { SpendingLimitsCard } from "@/components/remittance/spending-limits";
+import { TransferReceipt } from "@/components/remittance/receipt";
 
 interface Provider {
   name: string;
@@ -102,6 +113,18 @@ export default function RemittancePage() {
   const [execError, setExecError] = useState<string | null>(null);
   const [txData, setTxData] = useState<SwapTxData | null>(null);
 
+  // Spending limit warning
+  const [limitWarning, setLimitWarning] = useState<string | null>(null);
+
+  // Current transaction ID for tracking
+  const [currentTxId, setCurrentTxId] = useState<string | null>(null);
+
+  // Receipt view
+  const [receiptTx, setReceiptTx] = useState<RemittanceTransaction | null>(null);
+
+  // Refresh key for child components
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Approval tx
   const {
     sendTransaction: sendApproval,
@@ -129,20 +152,33 @@ export default function RemittancePage() {
   // After approval confirmed → send swap
   useEffect(() => {
     if (approveConfirmed && execStep === "approving" && txData) {
+      // Update tx with approval hash
+      if (currentTxId && approveHash) {
+        updateRemittanceTransaction(currentTxId, {
+          approvalHash: approveHash,
+        });
+      }
       setExecStep("swapping");
       sendSwap({
         to: txData.swapTx.to as `0x${string}`,
         data: txData.swapTx.data as `0x${string}`,
       });
     }
-  }, [approveConfirmed, execStep, txData, sendSwap]);
+  }, [approveConfirmed, execStep, txData, sendSwap, currentTxId, approveHash]);
 
-  // After swap confirmed → done
+  // After swap confirmed → done, save to history
   useEffect(() => {
     if (swapConfirmed && execStep === "swapping") {
       setExecStep("done");
+      if (currentTxId && swapHash) {
+        updateRemittanceTransaction(currentTxId, {
+          status: "executed",
+          txHash: swapHash,
+        });
+        setRefreshKey((k) => k + 1);
+      }
     }
-  }, [swapConfirmed, execStep]);
+  }, [swapConfirmed, execStep, currentTxId, swapHash]);
 
   const handleSubmit = async () => {
     if (!message.trim() || loading) return;
@@ -153,6 +189,9 @@ export default function RemittancePage() {
     setExecStep("idle");
     setExecError(null);
     setTxData(null);
+    setLimitWarning(null);
+    setReceiptTx(null);
+    setCurrentTxId(null);
     resetApproval();
     resetSwap();
 
@@ -171,6 +210,36 @@ export default function RemittancePage() {
       }
 
       setResult(json);
+
+      // Check spending limits
+      const limitCheck = checkSpendingLimit(json.parsed.amount);
+      if (!limitCheck.allowed) {
+        setLimitWarning(limitCheck.reason);
+      }
+
+      // Save to history as "quoted"
+      const txId = `rem-${Date.now()}`;
+      setCurrentTxId(txId);
+      addRemittanceTransaction({
+        id: txId,
+        timestamp: Date.now(),
+        message: message.trim(),
+        corridor: json.parsed.corridor,
+        fromToken: json.parsed.fromToken,
+        toToken: json.parsed.toToken,
+        amount: json.parsed.amount,
+        amountOut: json.quote.amountOut,
+        rate: json.quote.rate,
+        recipientCountry: json.parsed.recipientCountry,
+        language: json.parsed.language,
+        txHash: null,
+        approvalHash: null,
+        status: "quoted",
+        fee: json.providers[0]?.fee || "0",
+        savingsVs: json.savings.vs,
+        savingsAmount: json.savings.amount,
+      });
+      setRefreshKey((k) => k + 1);
     } catch {
       setError("Network error \u2014 please try again");
     } finally {
@@ -181,11 +250,16 @@ export default function RemittancePage() {
   const handleExecute = async () => {
     if (!result || result.quote.sameToken) return;
 
+    // Block if spending limit exceeded
+    if (limitWarning) {
+      setExecError(limitWarning);
+      return;
+    }
+
     setExecStep("building");
     setExecError(null);
 
     try {
-      // Fetch tx data from swap quote API
       const res = await fetch("/api/swap/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -205,7 +279,6 @@ export default function RemittancePage() {
       const data: SwapTxData = await res.json();
       setTxData(data);
 
-      // Send approval tx
       setExecStep("approving");
       sendApproval({
         to: data.approvalTx.to as `0x${string}`,
@@ -216,6 +289,10 @@ export default function RemittancePage() {
         err instanceof Error ? err.message : "Execution failed"
       );
       setExecStep("idle");
+      if (currentTxId) {
+        updateRemittanceTransaction(currentTxId, { status: "failed" });
+        setRefreshKey((k) => k + 1);
+      }
     }
   };
 
@@ -232,7 +309,13 @@ export default function RemittancePage() {
     setError(null);
     setExecStep("idle");
     setExecError(null);
+    setLimitWarning(null);
+    setReceiptTx(null);
   };
+
+  const handleViewReceipt = useCallback((tx: RemittanceTransaction) => {
+    setReceiptTx(tx);
+  }, []);
 
   const isExecuting = execStep === "building" || execStep === "approving" || execStep === "swapping";
 
@@ -303,9 +386,28 @@ export default function RemittancePage() {
           </div>
         )}
 
+        {/* Receipt overlay */}
+        {receiptTx && (
+          <TransferReceipt
+            tx={receiptTx}
+            onClose={() => setReceiptTx(null)}
+          />
+        )}
+
         {/* Results */}
-        {result && (
+        {result && !receiptTx && (
           <div className="space-y-4">
+            {/* Spending limit warning */}
+            {limitWarning && (
+              <div className="flex items-start gap-2 border border-amber-200 bg-amber-50 rounded-lg p-3">
+                <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Spending limit reached</p>
+                  <p className="text-xs text-amber-700 mt-0.5">{limitWarning}</p>
+                </div>
+              </div>
+            )}
+
             {/* Route visualization */}
             <Card className="gap-0 py-0">
               <CardContent className="py-4 space-y-4">
@@ -526,6 +628,35 @@ export default function RemittancePage() {
                         </a>
                       </div>
                     )}
+                    <button
+                      onClick={() => {
+                        if (currentTxId) {
+                          const tx = {
+                            id: currentTxId,
+                            timestamp: Date.now(),
+                            message: message,
+                            corridor: result.parsed.corridor,
+                            fromToken: result.parsed.fromToken,
+                            toToken: result.parsed.toToken,
+                            amount: result.parsed.amount,
+                            amountOut: result.quote.amountOut,
+                            rate: result.quote.rate,
+                            recipientCountry: result.parsed.recipientCountry,
+                            language: result.parsed.language,
+                            txHash: swapHash,
+                            approvalHash: approveHash || null,
+                            status: "executed" as const,
+                            fee: result.providers[0]?.fee || "0",
+                            savingsVs: result.savings.vs,
+                            savingsAmount: result.savings.amount,
+                          };
+                          setReceiptTx(tx);
+                        }
+                      }}
+                      className="w-full text-center text-xs text-blue-600 hover:text-blue-700 transition-colors py-1"
+                    >
+                      View receipt
+                    </button>
                   </div>
                 ) : result.quote.sameToken ? (
                   <div className="text-center py-2">
@@ -538,10 +669,15 @@ export default function RemittancePage() {
                   <div className="space-y-3">
                     <button
                       onClick={handleExecute}
-                      disabled={isExecuting || approvalPending || swapPending}
+                      disabled={isExecuting || approvalPending || swapPending || !!limitWarning}
                       className="w-full px-4 py-3 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {execStep === "building" ? (
+                      {limitWarning ? (
+                        <>
+                          <AlertTriangle className="size-4" />
+                          Limit exceeded
+                        </>
+                      ) : execStep === "building" ? (
                         <>
                           <Loader2 className="size-4 animate-spin" />
                           Building transaction...
@@ -598,6 +734,32 @@ export default function RemittancePage() {
             </Card>
           </div>
         )}
+
+        {/* Spending Limits */}
+        <SpendingLimitsCard refreshKey={refreshKey} />
+
+        {/* Recurring Transfers */}
+        <RecurringTransfers
+          pendingTransfer={
+            result
+              ? {
+                  message,
+                  corridor: result.parsed.corridor,
+                  fromToken: result.parsed.fromToken,
+                  toToken: result.parsed.toToken,
+                  amount: result.parsed.amount,
+                  recipientCountry: result.parsed.recipientCountry,
+                }
+              : null
+          }
+          refreshKey={refreshKey}
+        />
+
+        {/* Transfer History */}
+        <TransferHistory
+          refreshKey={refreshKey}
+          onViewReceipt={handleViewReceipt}
+        />
       </main>
       <Footer />
     </div>
