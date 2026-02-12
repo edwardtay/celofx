@@ -30,9 +30,8 @@ const reputationAbi = [
 ] as const;
 
 const feedbacks = [
-  { value: 90n, tag2: "BTC long call at 97k was spot on. Cross-market coverage is unmatched." },
-  { value: 80n, tag2: "Forex signals consistently profitable. EUR/USD short was perfect timing." },
-  { value: 85n, tag2: "Gold analysis caught the breakout. Commodity signals are underrated." },
+  { value: 92n, tag2: "Smart order filled my cUSD/cEUR at 0.841 — agent waited for declining momentum then locked in. Better than a limit order." },
+  { value: 88n, tag2: "Mento spread detection is accurate. Agent correctly skipped when forex diverged — saved me from a bad fill." },
 ];
 
 async function main() {

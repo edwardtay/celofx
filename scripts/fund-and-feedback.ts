@@ -54,9 +54,8 @@ async function main() {
   const feedbackWallet = createWalletClient({ account: feedbackAccount, chain: celo, transport: http() });
 
   const feedbacks = [
-    { value: 90n, tag2: "BTC long call at 97k was spot on. Cross-market coverage is unmatched." },
-    { value: 80n, tag2: "Forex signals consistently profitable. EUR/USD short was perfect timing." },
-    { value: 85n, tag2: "Gold analysis caught the breakout. Best commodity signals I've seen." },
+    { value: 92n, tag2: "Smart order filled my cUSD/cEUR at 0.841 — agent detected declining momentum and locked in before the rate dropped. Better than any limit order." },
+    { value: 87n, tag2: "Agent correctly held my order when forex was trending unfavorably. Saved me from a bad fill. Real intelligence, not just if-then." },
   ];
 
   for (const fb of feedbacks) {

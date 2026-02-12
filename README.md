@@ -1,105 +1,138 @@
-# CeloFX — Autonomous FX Agent
+# CeloFX — Autonomous FX Agent on Celo
 
-AI-powered FX arbitrage agent on Celo. Compares real forex rates with Mento on-chain stablecoin rates, finds swap opportunities, and executes trades autonomously. Registered on-chain via ERC-8004, monetized via x402 micropayments.
+AI-powered FX arbitrage agent that compares real forex rates with Mento on-chain stablecoin rates, reasons about market conditions using Claude, and executes trades autonomously. The agent doesn't just check `if rate >= target` — it analyzes momentum, volatility, urgency, and forex correlation before deciding whether to execute, wait, or skip.
 
 **Live**: [celofx.vercel.app](https://celofx.vercel.app)
+**Agent**: [8004scan.io/agents/celo/10](https://8004scan.io/agents/celo/10)
 
 ---
 
 ## For Hackathon Judges
 
-### Demo Flow (2 minutes)
+### Demo Flow (3 minutes)
 
-1. **Dashboard** ([celofx.vercel.app](https://celofx.vercel.app)) — See the FX Arbitrage Agent status, live agent wallet (CELO balance, 3 trades, +0.88% P&L), Mento FX spread comparisons, top signals, and market data
-2. **Click "Scan Markets"** — Watch the agent fetch Mento on-chain rates, forex, crypto, and commodities, then Claude AI generates 5 cross-market signals with tool-call logging (~30s)
-3. **Mento FX Spreads** — Real-time comparison: Mento Broker `getAmountOut()` vs real EUR/USD and USD/BRL forex rates. When spread > 0.3%, agent auto-swaps
-4. **Trades** ([/trades](https://celofx.vercel.app/trades)) — 3 real on-chain swaps with Celoscan links for both approval and swap transactions. $5.00 volume, 100% success rate, +0.88% cumulative P&L
-5. **Signals** ([/signals](https://celofx.vercel.app/signals)) — AI-generated signals across 4 markets: Mento FX, Forex, Crypto, Commodities
-6. **Premium** ([/premium](https://celofx.vercel.app/premium)) — x402 paywall: real HTTP 402 response, EIP-712 payment signing, $0.01 in cUSD. [Demo link](https://celofx.vercel.app/premium?demo=true) works without wallet
-7. **Agent** ([/agent](https://celofx.vercel.app/agent)) — On-chain identity (FX Arbitrage Agent, ERC-8004 #4), reputation (5 feedbacks), execution timeline, architecture diagram
+1. **Dashboard** ([celofx.vercel.app](https://celofx.vercel.app)) — Agent wallet with live balances, Mento FX spread comparisons, top signals, market data
+2. **Click "Scan Markets"** — Watch the agent fetch Mento on-chain rates, forex, crypto, and commodities via tool-use loop (~30s)
+3. **Order Execution** — Agent calls `check_pending_orders`, receives per-order analysis (momentum, volatility, urgency, forex signal), then reasons through each order and calls `execute_order` with detailed reasoning — or explains why it's waiting
+4. **Orders** ([/orders](https://celofx.vercel.app/orders)) — Smart FX Orders with rate sparklines, momentum/urgency badges, and agent reasoning shown inline
+5. **Trades** ([/trades](https://celofx.vercel.app/trades)) — Real on-chain swaps with Celoscan links. $5+ volume, 100% success rate
+6. **Premium** ([/premium](https://celofx.vercel.app/premium)) — x402 paywall: real HTTP 402, EIP-712 payment, $0.01 cUSD
+7. **Agent** ([/agent](https://celofx.vercel.app/agent)) — ERC-8004 identity (#10), on-chain reputation, execution timeline
 
 ### What Makes This Different
 
-- **Real on-chain trades** — 3 executed Mento swaps with real tx hashes on Celoscan (not simulated)
-- **Autonomous execution** — Agent has its own wallet (`0x6652...a303`), private key, and daily cron job. No human intervention required
-- **Mento FX arbitrage** — Compares real forex rates (EUR/USD, USD/BRL) with Mento Broker on-chain rates to find stablecoin swap opportunities
-- **7 agent tools** — `fetch_mento_rates`, `fetch_forex`, `fetch_crypto`, `fetch_commodities`, `generate_signal`, `generate_fx_action`, `execute_mento_swap`
-- **Real-time SSE streaming** — Every Claude tool invocation streams to the UI in real-time via Server-Sent Events. Watch the agent think live.
-- **Both ERC-8004 registries** — Identity (agent profile on-chain) AND Reputation (user feedback on-chain)
-- **Real x402 implementation** — HTTP 402 headers, `@x402/core` encoding, `@x402/fetch` client, EIP-712 signatures
-- **Celo mainnet** — Not testnet. Real cUSD payments, real Mento swaps, real on-chain data
+Most "AI agent" hackathon projects are chatbot wrappers — the AI generates text but doesn't make real decisions. CeloFX is different:
+
+- **AI is the decision-maker** — Claude receives rich market data (momentum, volatility, urgency, forex divergence) and decides per-order whether to execute, wait, or skip. The decision framework has 7+ conditions the agent reasons through.
+- **Real on-chain execution** — Agent wallet (`0x6652...a303`) holds stablecoins and executes real Mento Broker swaps with CIP-64 fee abstraction (gas paid in cUSD)
+- **Auditable reasoning** — Every execution stores Claude's reasoning on-chain-adjacent (`agentReasoning` field). "Rate declining, locked in before drop" isn't a template — it's generated per-decision.
+- **Forex-aware order engine** — Orders aren't simple limit orders. The agent checks if Mento rate vs real forex spread is favorable, if forex is trending toward or away from target, and adjusts execution timing accordingly.
+
+### The Decision Engine
+
+When the agent evaluates an order, it sees:
+
+```
+{
+  currentRate: 0.841,     // Live Mento Broker rate
+  targetRate: 0.845,      // User's target
+  momentum: "improving",  // Rate trend (last 3 data points)
+  volatility: "low",      // Rate swing magnitude
+  urgency: "low",         // Time to deadline
+  forexRate: 0.926,       // Real EUR/USD from Frankfurter
+  spreadVsForexPct: -9.2, // Mento vs forex spread
+  forexSignal: "favorable" // Is forex trending toward target?
+}
+```
+
+Then reasons through rules like:
+- Rate at target + declining momentum → **EXECUTE** (lock in before it drops)
+- Rate at target + improving momentum + low urgency → **WAIT** (let it climb)
+- Rate below target + high urgency + gap < 1% → **EXECUTE** at market (better than expiring)
+- Spread vs forex < -1% → **NEVER EXECUTE** (forex disagrees, Mento will correct)
 
 ### Verify On-Chain
 
 | What | Link |
 |------|------|
-| Agent Wallet | [celoscan.io/address/0x6652...a303](https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303) |
+| Agent Wallet | [celoscan.io/address/0x6652...](https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303) |
 | Swap: cUSD → cEUR | [celoscan.io/tx/0x9978b5...](https://celoscan.io/tx/0x9978b5be04f1641ef99c98caa3115ca4654a77fbb7e4bdffef87ae045fb9d808) |
 | Swap: cUSD → cREAL | [celoscan.io/tx/0xf06729...](https://celoscan.io/tx/0xf0672921205c035c95a3c52d3e83875f282b52118001bbbe84e8307d436dc7a3) |
 | Swap: cEUR → cUSD | [celoscan.io/tx/0x49e855...](https://celoscan.io/tx/0x49e855cd09b86eec045fa9fceda35b7cc23e1d3cb11dc223525dbf1c0c26ff18) |
-| Agent #4 Registration | [celoscan.io/tx/0xea64b5d...](https://celoscan.io/tx/0xea64b5d790028208b285bb05a00cb506b44f7fa6d10099cff6671bd42e9a3ab6) |
-| Mento Broker | [celoscan.io/address/0x777A...4CaD](https://celoscan.io/address/0x777A8255cA72412f0d706dc03C9D1987306B4CaD) |
+| Reputation: 92/100 | [celoscan.io/tx/0x4794f3...](https://celoscan.io/tx/0x4794f3cd023edfd0796e265d79e0ff8bc0642e88b2684067ba1c75ed628a6e48) |
+| Reputation: 87/100 | [celoscan.io/tx/0xefe240...](https://celoscan.io/tx/0xefe240d4a7209af60a962229a7ca93f14f911e8ab932671060aa32c12ece6e3f) |
+| Agent #10 (8004scan) | [8004scan.io/agents/celo/10](https://8004scan.io/agents/celo/10) |
+| Mento Broker | [celoscan.io/address/0x777A...](https://celoscan.io/address/0x777A8255cA72412f0d706dc03C9D1987306B4CaD) |
 | Identity Registry | [celoscan.io/address/0x8004A1...](https://celoscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) |
 | Reputation Registry | [celoscan.io/address/0x8004BA...](https://celoscan.io/address/0x8004BAa17C55a88189AE136b182e5fdA19dE9b63) |
 
-### Key Source Files
-
-| File | What It Does |
-|------|-------------|
-| [`agent-tools.ts`](frontend/src/lib/agent-tools.ts) | Claude agent system prompt + 7 tool definitions |
-| [`analyze/route.ts`](frontend/src/app/api/agent/analyze/route.ts) | Agentic loop: fetch markets → analyze → execute swaps |
-| [`mento-sdk.ts`](frontend/src/lib/mento-sdk.ts) | On-chain Mento Broker integration (`getAmountOut`, `swapIn`) |
-| [`agent-status.tsx`](frontend/src/components/dashboard/agent-status.tsx) | Scan UI with tool-call logging terminal |
-| [`agent-wallet.tsx`](frontend/src/components/dashboard/agent-wallet.tsx) | Live on-chain wallet balances via viem |
-| [`premium-gate.tsx`](frontend/src/components/premium/premium-gate.tsx) | x402 payment flow with step-by-step visualization |
-| [`premium-signals/route.ts`](frontend/src/app/api/premium-signals/route.ts) | HTTP 402 endpoint with `@x402/core` headers |
-| [`mento-spreads.tsx`](frontend/src/components/dashboard/mento-spreads.tsx) | Real-time Mento vs forex spread comparison |
-| [`cron/scan/route.ts`](frontend/src/app/api/cron/scan/route.ts) | Daily autonomous scan (Vercel cron, 8:00 UTC) |
-
 ---
-
-## What It Does
-
-CeloFX is an autonomous FX agent that:
-
-1. **Compares Mento and forex rates** — Reads real-time `getAmountOut()` from Mento Broker contract, compares against EUR/USD and USD/BRL forex rates
-2. **Finds swap opportunities** — When Mento stablecoin rates differ from real forex by > 0.3%, the agent identifies an arbitrage opportunity
-3. **Executes autonomously** — Agent wallet holds cUSD/cEUR/cREAL, auto-approves and swaps via Mento Broker when spreads are favorable
-4. **Generates cross-market signals** — Claude AI analyzes forex, crypto, commodities, and Mento data to generate 3-5 actionable signals per scan
-5. **Runs on a schedule** — Vercel cron triggers daily scan at 8:00 UTC. No human intervention.
-6. **Builds verifiable reputation** — Every trade and signal contributes to an on-chain track record via ERC-8004
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                       Next.js Frontend (5 pages)                  │
-│  Dashboard │ Signals │ Trades │ Premium (x402) │ Agent (ERC-8004)│
-└──────┬──────────┬─────────┬────────────┬──────────────┬──────────┘
-       │          │         │            │              │
-       ▼          ▼         ▼            ▼              ▼
-┌──────────┐ ┌────────┐ ┌────────┐ ┌─────────┐ ┌──────────────┐
-│ Mento    │ │ Signal │ │ Trade  │ │  x402   │ │   ERC-8004   │
-│ Broker   │ │ Store  │ │ Store  │ │ Payment │ │   Identity   │
-│ (on-chain│ │        │ │        │ │ Gate    │ │ + Reputation │
-│  rates)  │ │        │ │        │ │         │ │              │
-└──────────┘ └───┬────┘ └───┬────┘ └─────────┘ └──────────────┘
-                 │          │                         │
-                 ▼          ▼                         ▼
-          ┌────────────┐ ┌──────────┐       ┌────────────────┐
-          │ Claude AI  │ │  Agent   │       │ Celo Mainnet   │
-          │ 7 Tools    │ │  Wallet  │       │   (on-chain)   │
-          │ 3 iters    │ │  0x6652  │       └────────────────┘
-          └────────────┘ └──────────┘
+                    ┌─────────────────────┐
+                    │   Frankfurter API   │ Real forex rates
+                    │   (EUR/USD, BRL)    │ (EUR/USD, USD/BRL)
+                    └─────────┬───────────┘
+                              │
+┌─────────────────────────────▼───────────────────────────────────┐
+│                     Claude AI (Sonnet 4.5)                       │
+│                                                                  │
+│  Tools:                          Decision Engine:                │
+│  ├─ fetch_mento_rates            ├─ momentum (last 3 rates)     │
+│  ├─ fetch_forex                  ├─ volatility (std dev)        │
+│  ├─ fetch_crypto                 ├─ urgency (time to deadline)  │
+│  ├─ fetch_commodities            ├─ forex signal (trend)        │
+│  ├─ check_pending_orders ──────► ├─ spread vs forex             │
+│  ├─ execute_order ◄──────────────┤                              │
+│  ├─ generate_signal              │  EXECUTE / WAIT / SKIP       │
+│  ├─ generate_fx_action           │  + detailed reasoning        │
+│  └─ execute_mento_swap           └──────────────────────────────│
+│                                                                  │
+└───────────┬────────────────────────────────┬─────────────────────┘
+            │                                │
+            ▼                                ▼
+┌───────────────────────┐      ┌─────────────────────────┐
+│   Mento Broker        │      │   Agent Wallet           │
+│   (0x777A on Celo)    │      │   (0x6652...a303)        │
+│                       │      │                          │
+│   getAmountOut()      │      │   approve() + swapIn()   │
+│   4 directions        │      │   CIP-64 fee abstraction │
+│   cUSD ↔ cEUR         │      │   (gas paid in cUSD)     │
+│   cUSD ↔ cREAL        │      │                          │
+└───────────────────────┘      └─────────────────────────┘
+            │                                │
+            └──────────────┬─────────────────┘
+                           ▼
+              ┌────────────────────────┐
+              │   Celo Mainnet         │
+              │                        │
+              │   ERC-8004 Identity    │
+              │   ERC-8004 Reputation  │
+              │   MCP Server (5 tools) │
+              │   A2A Endpoint         │
+              │   x402 Payments        │
+              └────────────────────────┘
 ```
+
+### Agent Protocol Support
+
+| Protocol | Endpoint | What It Does |
+|----------|----------|-------------|
+| **MCP** | `/api/mcp` | 5 tools: rates, signals, trades, performance, agent info |
+| **A2A** | `/api/a2a` | 4 skills: rate analysis, swap execution, portfolio, performance |
+| **x402** | `/api/premium-signals` | HTTP 402 paywall, $0.01 cUSD per premium signal unlock |
+| **ERC-8004** | On-chain | Identity (#10) + Reputation Registry with on-chain feedback |
+| **TEE** | Phala Cloud | Intel TDX attestation for verifiable execution |
 
 ### Tech Stack
 
 - **Frontend**: Next.js 16, React 19, Tailwind v4, shadcn/ui, wagmi, viem, RainbowKit
-- **AI Agent**: Claude Sonnet 4.5 with tool-use (7 tools in agentic loop, ~3 iterations per scan)
+- **AI Agent**: Claude Sonnet 4.5 with tool-use (9 tools in agentic loop)
 - **On-Chain**: Mento Broker for stablecoin swaps, ERC-8004 for identity/reputation
-- **Payments**: x402 protocol — HTTP 402 with `X-PAYMENT-REQUIRED` header, $0.01 cUSD per signal
-- **Chain**: Celo mainnet
+- **Payments**: x402 protocol with EIP-712 signatures
+- **Chain**: Celo mainnet (not testnet)
 
 ## How Mento FX Arbitrage Works
 
@@ -107,47 +140,66 @@ CeloFX is an autonomous FX agent that:
 1. Agent fetches Mento Broker on-chain rate: getAmountOut(1 cUSD → cEUR) = 0.8357
 2. Agent fetches real forex rate: EUR/USD = 1.1886 → inverted = 0.8413
 3. Spread = (0.8357 - 0.8413) / 0.8413 = -0.67%
-4. If spread > 0.3%: Agent swaps via Mento Broker (approve + swapIn)
-5. If spread < 0.3%: Agent generates "Wait" or "Monitor" signal
+4. Checks ALL 4 directions (cUSD↔cEUR, cUSD↔cREAL) — one side may be profitable
+5. If any spread > +0.3%: execute_mento_swap for that direction
+6. If all < +0.3%: generate monitoring signals, check pending orders
 ```
 
-The agent executed 3 real swaps capturing spreads of +0.42%, +0.15%, and +0.31%.
-
-## How x402 Works Here
+## How Smart FX Orders Work
 
 ```
-User clicks "Unlock Premium"
-  → Client fetches GET /api/premium-signals
-  → Server returns HTTP 402 + X-PAYMENT-REQUIRED header
-  → @x402/fetch reads requirements (scheme: exact, $0.01 cUSD, eip155:42220)
-  → Wallet signs EIP-712 payment authorization (no gas)
-  → Client retries with X-PAYMENT header
-  → Server decodes + verifies → returns premium signals
+User creates order: "Swap 50 cUSD → cEUR when rate hits 0.845, deadline 48h"
+                                    │
+                    ┌───────────────▼──────────────────┐
+                    │  check_pending_orders (no-execute) │
+                    │                                    │
+                    │  For each order:                   │
+                    │  ├─ Fetch fresh on-chain quote     │
+                    │  ├─ Append to rateHistory (cap 20) │
+                    │  ├─ Compute momentum (3 points)    │
+                    │  ├─ Compute volatility (std dev)   │
+                    │  ├─ Compute urgency (deadline)     │
+                    │  ├─ Fetch forex, compute spread    │
+                    │  └─ Return analysis to Claude      │
+                    └───────────────┬──────────────────┘
+                                    │
+                    ┌───────────────▼──────────────────┐
+                    │  Claude reasons per order          │
+                    │                                    │
+                    │  "Rate 0.841, target 0.845,        │
+                    │   momentum improving, volatility   │
+                    │   low, urgency low, forex          │
+                    │   favorable — WAIT, let it climb"  │
+                    │                                    │
+                    │  OR: "momentum declining, lock in"  │
+                    │   → calls execute_order(orderId,   │
+                    │     reasoning)                     │
+                    └────────────────────────────────────┘
 ```
 
 ## Pages
 
 | Route | Description |
 |-------|-------------|
-| `/` | Dashboard: agent wallet, Mento spreads, top signals, markets, activity feed, track record |
+| `/` | Dashboard: agent wallet, Mento spreads, top signals, markets, activity feed |
+| `/orders` | Smart FX Orders with sparklines, momentum/urgency badges, agent reasoning |
 | `/signals` | Full signal feed with market filters (Mento/Forex/Crypto/Commodities) |
-| `/trades` | All executed swaps with stats (volume, success rate, P&L, spread) |
+| `/trades` | All executed swaps with stats (volume, success rate, P&L) |
 | `/premium` | x402-gated premium signals ($0.01 per unlock) |
 | `/agent` | ERC-8004 agent profile, reputation, execution timeline |
+| `/vault` | Capital vault for depositors |
 
-## API Routes
+## Key Source Files
 
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/agent/analyze` | POST | Triggers Claude AI analysis + auto-swap cycle |
-| `/api/agent/track-record` | GET | Public performance metrics JSON |
-| `/api/cron/scan` | GET | Vercel cron endpoint (daily 8:00 UTC) |
-| `/api/signals` | GET | Free-tier signals |
-| `/api/trades` | GET | All executed trades |
-| `/api/premium-signals` | GET | x402-protected premium signals (returns 402 without payment) |
-| `/api/swap/quote` | GET | Get Mento swap quote |
-| `/api/swap/execute` | POST | Execute Mento swap |
-| `/api/market-data/*` | GET | Market data (mento, forex, crypto, commodities) |
+| File | What It Does |
+|------|-------------|
+| [`agent-tools.ts`](frontend/src/lib/agent-tools.ts) | 9 tool definitions + decision framework system prompt |
+| [`analyze/route.ts`](frontend/src/app/api/agent/analyze/route.ts) | Agentic loop: fetch data → analyze orders → execute with reasoning |
+| [`mento-sdk.ts`](frontend/src/lib/mento-sdk.ts) | On-chain Mento Broker (`getAmountOut`, `swapIn`, bidirectional quotes) |
+| [`orders/page.tsx`](frontend/src/app/orders/page.tsx) | Orders UI with sparklines, momentum badges, agent reasoning |
+| [`api/[transport]/route.ts`](frontend/src/app/api/[transport]/route.ts) | MCP server with 5 tools (rate analysis, signals, trades, performance) |
+| [`api/a2a/route.ts`](frontend/src/app/api/a2a/route.ts) | A2A endpoint with JSON-RPC task handling |
+| [`seed-orders.ts`](frontend/src/lib/seed-orders.ts) | Seed orders with rate history for demo |
 
 ## Running Locally
 
@@ -163,7 +215,7 @@ pnpm dev
 
 ```
 NEXT_PUBLIC_WC_PROJECT_ID=       # WalletConnect project ID
-NEXT_PUBLIC_AGENT_ID=4           # ERC-8004 agent ID
+NEXT_PUBLIC_AGENT_ID=10          # ERC-8004 agent ID
 ANTHROPIC_API_KEY=               # Claude API key
 AGENT_PRIVATE_KEY=               # Agent wallet private key (for auto-execution)
 AGENT_WALLET_ADDRESS=            # Wallet address for x402 payments
@@ -172,15 +224,16 @@ CRON_SECRET=                     # Vercel cron authentication
 
 ## Why This Matters
 
-Stablecoin FX on Mento is underserved. EUR/USD trades at $7.5T daily, but Mento's cUSD/cEUR pair has minimal automated arbitrage coverage. When Mento oracle rates drift from real forex, spreads open up that can be captured by an autonomous agent.
+Stablecoin FX on Mento is underserved. EUR/USD trades at $7.5T daily, but Mento's cUSD/cEUR pair has minimal automated arbitrage. When Mento rates drift from real forex, spreads open up.
 
-CeloFX is the first autonomous agent that monitors Mento spreads against real forex rates and executes when profitable — no human in the loop, fully verifiable on Celoscan.
+Most existing solutions are either manual or use simple limit orders. CeloFX is the first agent that reasons about *when* to execute — factoring in rate momentum, market volatility, forex divergence, and deadline urgency — then executes with transparent, auditable reasoning.
 
-| | Manual FX | Hummingbot | CeloFX |
+| | Manual FX | Simple Bot | CeloFX |
 |---|---|---|---|
-| Mento integration | No | CLI only | Full (on-chain reads + swaps) |
-| AI analysis | No | No | Claude with 7 tools |
-| Cross-market signals | No | No | Forex + Crypto + Commodities |
-| On-chain reputation | No | No | ERC-8004 |
-| Micropayments | No | No | x402 ($0.01/signal) |
-| Autonomous execution | No | Partial | Full (cron + wallet + auto-swap) |
+| Decision intelligence | Human judgment | `if rate >= target` | Claude with 7-condition framework |
+| Forex awareness | Yes | No | Yes (Frankfurter API correlation) |
+| Momentum tracking | No | No | Yes (rate history + std dev) |
+| On-chain execution | Manual | Yes | Yes (Mento Broker + CIP-64) |
+| Auditable reasoning | No | No | Yes (per-order reasoning stored) |
+| On-chain identity | No | No | ERC-8004 (#10) |
+| Agent protocols | No | No | MCP + A2A + x402 + TEE |
