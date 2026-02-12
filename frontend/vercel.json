@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/cron/scan",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 8 * * *"
     }
   ],
   "functions": {
