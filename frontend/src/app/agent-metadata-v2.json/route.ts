@@ -20,7 +20,7 @@ export async function GET() {
         {
           name: "MCP",
           endpoint: "https://celofx.vercel.app/api/mcp",
-          version: "2025-06-18",
+          version: "2025-03-26",
           tools: [
             {
               name: "get_mento_rates",
@@ -102,7 +102,7 @@ export async function GET() {
       },
       x402Support: true,
       active: true,
-      updatedAt: "2026-02-11T00:00:00Z",
+      updatedAt: "2026-02-13T00:00:00Z",
       registrations: [
         {
           agentId: 10,
@@ -110,7 +110,7 @@ export async function GET() {
             "eip155:42220:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
         },
       ],
-      supportedTrust: ["reputation", "tee-attestation"],
+      supportedTrust: ["reputation", "tee-attestation", "crypto-economic"],
       tee: {
         hardware: "Intel TDX",
         provider: "Phala Cloud",
