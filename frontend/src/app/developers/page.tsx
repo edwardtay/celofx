@@ -17,17 +17,20 @@ import {
   Bot,
   CreditCard,
   FileJson,
+  Rocket,
+  Code2,
 } from "lucide-react";
 
 const BASE_URL = "https://celofx.vercel.app";
 
-type TabKey = "mcp" | "a2a" | "rest" | "x402";
+type TabKey = "quickstart" | "mcp" | "a2a" | "rest" | "x402";
 
 const TABS: { key: TabKey; label: string; icon: typeof Terminal; desc: string }[] = [
-  { key: "mcp", label: "MCP", icon: Plug, desc: "Model Context Protocol — connect any AI agent" },
-  { key: "a2a", label: "A2A", icon: Bot, desc: "Agent-to-Agent protocol — task-based interaction" },
-  { key: "rest", label: "REST API", icon: Globe, desc: "Standard HTTP endpoints — no SDK needed" },
-  { key: "x402", label: "x402", icon: CreditCard, desc: "Micropayment-gated premium signals" },
+  { key: "quickstart", label: "Quickstart", icon: Rocket, desc: "Get started in 60 seconds" },
+  { key: "mcp", label: "MCP", icon: Plug, desc: "Model Context Protocol" },
+  { key: "a2a", label: "A2A", icon: Bot, desc: "Agent-to-Agent protocol" },
+  { key: "rest", label: "REST API", icon: Globe, desc: "Standard HTTP endpoints" },
+  { key: "x402", label: "x402", icon: CreditCard, desc: "Micropayment signals" },
 ];
 
 function CopyButton({ text }: { text: string }) {
@@ -47,7 +50,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function CodeBlock({ code, lang = "bash" }: { code: string; lang?: string }) {
+function CodeBlock({ code }: { code: string }) {
   return (
     <div className="relative">
       <CopyButton text={code} />
@@ -96,20 +99,107 @@ function LiveEndpoint({ url, label }: { url: string; label: string }) {
   );
 }
 
+function QuickstartTab() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-medium mb-1">Get CeloFX data in 60 seconds</h3>
+        <p className="text-xs text-muted-foreground">
+          No API key, no SDK, no auth. Pick your integration method and start building.
+        </p>
+      </div>
+
+      {/* Option 1: MCP */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px]">Fastest</Badge>
+          <p className="text-xs font-medium">Connect via MCP (Claude Desktop, Cursor, any MCP client)</p>
+        </div>
+        <CodeBlock
+          code={`// Add to your MCP settings (claude_desktop_config.json, .cursor/mcp.json, etc.)
+{
+  "mcpServers": {
+    "celofx": {
+      "url": "${BASE_URL}/api/mcp"
+    }
+  }
+}
+// That's it. Your AI agent can now call get_mento_rates, get_signals, etc.`}
+        />
+      </div>
+
+      {/* Option 2: TypeScript */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px]">TypeScript</Badge>
+          <p className="text-xs font-medium">Build a spread alert bot (5 lines)</p>
+        </div>
+        <CodeBlock
+          code={`const res = await fetch("${BASE_URL}/api/market-data/mento");
+const { pairs } = await res.json();
+
+const profitable = pairs.filter((p: any) => p.spreadPct > 0.3);
+console.log("Profitable spreads:", profitable);
+// → [{ pair: "cREAL/cUSD", mentoRate: 0.1932, forexRate: 0.1927, spreadPct: 0.23, direction: "Mento gives more" }]`}
+        />
+      </div>
+
+      {/* Option 3: Python */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px]">Python</Badge>
+          <p className="text-xs font-medium">Fetch rates and verify agent performance</p>
+        </div>
+        <CodeBlock
+          code={`import requests
+
+# Live Mento vs forex rates
+rates = requests.get("${BASE_URL}/api/market-data/mento").json()
+for pair in rates["pairs"]:
+    print(f"{pair['pair']}: spread {pair['spreadPct']}%")
+
+# Agent track record (all trades verifiable on Celoscan)
+record = requests.get("${BASE_URL}/api/agent/track-record").json()
+print(f"Trades: {record['performance']['totalTrades']}, P&L: {record['performance']['cumulativePnlPct']}%")`}
+        />
+      </div>
+
+      {/* Option 4: curl */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px]">curl</Badge>
+          <p className="text-xs font-medium">Test any endpoint from terminal</p>
+        </div>
+        <CodeBlock
+          code={`# Mento on-chain rates vs real forex (the core data)
+curl ${BASE_URL}/api/market-data/mento | jq .
+
+# Agent policy + decision hashes (auditability)
+curl ${BASE_URL}/api/agent/policy | jq .
+
+# All executed trades with Celoscan links
+curl ${BASE_URL}/api/trades | jq .`}
+        />
+      </div>
+
+      <LiveEndpoint url={`${BASE_URL}/api/market-data/mento`} label="Try it: GET /api/market-data/mento" />
+    </div>
+  );
+}
+
 function McpTab() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium mb-1">Connect your AI agent to CeloFX</h3>
+        <h3 className="text-sm font-medium mb-1">Model Context Protocol</h3>
         <p className="text-xs text-muted-foreground">
-          CeloFX exposes 5 MCP tools. Any MCP-compatible client (Claude Desktop, Cursor, custom agents) can connect and call them.
+          5 tools available. Any MCP client (Claude Desktop, Cursor, custom agents) can connect.
         </p>
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">1. Add to your MCP config</p>
+        <p className="text-xs font-medium mb-2">MCP config</p>
         <CodeBlock
-          lang="json"
           code={`{
   "mcpServers": {
     "celofx": {
@@ -121,32 +211,50 @@ function McpTab() {
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">2. Available tools</p>
-        <div className="space-y-1.5">
+        <p className="text-xs font-medium mb-2">Tools</p>
+        <div className="space-y-2">
           {[
-            { name: "get_mento_rates", desc: "Live Mento on-chain rates vs real forex — spread analysis" },
-            { name: "get_signals", desc: "AI-generated trading signals (filter by market)" },
-            { name: "get_trades", desc: "Executed on-chain swaps with Celoscan tx hashes" },
-            { name: "get_performance", desc: "Verified track record: volume, P&L, success rate" },
-            { name: "get_agent_info", desc: "Agent identity, protocols, capabilities" },
+            { name: "get_mento_rates", desc: "Live Mento on-chain rates vs real forex — spread analysis", returns: "pairs[]: { pair, mentoRate, forexRate, spreadPct, direction }" },
+            { name: "get_signals", desc: "AI-generated trading signals (filter by market)", returns: "signals[]: { asset, market, direction, confidence, summary, reasoning }" },
+            { name: "get_trades", desc: "Executed on-chain swaps with Celoscan tx hashes", returns: "trades[]: { pair, amountIn, amountOut, rate, spreadPct, celoscanUrl }" },
+            { name: "get_performance", desc: "Verified track record: volume, P&L, success rate", returns: "{ totalTrades, successRate, totalVolume, avgSpreadCaptured, cumulativePnlPct }" },
+            { name: "get_agent_info", desc: "Agent identity, protocols, capabilities", returns: "{ agentId, wallet, chain, protocols: { mcp, a2a, x402 }, tee }" },
           ].map((tool) => (
-            <div key={tool.name} className="flex items-start gap-2 text-xs">
-              <code className="font-mono bg-muted px-1.5 py-0.5 rounded shrink-0">{tool.name}</code>
-              <span className="text-muted-foreground">{tool.desc}</span>
+            <div key={tool.name} className="border rounded-lg p-3 space-y-1">
+              <code className="text-xs font-mono font-medium">{tool.name}</code>
+              <p className="text-[11px] text-muted-foreground">{tool.desc}</p>
+              <p className="text-[10px] font-mono text-muted-foreground/70">Returns: {tool.returns}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">3. Test with curl</p>
+        <p className="text-xs font-medium mb-2">Build a custom MCP agent</p>
         <CodeBlock
-          code={`# Initialize MCP session
+          code={`import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+// Claude can now call CeloFX tools via MCP
+const response = await client.messages.create({
+  model: "claude-sonnet-4-5-20250929",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "What Mento FX spreads are profitable right now?" }],
+  // MCP tools are auto-discovered from the server
+});`}
+        />
+      </div>
+
+      <div>
+        <p className="text-xs font-medium mb-2">Test with curl</p>
+        <CodeBlock
+          code={`# Initialize
 curl -X POST ${BASE_URL}/api/mcp \\
   -H "Content-Type: application/json" \\
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 
-# List available tools
+# List tools
 curl -X POST ${BASE_URL}/api/mcp \\
   -H "Content-Type: application/json" \\
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'`}
@@ -162,17 +270,16 @@ function A2aTab() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium mb-1">Agent-to-Agent communication</h3>
+        <h3 className="text-sm font-medium mb-1">Agent-to-Agent Protocol (v0.3.0)</h3>
         <p className="text-xs text-muted-foreground">
-          CeloFX implements the A2A protocol (v0.3.0). Other agents can discover capabilities via the agent card and send tasks.
+          Discover capabilities via agent card, send tasks via JSON-RPC.
         </p>
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">1. Discover agent capabilities</p>
+        <p className="text-xs font-medium mb-2">1. Discover</p>
         <CodeBlock
-          code={`# Fetch the agent card
-curl ${BASE_URL}/.well-known/agent-card.json | jq .`}
+          code={`curl ${BASE_URL}/.well-known/agent-card.json | jq .`}
         />
         <LiveEndpoint url={`${BASE_URL}/.well-known/agent-card.json`} label="GET /.well-known/agent-card.json" />
       </div>
@@ -180,8 +287,7 @@ curl ${BASE_URL}/.well-known/agent-card.json | jq .`}
       <div>
         <p className="text-xs font-medium mb-2">2. Send a task</p>
         <CodeBlock
-          code={`# Send a rate analysis task
-curl -X POST ${BASE_URL}/api/a2a \\
+          code={`curl -X POST ${BASE_URL}/api/a2a \\
   -H "Content-Type: application/json" \\
   -d '{
     "jsonrpc": "2.0",
@@ -198,16 +304,19 @@ curl -X POST ${BASE_URL}/api/a2a \\
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">3. Agent skills</p>
+        <p className="text-xs font-medium mb-2">3. Skills</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {[
-            { name: "FX Rate Analysis", desc: "Compare Mento on-chain rates with real forex" },
-            { name: "Swap Execution", desc: "Execute Mento stablecoin swaps on Celo" },
-            { name: "Portfolio Status", desc: "Agent wallet balances and trade history" },
-            { name: "Performance Tracking", desc: "Verified track record with on-chain proof" },
+            { name: "FX Rate Analysis", desc: "Compare Mento on-chain rates with real forex", id: "fx_rate_analysis" },
+            { name: "Swap Execution", desc: "Execute Mento stablecoin swaps on Celo", id: "execute_swap" },
+            { name: "Portfolio Status", desc: "Agent wallet balances and trade history", id: "portfolio_status" },
+            { name: "Performance", desc: "Verified track record with on-chain proof", id: "performance_tracking" },
           ].map((skill) => (
             <div key={skill.name} className="bg-muted/50 rounded-lg p-2.5">
-              <p className="text-xs font-medium">{skill.name}</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium">{skill.name}</p>
+                <code className="text-[9px] font-mono text-muted-foreground">{skill.id}</code>
+              </div>
               <p className="text-[11px] text-muted-foreground">{skill.desc}</p>
             </div>
           ))}
@@ -221,41 +330,74 @@ function RestTab() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium mb-1">Public REST endpoints</h3>
+        <h3 className="text-sm font-medium mb-1">REST API — no SDK, no auth</h3>
         <p className="text-xs text-muted-foreground">
-          No SDK, no auth. Standard HTTP GET endpoints that return JSON. Build dashboards, alerts, or feed data into your own agent.
+          Standard HTTP GET endpoints returning JSON. Build dashboards, alerts, or feed data into your own agent.
         </p>
       </div>
 
-      <div className="space-y-3">
-        <p className="text-xs font-medium">Market data</p>
-        <LiveEndpoint url={`${BASE_URL}/api/market-data/mento`} label="GET /api/market-data/mento" />
-        <LiveEndpoint url={`${BASE_URL}/api/market-data/forex`} label="GET /api/market-data/forex" />
-        <LiveEndpoint url={`${BASE_URL}/api/market-data/crypto`} label="GET /api/market-data/crypto" />
+      <div>
+        <p className="text-xs font-medium mb-3">Endpoints</p>
+        <div className="space-y-1">
+          {[
+            { method: "GET", path: "/api/market-data/mento", desc: "Mento on-chain rates vs forex (core data)" },
+            { method: "GET", path: "/api/market-data/forex", desc: "Real-world forex rates (EUR, GBP, JPY, CHF)" },
+            { method: "GET", path: "/api/market-data/crypto", desc: "Crypto prices (BTC, ETH, SOL, CELO)" },
+            { method: "GET", path: "/api/signals", desc: "AI-generated trading signals" },
+            { method: "GET", path: "/api/trades", desc: "Executed swaps with Celoscan tx hashes" },
+            { method: "GET", path: "/api/agent/track-record", desc: "Verified performance metrics" },
+            { method: "GET", path: "/api/agent/policy", desc: "Agent policy + decision hashes" },
+            { method: "GET", path: "/api/tee/attestation", desc: "TEE attestation (Intel TDX)" },
+            { method: "GET", path: "/api/health", desc: "Health check" },
+          ].map((ep) => (
+            <div key={ep.path} className="flex items-center gap-2 text-xs py-1 border-b border-border/30">
+              <code className="font-mono bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] shrink-0">{ep.method}</code>
+              <code className="font-mono shrink-0">{ep.path}</code>
+              <span className="text-muted-foreground truncate">{ep.desc}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-3">
-        <p className="text-xs font-medium">Agent data</p>
+        <p className="text-xs font-medium">Try live</p>
+        <LiveEndpoint url={`${BASE_URL}/api/market-data/mento`} label="GET /api/market-data/mento" />
         <LiveEndpoint url={`${BASE_URL}/api/agent/track-record`} label="GET /api/agent/track-record" />
-        <LiveEndpoint url={`${BASE_URL}/api/agent/policy`} label="GET /api/agent/policy" />
-        <LiveEndpoint url={`${BASE_URL}/api/signals`} label="GET /api/signals" />
         <LiveEndpoint url={`${BASE_URL}/api/trades`} label="GET /api/trades" />
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">Example: build a spread alert bot</p>
+        <p className="text-xs font-medium mb-2">Example: spread monitoring bot</p>
         <CodeBlock
-          lang="typescript"
-          code={`// Fetch Mento rates, alert when spread > 0.5%
-const res = await fetch("${BASE_URL}/api/market-data/mento");
-const { pairs } = await res.json();
+          code={`// TypeScript — monitor spreads and trigger alerts
+async function checkSpreads() {
+  const res = await fetch("${BASE_URL}/api/market-data/mento");
+  const { pairs } = await res.json();
 
-for (const pair of pairs) {
-  if (Math.abs(pair.spreadPct) > 0.5) {
-    console.log(\`Alert: \${pair.pair} spread \${pair.spreadPct}%\`);
-    // Trigger your swap, notification, etc.
+  for (const pair of pairs) {
+    if (pair.spreadPct > 0.3) {
+      console.log(\`Profitable: \${pair.pair} +\${pair.spreadPct}% (Mento > forex)\`);
+      // Execute your own swap, send notification, etc.
+    }
   }
-}`}
+}
+
+// Run every 5 minutes
+setInterval(checkSpreads, 5 * 60 * 1000);`}
+        />
+      </div>
+
+      <div>
+        <p className="text-xs font-medium mb-2">Example: verify agent decisions</p>
+        <CodeBlock
+          code={`// Verify the agent's decision hashing (auditability)
+const policy = await fetch("${BASE_URL}/api/agent/policy").then(r => r.json());
+
+console.log("Policy hash:", policy.policyHash);
+console.log("Decisions:", policy.decisions.length);
+
+// Each decision has: { hash, orderId, action, timestamp, currentRate, targetRate }
+// Verify: keccak256(orderId + action + reasoning + timestamp) === hash`}
         />
       </div>
     </div>
@@ -266,21 +408,19 @@ function X402Tab() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium mb-1">Micropayment-gated signals</h3>
+        <h3 className="text-sm font-medium mb-1">x402 Micropayments — $0.01 per signal</h3>
         <p className="text-xs text-muted-foreground">
-          Premium FX signals behind an x402 paywall. Pay $0.01 cUSD per unlock — no subscription, no account. Standard HTTP 402 flow.
+          Premium signals behind HTTP 402. No subscription, no account — just sign and pay.
         </p>
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">How x402 works</p>
-        <div className="space-y-2">
+        <p className="text-xs font-medium mb-2">Flow</p>
+        <div className="space-y-1.5">
           {[
-            { step: "1", text: "Client sends GET /api/premium-signals" },
-            { step: "2", text: "Server returns HTTP 402 with payment requirements (amount, token, recipient)" },
-            { step: "3", text: "Client signs EIP-712 payment authorization" },
-            { step: "4", text: "Client retries with X-PAYMENT header containing signed authorization" },
-            { step: "5", text: "Server verifies payment, returns premium signal data" },
+            { step: "1", text: "GET /api/premium-signals → HTTP 402 + payment requirements" },
+            { step: "2", text: "Client signs EIP-712 payment (0.01 cUSD)" },
+            { step: "3", text: "Retry with X-PAYMENT header → 200 + premium data" },
           ].map((s) => (
             <div key={s.step} className="flex items-start gap-2 text-xs">
               <span className="bg-muted rounded-full size-5 flex items-center justify-center shrink-0 font-mono text-[10px]">
@@ -293,29 +433,27 @@ function X402Tab() {
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">Test the paywall</p>
+        <p className="text-xs font-medium mb-2">Test</p>
         <CodeBlock
-          code={`# This will return HTTP 402 with payment requirements
+          code={`# Returns 402 with payment requirements
 curl -I ${BASE_URL}/api/premium-signals
 
-# Response headers include:
+# Headers:
 # X-Payment-Required: true
-# X-Payment-Amount: 10000 (0.01 cUSD, 6 decimals)
-# X-Payment-Token: 0x765D...282a (cUSD on Celo)`}
+# X-Payment-Amount: 10000  (0.01 cUSD, 6 decimals)
+# X-Payment-Token: 0x765DE816845861e75A25fCA122bb6898B8B1282a`}
         />
-        <LiveEndpoint url={`${BASE_URL}/api/premium-signals`} label="GET /api/premium-signals — returns 402" />
       </div>
 
       <div>
-        <p className="text-xs font-medium mb-2">Integration with Thirdweb x402</p>
+        <p className="text-xs font-medium mb-2">Integrate with Thirdweb</p>
         <CodeBlock
-          lang="typescript"
           code={`import { createThirdwebClient } from "thirdweb";
 import { payWith402 } from "thirdweb/extensions/x402";
 
 const client = createThirdwebClient({ clientId: "..." });
 
-// Automatically handles 402 → sign → retry flow
+// Handles 402 → sign → retry automatically
 const signals = await payWith402({
   client,
   url: "${BASE_URL}/api/premium-signals",
@@ -323,12 +461,14 @@ const signals = await payWith402({
 });`}
         />
       </div>
+
+      <LiveEndpoint url={`${BASE_URL}/api/premium-signals`} label="GET /api/premium-signals — returns 402" />
     </div>
   );
 }
 
 export default function DevelopersPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("mcp");
+  const [activeTab, setActiveTab] = useState<TabKey>("quickstart");
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -342,20 +482,20 @@ export default function DevelopersPage() {
         </div>
 
         {/* Protocol cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`text-left rounded-lg border p-3 transition-colors ${
+              className={`text-left rounded-lg border p-2.5 transition-colors ${
                 activeTab === tab.key
                   ? "border-foreground bg-accent"
                   : "border-border hover:bg-accent/50"
               }`}
             >
-              <tab.icon className={`size-4 mb-1.5 ${activeTab === tab.key ? "text-foreground" : "text-muted-foreground"}`} />
-              <p className="text-sm font-medium">{tab.label}</p>
-              <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">{tab.desc}</p>
+              <tab.icon className={`size-3.5 mb-1 ${activeTab === tab.key ? "text-foreground" : "text-muted-foreground"}`} />
+              <p className="text-xs font-medium">{tab.label}</p>
+              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{tab.desc}</p>
             </button>
           ))}
         </div>
@@ -363,6 +503,7 @@ export default function DevelopersPage() {
         {/* Active tab content */}
         <Card>
           <CardContent className="p-5">
+            {activeTab === "quickstart" && <QuickstartTab />}
             {activeTab === "mcp" && <McpTab />}
             {activeTab === "a2a" && <A2aTab />}
             {activeTab === "rest" && <RestTab />}
@@ -375,7 +516,7 @@ export default function DevelopersPage() {
           <CardContent className="p-5 space-y-4">
             <div className="flex items-center gap-2">
               <FileJson className="size-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold">Quick Reference</h2>
+              <h2 className="text-sm font-semibold">All Endpoints</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5">
               {[
