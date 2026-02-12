@@ -1,9 +1,0 @@
-**/node_modules
-**/.next
-.git
-*.md
-.env*
-backend
-scripts
-starters
-frontend/.env.local

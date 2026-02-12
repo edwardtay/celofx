@@ -35,8 +35,12 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Private scripts
+# Private (scripts, scaffolding, internal files)
 private/
+*.png
+!frontend/public/*.png
+.env.phala
+.playwright-mcp/
 
 # Misc
 *.tsbuildinfo
