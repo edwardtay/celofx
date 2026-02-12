@@ -14,6 +14,8 @@ import { AutonomousLoop } from "@/components/dashboard/autonomous-loop";
 import { VaultOverview } from "@/components/vault/vault-overview";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { LiveStats } from "@/components/dashboard/live-stats";
+import { ProtocolHealth } from "@/components/dashboard/protocol-health";
+import { OnchainHistory } from "@/components/dashboard/onchain-history";
 import { Shield, Zap, BarChart3, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -58,6 +60,10 @@ export default function Home() {
 
         {/* Below the fold: proof and details */}
         <AgentWallet />
+
+        <OnchainHistory />
+
+        <ProtocolHealth />
 
         <AutonomousLoop />
 

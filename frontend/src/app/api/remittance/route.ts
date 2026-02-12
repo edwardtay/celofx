@@ -40,6 +40,57 @@ const CORRIDOR_FEES: Record<string, { westernUnion: number; wise: number; remitl
 const DEFAULT_FEES = { westernUnion: 0.065, wise: 0.01, remitly: 0.015, moneygram: 0.05 };
 const CELOFX_FEE = 0.001; // 0.1%
 
+// Last-mile currency mapping: corridor → local currency ISO code
+const CORRIDOR_LOCAL_CURRENCY: Record<string, { code: string; symbol: string; name: string }> = {
+  "USD → PHP": { code: "PHP", symbol: "₱", name: "Philippine Peso" },
+  "USD → NGN": { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
+  "USD → KES": { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
+  "USD → MXN": { code: "MXN", symbol: "$", name: "Mexican Peso" },
+  "USD → BRL": { code: "BRL", symbol: "R$", name: "Brazilian Real" },
+  "EUR → XOF": { code: "XOF", symbol: "CFA", name: "West African CFA" },
+  "EUR → NGN": { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
+};
+
+// Frankfurter API cache for local currency rates
+let fxCache: { rates: Record<string, number>; timestamp: number } | null = null;
+const FX_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+async function getLocalCurrencyRate(baseCurrency: string, targetCode: string): Promise<number | null> {
+  try {
+    // baseCurrency is "USD" or "EUR" derived from fromToken
+    const base = baseCurrency === "BRL" ? "USD" : baseCurrency; // Frankfurter doesn't support BRL as base
+    const cacheKey = `${base}-${targetCode}`;
+
+    if (fxCache && Date.now() - fxCache.timestamp < FX_CACHE_TTL && fxCache.rates[cacheKey]) {
+      return fxCache.rates[cacheKey];
+    }
+
+    // XOF is not on Frankfurter — use fixed EUR peg (1 EUR = 655.957 XOF)
+    if (targetCode === "XOF") {
+      const rate = base === "EUR" ? 655.957 : null;
+      if (rate && fxCache) fxCache.rates[cacheKey] = rate;
+      return rate;
+    }
+
+    const res = await fetch(
+      `https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${targetCode}`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const rate = data.rates?.[targetCode] ?? null;
+
+    if (rate) {
+      if (!fxCache) fxCache = { rates: {}, timestamp: Date.now() };
+      fxCache.rates[cacheKey] = rate;
+      fxCache.timestamp = Date.now();
+    }
+
+    return rate;
+  } catch {
+    return null;
+  }
+}
+
 // Estimated transfer times by provider
 const TRANSFER_TIMES: Record<string, string> = {
   celofx: "~30 seconds",
@@ -212,6 +263,39 @@ export async function POST(request: Request) {
   const worstProvider = wuFee >= wiseFee && wuFee >= remitlyFee && wuFee >= moneygramFee ? "Western Union"
     : moneygramFee >= wiseFee && moneygramFee >= remitlyFee ? "MoneyGram" : "others";
 
+  // Last-mile: convert stablecoin amount to local currency
+  const localCurrency = CORRIDOR_LOCAL_CURRENCY[parsed.corridor] ?? null;
+  let lastMile: { localCurrency: string; symbol: string; name: string; fxRate: number; localAmount: string; chain: string } | null = null;
+
+  if (localCurrency) {
+    // Determine the base fiat currency: cUSD=USD, cEUR=EUR, cREAL=BRL
+    const baseFiat = parsed.fromToken === "cEUR" ? "EUR" : parsed.fromToken === "cREAL" ? "BRL" : "USD";
+    const fxRate = await getLocalCurrencyRate(baseFiat, localCurrency.code);
+    if (fxRate) {
+      // The stablecoin amount after Mento swap (in toToken) converts to local currency
+      const stableAmount = sameToken ? parsed.amount : amountOut;
+      // toToken fiat base: cUSD=USD, cEUR=EUR
+      const outFiat = parsed.toToken === "cEUR" ? "EUR" : parsed.toToken === "cREAL" ? "BRL" : "USD";
+      // If outFiat matches baseFiat of the FX rate, use directly
+      // Otherwise we need to convert through USD
+      let localAmount: number;
+      if (outFiat === baseFiat || outFiat === "USD") {
+        localAmount = stableAmount * fxRate;
+      } else {
+        // Fallback: use the rate as-is (approximate)
+        localAmount = stableAmount * fxRate;
+      }
+      lastMile = {
+        localCurrency: localCurrency.code,
+        symbol: localCurrency.symbol,
+        name: localCurrency.name,
+        fxRate,
+        localAmount: localAmount.toFixed(2),
+        chain: `${parsed.amount} ${parsed.fromToken} → ${amountOut.toFixed(2)} ${parsed.toToken} → ${localCurrency.symbol}${localAmount.toFixed(2)} ${localCurrency.code}`,
+      };
+    }
+  }
+
   return NextResponse.json({
     parsed: {
       fromToken: parsed.fromToken,
@@ -275,5 +359,6 @@ export async function POST(request: Request) {
       vs: worstProvider,
     },
     strings,
+    lastMile,
   });
 }
