@@ -35,5 +35,8 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Private scripts
+private/
+
 # Misc
 *.tsbuildinfo
