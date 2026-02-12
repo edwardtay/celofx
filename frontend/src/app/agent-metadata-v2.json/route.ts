@@ -74,8 +74,7 @@ export async function GET() {
         },
         {
           name: "TEE",
-          endpoint:
-            "https://0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5-3000.dstack-pha-prod9.phala.network/api/attestation",
+          endpoint: "https://celofx.vercel.app/api/tee/attestation",
           version: "dstack-dev-0.5.6",
           hardware: "Intel TDX",
           provider: "Phala Cloud",
@@ -115,8 +114,7 @@ export async function GET() {
       tee: {
         hardware: "Intel TDX",
         provider: "Phala Cloud",
-        attestationEndpoint:
-          "https://0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5-3000.dstack-pha-prod9.phala.network/api/attestation",
+        attestationEndpoint: "https://celofx.vercel.app/api/tee/attestation",
         fallbackEndpoint: "https://celofx.vercel.app/api/attestation",
         cvmAppId: "0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5",
         cvmDashboard:
