@@ -17,10 +17,10 @@ type NavLink = {
 };
 
 const primaryLinks: NavLink[] = [
-  { href: "/", label: "Dashboard" },
+  { href: "/", label: "Arbitrage" },
   { href: "/trading", label: "Trading", countKey: "orders" },
   { href: "/remittance", label: "Remittance" },
-  { href: "/vault", label: "Vault" },
+  { href: "/vault", label: "Hedging" },
 ];
 
 const moreLinks: NavLink[] = [
