@@ -1,6 +1,13 @@
 import { http, createStorage, cookieStorage } from "wagmi";
 import { celo } from "wagmi/chains";
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import {
+  rabbyWallet,
+  metaMaskWallet,
+  walletConnectWallet,
+  rainbowWallet,
+  phantomWallet,
+} from "@rainbow-me/rainbowkit/wallets";
 import { siteConfig } from "./site";
 
 export const config = getDefaultConfig({
@@ -12,4 +19,16 @@ export const config = getDefaultConfig({
   transports: {
     [celo.id]: http(),
   },
+  wallets: [
+    {
+      groupName: "Popular",
+      wallets: [
+        rabbyWallet,
+        metaMaskWallet,
+        phantomWallet,
+        rainbowWallet,
+        walletConnectWallet,
+      ],
+    },
+  ],
 });
