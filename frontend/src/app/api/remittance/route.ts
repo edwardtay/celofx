@@ -1,22 +1,60 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getOnChainQuote, type MentoToken, TOKENS } from "@/lib/mento-sdk";
+import { getOnChainQuote, type MentoToken } from "@/lib/mento-sdk";
 
-const SYSTEM_PROMPT = `You parse remittance requests into structured data. Extract the swap details from natural language.
-Reply with ONLY valid JSON: {"fromToken": "cUSD"|"cEUR"|"cREAL", "toToken": "cUSD"|"cEUR"|"cREAL", "amount": number, "corridor": "description"}
+const SYSTEM_PROMPT = `You parse remittance requests into structured data. You understand English, Spanish, Portuguese, and French.
+Reply with ONLY valid JSON: {"fromToken": "cUSD"|"cEUR"|"cREAL", "toToken": "cUSD"|"cEUR"|"cREAL", "amount": number, "corridor": "description", "recipientCountry": "country or null", "language": "en"|"es"|"pt"|"fr"}
+
+Currency mapping:
+- USD/dollars/$: cUSD | EUR/euros/€: cEUR | BRL/reais/R$: cREAL
+- Philippines (PHP), Nigeria (NGN), Kenya (KES), Mexico (MXN), Colombia (COP): use cUSD as fromToken
+- When user mentions a country that uses EUR (France, Germany, Spain, etc): toToken = cEUR
+- When user mentions Brazil: toToken = cREAL
+- For countries using other currencies (PHP, NGN, KES, MXN): use cUSD as toToken (stablecoin bridge)
+
 Examples:
-- "Send $50 in euros" → {"fromToken":"cUSD","toToken":"cEUR","amount":50,"corridor":"USD → EUR"}
-- "Convert 200 reais to dollars" → {"fromToken":"cREAL","toToken":"cUSD","amount":200,"corridor":"BRL → USD"}
-- "I need 100 euros" → {"fromToken":"cUSD","toToken":"cEUR","amount":100,"corridor":"USD → EUR"}
-- "Send USD to BRL" → {"fromToken":"cUSD","toToken":"cREAL","amount":100,"corridor":"USD → BRL"}
-- "50 euros to reais" → {"fromToken":"cEUR","toToken":"cREAL","amount":50,"corridor":"EUR → BRL"}
-Default fromToken is cUSD if ambiguous. Always pick the most logical pair.`;
+- "Send $50 to my mom in the Philippines" → {"fromToken":"cUSD","toToken":"cUSD","amount":50,"corridor":"USD → PHP","recipientCountry":"Philippines","language":"en"}
+- "Enviar 100 dólares a mi hermano en Nigeria" → {"fromToken":"cUSD","toToken":"cUSD","amount":100,"corridor":"USD → NGN","recipientCountry":"Nigeria","language":"es"}
+- "Envoyer 200 euros au Sénégal" → {"fromToken":"cEUR","toToken":"cUSD","amount":200,"corridor":"EUR → XOF","recipientCountry":"Senegal","language":"fr"}
+- "Transferir 500 reais para euros" → {"fromToken":"cREAL","toToken":"cEUR","amount":500,"corridor":"BRL → EUR","recipientCountry":null,"language":"pt"}
+- "Send $100 in euros" → {"fromToken":"cUSD","toToken":"cEUR","amount":100,"corridor":"USD → EUR","recipientCountry":null,"language":"en"}
+- "Convert 200 reais to dollars" → {"fromToken":"cREAL","toToken":"cUSD","amount":200,"corridor":"BRL → USD","recipientCountry":null,"language":"pt"}
 
-// Hardcoded realistic fee percentages
-const FEES = {
-  celofx: 0.001, // 0.1% — Mento protocol fee only
-  westernUnion: 0.065, // 6.5% — typical cross-border
-  wise: 0.01, // 1.0% — typical Wise fee
+Default fromToken is cUSD if ambiguous. Always pick the most logical pair. Detect the input language.`;
+
+// Realistic fee data by corridor (source: World Bank Remittance Prices Worldwide Q4 2024)
+const CORRIDOR_FEES: Record<string, { westernUnion: number; wise: number; remitly: number; moneygram: number }> = {
+  "USD → EUR": { westernUnion: 0.045, wise: 0.0065, remitly: 0.015, moneygram: 0.04 },
+  "USD → PHP": { westernUnion: 0.055, wise: 0.01, remitly: 0.012, moneygram: 0.045 },
+  "USD → NGN": { westernUnion: 0.075, wise: 0.015, remitly: 0.02, moneygram: 0.065 },
+  "USD → KES": { westernUnion: 0.07, wise: 0.012, remitly: 0.018, moneygram: 0.055 },
+  "USD → MXN": { westernUnion: 0.06, wise: 0.008, remitly: 0.01, moneygram: 0.05 },
+  "USD → BRL": { westernUnion: 0.065, wise: 0.012, remitly: 0.015, moneygram: 0.055 },
+  "EUR → USD": { westernUnion: 0.05, wise: 0.007, remitly: 0.015, moneygram: 0.045 },
+  "EUR → XOF": { westernUnion: 0.08, wise: 0.018, remitly: 0.025, moneygram: 0.07 },
+  "EUR → NGN": { westernUnion: 0.08, wise: 0.016, remitly: 0.022, moneygram: 0.065 },
+  "BRL → USD": { westernUnion: 0.065, wise: 0.013, remitly: 0.018, moneygram: 0.055 },
+  "BRL → EUR": { westernUnion: 0.07, wise: 0.014, remitly: 0.02, moneygram: 0.06 },
+};
+
+const DEFAULT_FEES = { westernUnion: 0.065, wise: 0.01, remitly: 0.015, moneygram: 0.05 };
+const CELOFX_FEE = 0.001; // 0.1%
+
+// Estimated transfer times by provider
+const TRANSFER_TIMES: Record<string, string> = {
+  celofx: "~30 seconds",
+  westernUnion: "1-3 business days",
+  wise: "1-2 business days",
+  remitly: "Minutes to 3 days",
+  moneygram: "1-3 business days",
+};
+
+// Localized UI strings
+const STRINGS: Record<string, { saving: string; via: string; instantly: string }> = {
+  en: { saving: "You save", via: "via Celo stablecoins", instantly: "Arrives instantly" },
+  es: { saving: "Ahorras", via: "vía stablecoins de Celo", instantly: "Llega al instante" },
+  pt: { saving: "Você economiza", via: "via stablecoins Celo", instantly: "Chega instantaneamente" },
+  fr: { saving: "Vous économisez", via: "via stablecoins Celo", instantly: "Arrive instantanément" },
 };
 
 interface ParsedIntent {
@@ -24,6 +62,8 @@ interface ParsedIntent {
   toToken: MentoToken;
   amount: number;
   corridor: string;
+  recipientCountry: string | null;
+  language: string;
 }
 
 export async function POST(request: Request) {
@@ -53,7 +93,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Step 1: Parse intent with Claude Haiku
+  // Step 1: Parse intent with Claude Haiku (multi-language)
   let parsed: ParsedIntent;
   try {
     const client = new Anthropic({ apiKey });
@@ -67,13 +107,12 @@ export async function POST(request: Request) {
     const text =
       response.content[0].type === "text" ? response.content[0].text : "";
 
-    // Extract JSON from the response (handle potential markdown wrapping)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return NextResponse.json(
         {
           error:
-            "Could not understand your request. Try something like: 'Send $50 in EUR' or 'Convert 100 cUSD to cREAL'",
+            "Could not understand your request. Try: 'Send $50 to my mom in the Philippines' or 'Enviar 100 dólares a Nigeria'",
         },
         { status: 400 }
       );
@@ -81,20 +120,17 @@ export async function POST(request: Request) {
 
     const raw = JSON.parse(jsonMatch[0]);
 
-    // Validate tokens
     const validTokens = new Set(["cUSD", "cEUR", "cREAL"]);
     if (!validTokens.has(raw.fromToken) || !validTokens.has(raw.toToken)) {
       return NextResponse.json(
-        {
-          error: `Invalid token pair: ${raw.fromToken} -> ${raw.toToken}. Supported: cUSD, cEUR, cREAL`,
-        },
+        { error: `Invalid token pair: ${raw.fromToken} -> ${raw.toToken}. Supported: cUSD, cEUR, cREAL` },
         { status: 400 }
       );
     }
 
-    if (raw.fromToken === raw.toToken) {
+    if (raw.fromToken === raw.toToken && !raw.recipientCountry) {
       return NextResponse.json(
-        { error: "Source and destination tokens must be different" },
+        { error: "Please specify a destination currency or country" },
         { status: 400 }
       );
     }
@@ -110,7 +146,9 @@ export async function POST(request: Request) {
       fromToken: raw.fromToken as MentoToken,
       toToken: raw.toToken as MentoToken,
       amount: Number(raw.amount),
-      corridor: raw.corridor || `${raw.fromToken} -> ${raw.toToken}`,
+      corridor: raw.corridor || `${raw.fromToken} → ${raw.toToken}`,
+      recipientCountry: raw.recipientCountry || null,
+      language: raw.language || "en",
     };
   } catch (err) {
     return NextResponse.json(
@@ -118,76 +156,124 @@ export async function POST(request: Request) {
         error:
           err instanceof Error
             ? `Parse failed: ${err.message}`
-            : "Failed to parse your request. Try: 'Send $50 in EUR'",
+            : "Failed to parse your request",
       },
       { status: 400 }
     );
   }
 
-  // Step 2: Get on-chain quote from Mento Broker
-  try {
-    const quote = await getOnChainQuote(
-      parsed.fromToken,
-      parsed.toToken,
-      String(parsed.amount)
-    );
+  // Step 2: Get on-chain quote (skip if same token — USD→PHP corridor)
+  const sameToken = parsed.fromToken === parsed.toToken;
+  let rate = 1;
+  let amountOut = parsed.amount;
+  let exchangeId = "direct";
 
-    const amountOut = parseFloat(quote.amountOut);
-    const rate = quote.rate;
-
-    // Step 3: Calculate fee comparison
-    const celofxFee = parsed.amount * FEES.celofx;
-    const westernUnionFee = parsed.amount * FEES.westernUnion;
-    const wiseFee = parsed.amount * FEES.wise;
-
-    // Amount received after fees (apply fee to input, then convert at rate)
-    const celofxReceive = (parsed.amount - celofxFee) * rate;
-    const westernUnionReceive = (parsed.amount - westernUnionFee) * rate;
-    const wiseReceive = (parsed.amount - wiseFee) * rate;
-
-    const savings = westernUnionFee - celofxFee;
-
-    return NextResponse.json({
-      parsed: {
-        fromToken: parsed.fromToken,
-        toToken: parsed.toToken,
-        amount: parsed.amount,
-        corridor: parsed.corridor,
-      },
-      quote: {
-        rate,
-        amountOut: amountOut.toFixed(2),
-        exchangeId: quote.exchangeId,
-      },
-      fees: {
-        celofx: {
-          pct: FEES.celofx * 100,
-          fee: celofxFee.toFixed(2),
-          receive: celofxReceive.toFixed(2),
+  if (!sameToken) {
+    try {
+      const quote = await getOnChainQuote(
+        parsed.fromToken,
+        parsed.toToken,
+        String(parsed.amount)
+      );
+      rate = quote.rate;
+      amountOut = parseFloat(quote.amountOut);
+      exchangeId = quote.exchangeId;
+    } catch (err) {
+      return NextResponse.json(
+        {
+          error:
+            err instanceof Error
+              ? `Quote failed: ${err.message}`
+              : "Failed to get on-chain quote",
         },
-        westernUnion: {
-          pct: FEES.westernUnion * 100,
-          fee: westernUnionFee.toFixed(2),
-          receive: westernUnionReceive.toFixed(2),
-        },
-        wise: {
-          pct: FEES.wise * 100,
-          fee: wiseFee.toFixed(2),
-          receive: wiseReceive.toFixed(2),
-        },
-        savings: savings.toFixed(2),
-        savingsPct: ((FEES.westernUnion - FEES.celofx) * 100).toFixed(1),
-      },
-    });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? `Quote failed: ${err.message}`
-            : "Failed to get on-chain quote",
-      },
-      { status: 500 }
-    );
+        { status: 500 }
+      );
+    }
   }
+
+  // Step 3: Fee comparison (corridor-specific)
+  const corridorFees = CORRIDOR_FEES[parsed.corridor] || DEFAULT_FEES;
+  const lang = parsed.language || "en";
+  const strings = STRINGS[lang] || STRINGS.en;
+
+  const celofxFee = parsed.amount * CELOFX_FEE;
+  const wuFee = parsed.amount * corridorFees.westernUnion;
+  const wiseFee = parsed.amount * corridorFees.wise;
+  const remitlyFee = parsed.amount * corridorFees.remitly;
+  const moneygramFee = parsed.amount * corridorFees.moneygram;
+
+  const celofxReceive = (parsed.amount - celofxFee) * rate;
+  const wuReceive = (parsed.amount - wuFee) * rate;
+  const wiseReceive = (parsed.amount - wiseFee) * rate;
+  const remitlyReceive = (parsed.amount - remitlyFee) * rate;
+  const moneygramReceive = (parsed.amount - moneygramFee) * rate;
+
+  const maxSavings = Math.max(wuFee, wiseFee, remitlyFee, moneygramFee) - celofxFee;
+  const worstProvider = wuFee >= wiseFee && wuFee >= remitlyFee && wuFee >= moneygramFee ? "Western Union"
+    : moneygramFee >= wiseFee && moneygramFee >= remitlyFee ? "MoneyGram" : "others";
+
+  return NextResponse.json({
+    parsed: {
+      fromToken: parsed.fromToken,
+      toToken: parsed.toToken,
+      amount: parsed.amount,
+      corridor: parsed.corridor,
+      recipientCountry: parsed.recipientCountry,
+      language: lang,
+    },
+    quote: {
+      rate,
+      amountOut: amountOut.toFixed(2),
+      exchangeId,
+      sameToken,
+    },
+    providers: [
+      {
+        name: "CeloFX",
+        pct: CELOFX_FEE * 100,
+        fee: celofxFee.toFixed(2),
+        receive: celofxReceive.toFixed(2),
+        time: TRANSFER_TIMES.celofx,
+        highlight: true,
+      },
+      {
+        name: "Wise",
+        pct: corridorFees.wise * 100,
+        fee: wiseFee.toFixed(2),
+        receive: wiseReceive.toFixed(2),
+        time: TRANSFER_TIMES.wise,
+        highlight: false,
+      },
+      {
+        name: "Remitly",
+        pct: corridorFees.remitly * 100,
+        fee: remitlyFee.toFixed(2),
+        receive: remitlyReceive.toFixed(2),
+        time: TRANSFER_TIMES.remitly,
+        highlight: false,
+      },
+      {
+        name: "MoneyGram",
+        pct: corridorFees.moneygram * 100,
+        fee: moneygramFee.toFixed(2),
+        receive: moneygramReceive.toFixed(2),
+        time: TRANSFER_TIMES.moneygram,
+        highlight: false,
+      },
+      {
+        name: "Western Union",
+        pct: corridorFees.westernUnion * 100,
+        fee: wuFee.toFixed(2),
+        receive: wuReceive.toFixed(2),
+        time: TRANSFER_TIMES.westernUnion,
+        highlight: false,
+      },
+    ],
+    savings: {
+      amount: maxSavings.toFixed(2),
+      pct: ((Math.max(corridorFees.westernUnion, corridorFees.moneygram) - CELOFX_FEE) * 100).toFixed(1),
+      vs: worstProvider,
+    },
+    strings,
+  });
 }

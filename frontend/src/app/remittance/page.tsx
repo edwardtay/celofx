@@ -14,13 +14,18 @@ import {
   TrendingDown,
   CheckCircle2,
   MessageSquare,
+  Clock,
+  MapPin,
 } from "lucide-react";
 import { useAccount } from "wagmi";
 
-interface FeeDetail {
+interface Provider {
+  name: string;
   pct: number;
   fee: string;
   receive: string;
+  time: string;
+  highlight: boolean;
 }
 
 interface RemittanceResult {
@@ -29,25 +34,35 @@ interface RemittanceResult {
     toToken: string;
     amount: number;
     corridor: string;
+    recipientCountry: string | null;
+    language: string;
   };
   quote: {
     rate: number;
     amountOut: string;
     exchangeId: string;
+    sameToken: boolean;
   };
-  fees: {
-    celofx: FeeDetail;
-    westernUnion: FeeDetail;
-    wise: FeeDetail;
-    savings: string;
-    savingsPct: string;
+  providers: Provider[];
+  savings: {
+    amount: string;
+    pct: string;
+    vs: string;
+  };
+  strings: {
+    saving: string;
+    via: string;
+    instantly: string;
   };
 }
 
 const QUICK_ACTIONS = [
-  { label: "Send USD \u2192 EUR", message: "Send $100 to someone in EUR" },
-  { label: "Send USD \u2192 BRL", message: "Send $100 to someone in BRL" },
-  { label: "Send EUR \u2192 USD", message: "Convert 100 euros to dollars" },
+  { label: "🇵🇭 Philippines", message: "Send $50 to my family in the Philippines" },
+  { label: "🇳🇬 Nigeria", message: "Send $100 to Nigeria" },
+  { label: "🇸🇳 Sénégal", message: "Envoyer 200 euros au Sénégal" },
+  { label: "🇧🇷 Brasil", message: "Transferir 500 reais para euros" },
+  { label: "🇲🇽 México", message: "Enviar 100 dólares a México" },
+  { label: "🇰🇪 Kenya", message: "Send $75 to Kenya" },
 ];
 
 export default function RemittancePage() {
@@ -110,8 +125,8 @@ export default function RemittancePage() {
         <div>
           <h1 className="text-2xl font-display tracking-tight">Remittance</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-            Send money across borders using Celo stablecoins. Just describe what
-            you need in plain English.
+            Send money across borders using Celo stablecoins. Describe your
+            transfer in any language.
           </p>
         </div>
 
@@ -127,7 +142,7 @@ export default function RemittancePage() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Send $50 to someone in EUR..."
+                    placeholder="Send $50 to the Philippines..."
                     disabled={loading}
                     className="flex-1 px-3 py-2.5 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
                   />
@@ -144,7 +159,7 @@ export default function RemittancePage() {
                   </button>
                 </div>
 
-                {/* Quick action chips */}
+                {/* Quick action chips — multi-corridor */}
                 <div className="flex flex-wrap gap-2">
                   {QUICK_ACTIONS.map((action) => (
                     <button
@@ -184,6 +199,15 @@ export default function RemittancePage() {
                   >
                     {result.parsed.corridor}
                   </Badge>
+                  {result.parsed.recipientCountry && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1"
+                    >
+                      <MapPin className="size-2.5" />
+                      {result.parsed.recipientCountry}
+                    </Badge>
+                  )}
                 </div>
 
                 {/* Amount flow */}
@@ -208,18 +232,20 @@ export default function RemittancePage() {
                 </div>
 
                 {/* Rate */}
-                <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                  <span>
-                    1 {result.parsed.fromToken} = {result.quote.rate.toFixed(4)}{" "}
-                    {result.parsed.toToken}
-                  </span>
-                  <span className="text-muted-foreground/50">|</span>
-                  <span>Mento Broker (on-chain)</span>
-                </div>
+                {!result.quote.sameToken && (
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                    <span>
+                      1 {result.parsed.fromToken} ={" "}
+                      {result.quote.rate.toFixed(4)} {result.parsed.toToken}
+                    </span>
+                    <span className="text-muted-foreground/50">|</span>
+                    <span>Mento Broker (on-chain)</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Fee comparison */}
+            {/* Fee comparison — 5 providers */}
             <Card className="gap-0 py-0">
               <CardContent className="py-4 space-y-4">
                 <div className="flex items-center gap-2">
@@ -229,94 +255,118 @@ export default function RemittancePage() {
 
                 <div className="border rounded-lg overflow-hidden">
                   {/* Header */}
-                  <div className="grid grid-cols-3 gap-px bg-muted text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                  <div className="grid grid-cols-4 gap-px bg-muted text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                     <div className="bg-background px-3 py-2">Provider</div>
-                    <div className="bg-background px-3 py-2 text-right">
-                      Fee
-                    </div>
+                    <div className="bg-background px-3 py-2 text-right">Fee</div>
                     <div className="bg-background px-3 py-2 text-right">
                       You receive
                     </div>
-                  </div>
-
-                  {/* CeloFX row — highlighted green */}
-                  <div className="grid grid-cols-3 gap-px bg-muted">
-                    <div className="bg-emerald-50 px-3 py-2.5 flex items-center gap-2">
-                      <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
-                      <span className="text-sm font-medium text-emerald-900">
-                        CeloFX
-                      </span>
-                    </div>
-                    <div className="bg-emerald-50 px-3 py-2.5 text-right">
-                      <span className="text-sm font-mono font-medium text-emerald-700">
-                        ${result.fees.celofx.fee}
-                      </span>
-                      <span className="text-[10px] text-emerald-600 ml-1">
-                        ({result.fees.celofx.pct}%)
-                      </span>
-                    </div>
-                    <div className="bg-emerald-50 px-3 py-2.5 text-right">
-                      <span className="text-sm font-mono font-bold text-emerald-700">
-                        {result.fees.celofx.receive} {result.parsed.toToken}
-                      </span>
+                    <div className="bg-background px-3 py-2 text-right">
+                      Speed
                     </div>
                   </div>
 
-                  {/* Western Union row — red accent */}
-                  <div className="grid grid-cols-3 gap-px bg-muted">
-                    <div className="bg-background px-3 py-2.5 flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        Western Union
-                      </span>
+                  {/* Provider rows — dynamic */}
+                  {result.providers.map((p) => (
+                    <div key={p.name} className="grid grid-cols-4 gap-px bg-muted">
+                      <div
+                        className={`px-3 py-2.5 flex items-center gap-2 ${
+                          p.highlight ? "bg-emerald-50" : "bg-background"
+                        }`}
+                      >
+                        {p.highlight && (
+                          <CheckCircle2 className="size-3.5 text-emerald-600 shrink-0" />
+                        )}
+                        <span
+                          className={`text-sm ${
+                            p.highlight
+                              ? "font-medium text-emerald-900"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {p.name}
+                        </span>
+                      </div>
+                      <div
+                        className={`px-3 py-2.5 text-right ${
+                          p.highlight ? "bg-emerald-50" : "bg-background"
+                        }`}
+                      >
+                        <span
+                          className={`text-sm font-mono ${
+                            p.highlight
+                              ? "font-medium text-emerald-700"
+                              : !p.highlight && p.pct > 3
+                                ? "text-red-600 line-through decoration-red-400/50"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          ${p.fee}
+                        </span>
+                        <span
+                          className={`text-[10px] ml-1 ${
+                            p.highlight
+                              ? "text-emerald-600"
+                              : p.pct > 3
+                                ? "text-red-500"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          ({p.pct}%)
+                        </span>
+                      </div>
+                      <div
+                        className={`px-3 py-2.5 text-right ${
+                          p.highlight ? "bg-emerald-50" : "bg-background"
+                        }`}
+                      >
+                        <span
+                          className={`text-sm font-mono ${
+                            p.highlight
+                              ? "font-bold text-emerald-700"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {p.receive} {result.parsed.toToken}
+                        </span>
+                      </div>
+                      <div
+                        className={`px-3 py-2.5 text-right flex items-center justify-end gap-1 ${
+                          p.highlight ? "bg-emerald-50" : "bg-background"
+                        }`}
+                      >
+                        <Clock
+                          className={`size-3 ${
+                            p.highlight
+                              ? "text-emerald-600"
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                        <span
+                          className={`text-[11px] ${
+                            p.highlight
+                              ? "text-emerald-700 font-medium"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {p.time}
+                        </span>
+                      </div>
                     </div>
-                    <div className="bg-background px-3 py-2.5 text-right">
-                      <span className="text-sm font-mono text-red-600 line-through decoration-red-400/50">
-                        ${result.fees.westernUnion.fee}
-                      </span>
-                      <span className="text-[10px] text-red-500 ml-1">
-                        ({result.fees.westernUnion.pct}%)
-                      </span>
-                    </div>
-                    <div className="bg-background px-3 py-2.5 text-right">
-                      <span className="text-sm font-mono text-muted-foreground">
-                        {result.fees.westernUnion.receive}{" "}
-                        {result.parsed.toToken}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Wise row */}
-                  <div className="grid grid-cols-3 gap-px bg-muted">
-                    <div className="bg-background px-3 py-2.5 flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        Wise
-                      </span>
-                    </div>
-                    <div className="bg-background px-3 py-2.5 text-right">
-                      <span className="text-sm font-mono text-muted-foreground">
-                        ${result.fees.wise.fee}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground ml-1">
-                        ({result.fees.wise.pct}%)
-                      </span>
-                    </div>
-                    <div className="bg-background px-3 py-2.5 text-right">
-                      <span className="text-sm font-mono text-muted-foreground">
-                        {result.fees.wise.receive} {result.parsed.toToken}
-                      </span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 {/* Savings highlight */}
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                   <TrendingDown className="size-4 text-emerald-600 shrink-0" />
                   <p className="text-sm text-emerald-800">
-                    Save{" "}
+                    {result.strings.saving}{" "}
                     <span className="font-mono font-bold">
-                      ${result.fees.savings}
+                      ${result.savings.amount}
                     </span>{" "}
-                    vs Western Union ({result.fees.savingsPct}% lower fees)
+                    vs {result.savings.vs} ({result.savings.pct}% lower fees) —{" "}
+                    {result.strings.instantly.toLowerCase()}{" "}
+                    {result.strings.via}
                   </p>
                 </div>
               </CardContent>
