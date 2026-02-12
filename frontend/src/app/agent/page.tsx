@@ -114,7 +114,7 @@ export default function AgentPage() {
                 className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ExternalLink className="size-3 shrink-0" />
-                ERC-8004 registration (#4)
+                ERC-8004 registration (#10)
               </a>
               <a
                 href="https://celoscan.io/tx/0x238e1f606bcdab5789ef4f7dc5c69147e2ff5779bfd2a69605de3793636be70c"

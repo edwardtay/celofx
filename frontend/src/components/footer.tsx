@@ -6,7 +6,7 @@ export function Footer() {
       <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <ShieldCheck className="size-3 text-emerald-500" />
-          FX Arbitrage Agent #4 · Verified on Celo Mainnet
+          FX Arbitrage Agent #10 · Verified on Celo Mainnet
         </span>
         <div className="flex items-center gap-4">
           <a
