@@ -1,15 +1,8 @@
 import type { VaultDeposit, VaultMetrics, Trade } from "./types";
-import { seedDeposits } from "./seed-deposits";
 
 const deposits = new Map<string, VaultDeposit>();
 
-// Initialize with seed data
-for (const deposit of seedDeposits) {
-  deposits.set(deposit.id, deposit);
-}
-
-// Profits earned before current trade history (drove share price from 1.0 → ~1.012)
-const SEED_PNL_USD = 1.2;
+const SEED_PNL_USD = 0;
 
 function getActualPnlUsd(trades: Trade[]): number {
   const confirmed = trades.filter((t) => t.status === "confirmed");
