@@ -17,7 +17,9 @@ AI-powered FX arbitrage agent that compares real forex rates with Mento on-chain
 4. **Orders** ([/orders](https://celofx.vercel.app/orders)) — Smart FX Orders with rate sparklines, momentum/urgency badges, and agent reasoning shown inline
 5. **Trades** ([/trades](https://celofx.vercel.app/trades)) — Real on-chain swaps with Celoscan links. $5+ volume, 100% success rate
 6. **Premium** ([/premium](https://celofx.vercel.app/premium)) — x402 paywall: real HTTP 402, EIP-712 payment, $0.01 cUSD
-7. **Agent** ([/agent](https://celofx.vercel.app/agent)) — ERC-8004 identity (#10), on-chain reputation, execution timeline
+7. **Developers** ([/developers](https://celofx.vercel.app/developers)) — Integration portal: MCP config, A2A agent card, REST API with live "Try it" buttons, x402 payment flow
+8. **Security** ([/security](https://celofx.vercel.app/security)) — Standing Intent policy (keccak256-hashed), decision framework, TEE attestation, on-chain auditability
+9. **Agent** ([/agent](https://celofx.vercel.app/agent)) — ERC-8004 identity (#10), on-chain reputation, execution timeline
 
 ### What Makes This Different
 
@@ -188,6 +190,8 @@ User creates order: "Swap 50 cUSD → cEUR when rate hits 0.845, deadline 48h"
 | `/premium` | x402-gated premium signals ($0.01 per unlock) |
 | `/agent` | ERC-8004 agent profile, reputation, execution timeline |
 | `/vault` | Capital vault for depositors |
+| `/developers` | Integration guide: MCP, A2A, REST API, x402 with live "Try it" demos |
+| `/security` | Security & Trust: agent policy, decision hashing, TEE, auditability |
 
 ## Key Source Files
 
