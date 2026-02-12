@@ -17,6 +17,7 @@ const navLinks = [
   { href: "/orders", label: "Orders", countKey: "orders" as const },
   { href: "/vault", label: "Vault" },
   { href: "/premium", label: "Premium" },
+  { href: "/security", label: "Security" },
   { href: "/agent", label: "Agent" },
 ];
 

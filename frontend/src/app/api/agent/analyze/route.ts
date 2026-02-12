@@ -14,6 +14,7 @@ import { createWalletClient, http, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
+import { commitDecision } from "@/lib/agent-policy";
 
 export const maxDuration = 60;
 
@@ -449,6 +450,19 @@ export async function POST(request: Request) {
                   }
                 }
 
+                // Commit decision hash BEFORE execution (auditability)
+                const decisionHash = commitDecision({
+                  orderId,
+                  action: "execute",
+                  reasoning,
+                  timestamp: now,
+                  currentRate: quote.rate,
+                  targetRate: order.targetRate,
+                  momentum: "n/a",
+                  urgency: `${hoursLeft.toFixed(1)}h left`,
+                });
+                send("decision_hash", { orderId, hash: decisionHash, action: "execute" });
+
                 // Execute swap
                 try {
                   const swapResult = await buildSwapTx(
@@ -531,6 +545,7 @@ export async function POST(request: Request) {
                     amountIn: order.amountIn,
                     expectedOut: swapResult.summary.expectedOut,
                     txHash: txHash || "no-key",
+                    decisionHash,
                     reasoning,
                   });
                 } catch (err) {
@@ -608,6 +623,19 @@ export async function POST(request: Request) {
                       break;
                     }
                   }
+
+                  // Commit decision hash before execution (auditability)
+                  const swapDecisionHash = commitDecision({
+                    orderId: tradeId,
+                    action: "execute",
+                    reasoning: (input.reasoning as string) || `Mento swap ${fromToken}→${toToken} spread ${spreadPct.toFixed(2)}%`,
+                    timestamp: Date.now(),
+                    currentRate: freshQuote.rate,
+                    targetRate: expectedForex || 0,
+                    momentum: "n/a",
+                    urgency: "immediate",
+                  });
+                  send("decision_hash", { orderId: tradeId, hash: swapDecisionHash, action: "execute" });
 
                   const swapResult = await buildSwapTx(fromToken, toToken, amount);
                   swapTxs.push({
