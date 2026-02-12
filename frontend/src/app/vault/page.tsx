@@ -26,6 +26,12 @@ import {
   ChevronRight,
   AlertTriangle,
   PieChart,
+  Settings2,
+  ShieldCheck,
+  CalendarPlus,
+  Trash2,
+  ArrowRightLeft,
+  Activity,
 } from "lucide-react";
 import type { VaultDeposit, VaultMetrics, PortfolioCompositionView } from "@/lib/types";
 import { Sparkline } from "@/components/vault/sparkline";
@@ -33,9 +39,26 @@ import { Sparkline } from "@/components/vault/sparkline";
 const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
 const CUSD_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a";
 
+const ALLOC_STORAGE_KEY = "celofx-target-allocation";
+const CASHFLOW_STORAGE_KEY = "celofx-cash-flows";
+
 interface PricePoint {
   timestamp: number;
   price: number;
+}
+
+interface CashFlow {
+  id: string;
+  token: string;
+  amount: number;
+  date: string; // ISO date string
+  note: string;
+}
+
+interface ForexMovement {
+  pair: string;
+  rate: number;
+  change24h: number;
 }
 
 interface VaultData {
@@ -62,6 +85,140 @@ export default function VaultPage() {
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const [depositError, setDepositError] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+
+  // ─── Configurable allocation ───
+  const [allocCusd, setAllocCusd] = useState(60);
+  const [allocCeur, setAllocCeur] = useState(25);
+  const [allocCreal, setAllocCreal] = useState(15);
+  const [allocSaved, setAllocSaved] = useState(false);
+
+  // ─── Cash flows ───
+  const [cashFlows, setCashFlows] = useState<CashFlow[]>([]);
+  const [cfToken, setCfToken] = useState("cUSD");
+  const [cfAmount, setCfAmount] = useState("");
+  const [cfDate, setCfDate] = useState("");
+  const [cfNote, setCfNote] = useState("");
+
+  // ─── Risk metrics ───
+  const [forexMovements, setForexMovements] = useState<ForexMovement[]>([]);
+  const [rebalanceCount, setRebalanceCount] = useState(0);
+
+  // Load allocation from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(ALLOC_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setAllocCusd(parsed.cUSD ?? 60);
+        setAllocCeur(parsed.cEUR ?? 25);
+        setAllocCreal(parsed.cREAL ?? 15);
+      }
+    } catch { /* use defaults */ }
+  }, []);
+
+  // Load cash flows from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(CASHFLOW_STORAGE_KEY);
+      if (stored) setCashFlows(JSON.parse(stored));
+    } catch { /* use defaults */ }
+  }, []);
+
+  // Fetch forex movements for risk metrics
+  useEffect(() => {
+    fetch("/api/market-data/forex")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.rates) {
+          setForexMovements(
+            data.rates.map((r: { pair: string; rate: number; change24h: number }) => ({
+              pair: r.pair,
+              rate: r.rate,
+              change24h: r.change24h,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+
+    // Count rebalance trades
+    fetch("/api/trades")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.trades) {
+          const rebalances = data.trades.filter(
+            (t: { spreadPct?: number }) => t.spreadPct === 999
+          );
+          setRebalanceCount(rebalances.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleAllocSave = () => {
+    const total = allocCusd + allocCeur + allocCreal;
+    if (Math.abs(total - 100) > 1) return;
+    localStorage.setItem(
+      ALLOC_STORAGE_KEY,
+      JSON.stringify({ cUSD: allocCusd, cEUR: allocCeur, cREAL: allocCreal })
+    );
+    setAllocSaved(true);
+    setTimeout(() => setAllocSaved(false), 2000);
+    // Refetch portfolio with new allocation
+    fetch(`/api/vault/portfolio?cUSD=${allocCusd}&cEUR=${allocCeur}&cREAL=${allocCreal}`)
+      .then((r) => r.json())
+      .then((p) => setPortfolio(p))
+      .catch(() => {});
+  };
+
+  const handleAllocSlider = (
+    token: "cUSD" | "cEUR" | "cREAL",
+    value: number
+  ) => {
+    // When one slider moves, adjust the others proportionally to keep sum=100
+    if (token === "cUSD") {
+      const remaining = 100 - value;
+      const eurRatio = allocCeur / (allocCeur + allocCreal || 1);
+      setAllocCusd(value);
+      setAllocCeur(Math.round(remaining * eurRatio));
+      setAllocCreal(remaining - Math.round(remaining * eurRatio));
+    } else if (token === "cEUR") {
+      const remaining = 100 - value;
+      const usdRatio = allocCusd / (allocCusd + allocCreal || 1);
+      setAllocCeur(value);
+      setAllocCusd(Math.round(remaining * usdRatio));
+      setAllocCreal(remaining - Math.round(remaining * usdRatio));
+    } else {
+      const remaining = 100 - value;
+      const usdRatio = allocCusd / (allocCusd + allocCeur || 1);
+      setAllocCreal(value);
+      setAllocCusd(Math.round(remaining * usdRatio));
+      setAllocCeur(remaining - Math.round(remaining * usdRatio));
+    }
+  };
+
+  const addCashFlow = () => {
+    if (!cfAmount || !cfDate) return;
+    const flow: CashFlow = {
+      id: Date.now().toString(),
+      token: cfToken,
+      amount: Number(cfAmount),
+      date: cfDate,
+      note: cfNote,
+    };
+    const updated = [...cashFlows, flow];
+    setCashFlows(updated);
+    localStorage.setItem(CASHFLOW_STORAGE_KEY, JSON.stringify(updated));
+    setCfAmount("");
+    setCfDate("");
+    setCfNote("");
+  };
+
+  const removeCashFlow = (id: string) => {
+    const updated = cashFlows.filter((f) => f.id !== id);
+    setCashFlows(updated);
+    localStorage.setItem(CASHFLOW_STORAGE_KEY, JSON.stringify(updated));
+  };
 
   // Read user's cUSD balance
   const { data: rawBalance } = useReadContract({
@@ -95,9 +252,18 @@ export default function VaultPage() {
 
   const fetchData = useCallback(async () => {
     const url = address ? `/api/vault?address=${address}` : "/api/vault";
+    // Use stored allocation or defaults
+    let allocParams = "";
+    try {
+      const stored = localStorage.getItem(ALLOC_STORAGE_KEY);
+      if (stored) {
+        const p = JSON.parse(stored);
+        allocParams = `?cUSD=${p.cUSD}&cEUR=${p.cEUR}&cREAL=${p.cREAL}`;
+      }
+    } catch { /* defaults */ }
     const [res, portfolioRes] = await Promise.all([
       fetch(url),
-      fetch("/api/vault/portfolio").catch(() => null),
+      fetch(`/api/vault/portfolio${allocParams}`).catch(() => null),
     ]);
     const json = await res.json();
     setData(json);
@@ -405,11 +571,263 @@ export default function VaultPage() {
                 <span>
                   Total: ${portfolio.totalValueCusd.toFixed(2)} cUSD
                 </span>
-                <span>Target: 60% cUSD / 25% cEUR / 15% cREAL</span>
+                <span>Target: {allocCusd}% cUSD / {allocCeur}% cEUR / {allocCreal}% cREAL</span>
               </div>
             </CardContent>
           </Card>
         )}
+
+        {/* Configure Target Allocation */}
+        <Card className="gap-0 py-0">
+          <CardContent className="py-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings2 className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Target Allocation</span>
+              </div>
+              <button
+                onClick={handleAllocSave}
+                disabled={Math.abs(allocCusd + allocCeur + allocCreal - 100) > 1}
+                className="px-3 py-1 text-xs font-medium bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {allocSaved ? (
+                  <>
+                    <CheckCircle2 className="size-3" />
+                    Saved
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { token: "cUSD", value: allocCusd, setter: "cUSD" as const, color: "accent-emerald-500" },
+                { token: "cEUR", value: allocCeur, setter: "cEUR" as const, color: "accent-blue-500" },
+                { token: "cREAL", value: allocCreal, setter: "cREAL" as const, color: "accent-amber-500" },
+              ].map(({ token, value, setter }) => (
+                <div key={token} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium w-12">{token}</span>
+                    <span className="font-mono text-muted-foreground">{value}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={value}
+                    onChange={(e) => handleAllocSlider(setter, Number(e.target.value))}
+                    className="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-foreground [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
+              <span>
+                Total: {allocCusd + allocCeur + allocCreal}%
+                {Math.abs(allocCusd + allocCeur + allocCreal - 100) > 1 && (
+                  <span className="text-red-500 ml-1">(must equal 100%)</span>
+                )}
+              </span>
+              <span>Saved to browser, applied on next agent scan</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Risk Metrics + Cash Flows side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Risk Metrics */}
+          <Card className="gap-0 py-0">
+            <CardContent className="py-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Risk Metrics</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="border rounded-lg p-2.5 space-y-0.5">
+                  <p className="text-[10px] text-muted-foreground">Max Drift</p>
+                  <p className={`text-lg font-mono font-bold ${
+                    portfolio && portfolio.maxDriftPct > 5 ? "text-amber-600" : "text-emerald-600"
+                  }`}>
+                    {portfolio ? `${portfolio.maxDriftPct.toFixed(1)}%` : "—"}
+                  </p>
+                </div>
+                <div className="border rounded-lg p-2.5 space-y-0.5">
+                  <p className="text-[10px] text-muted-foreground">Rebalances</p>
+                  <p className="text-lg font-mono font-bold">{rebalanceCount}</p>
+                </div>
+                <div className="border rounded-lg p-2.5 space-y-0.5">
+                  <p className="text-[10px] text-muted-foreground">Drift Threshold</p>
+                  <p className="text-lg font-mono font-bold">5%</p>
+                </div>
+                <div className="border rounded-lg p-2.5 space-y-0.5">
+                  <p className="text-[10px] text-muted-foreground">Portfolio Value</p>
+                  <p className="text-lg font-mono font-bold">
+                    ${portfolio ? portfolio.totalValueCusd.toFixed(2) : "—"}
+                  </p>
+                </div>
+              </div>
+
+              {/* 24h Currency Movements */}
+              {forexMovements.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider">
+                    <Activity className="size-2.5" />
+                    24h Currency Movement
+                  </div>
+                  <div className="space-y-1">
+                    {forexMovements.slice(0, 4).map((m) => (
+                      <div
+                        key={m.pair}
+                        className="flex items-center justify-between text-xs px-2 py-1 rounded border"
+                      >
+                        <span className="font-medium">{m.pair}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-muted-foreground">
+                            {m.rate.toFixed(4)}
+                          </span>
+                          <span
+                            className={`font-mono ${
+                              m.change24h >= 0 ? "text-emerald-600" : "text-red-600"
+                            }`}
+                          >
+                            {m.change24h >= 0 ? "+" : ""}
+                            {m.change24h.toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Expected Cash Flows */}
+          <Card className="gap-0 py-0">
+            <CardContent className="py-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <CalendarPlus className="size-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Expected Cash Flows</span>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Add expected inflows to optimize hedging. The agent adjusts rebalancing to account for upcoming receipts.
+              </p>
+
+              {/* Add form */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={cfToken}
+                    onChange={(e) => setCfToken(e.target.value)}
+                    className="px-2 py-1.5 text-xs border rounded-lg bg-background"
+                  >
+                    <option value="cUSD">cUSD</option>
+                    <option value="cEUR">cEUR</option>
+                    <option value="cREAL">cREAL</option>
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Amount"
+                    value={cfAmount}
+                    onChange={(e) => setCfAmount(e.target.value)}
+                    className="w-20 px-2 py-1.5 text-xs border rounded-lg bg-background font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <input
+                    type="date"
+                    value={cfDate}
+                    onChange={(e) => setCfDate(e.target.value)}
+                    className="flex-1 px-2 py-1.5 text-xs border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <button
+                    onClick={addCashFlow}
+                    disabled={!cfAmount || !cfDate}
+                    className="px-2.5 py-1.5 text-xs font-medium bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Note (optional): e.g. Client payment"
+                  value={cfNote}
+                  onChange={(e) => setCfNote(e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              {/* Pending cash flows */}
+              {cashFlows.length > 0 ? (
+                <div className="space-y-1">
+                  {cashFlows
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .map((flow) => {
+                      const daysUntil = Math.ceil(
+                        (new Date(flow.date).getTime() - Date.now()) / 86400000
+                      );
+                      return (
+                        <div
+                          key={flow.id}
+                          className="flex items-center justify-between py-1.5 px-2 rounded border text-xs"
+                        >
+                          <div className="flex items-center gap-2">
+                            <ArrowRightLeft className="size-3 text-blue-500 shrink-0" />
+                            <span className="font-mono font-medium">
+                              +{flow.amount} {flow.token}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {daysUntil > 0
+                                ? `in ${daysUntil}d`
+                                : daysUntil === 0
+                                  ? "today"
+                                  : `${Math.abs(daysUntil)}d ago`}
+                            </span>
+                            {flow.note && (
+                              <span className="text-muted-foreground truncate max-w-[100px]">
+                                {flow.note}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeCashFlow(flow.id)}
+                            className="p-1 text-muted-foreground hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                  {/* Summary */}
+                  <div className="text-[10px] text-muted-foreground pt-1 border-t">
+                    {(() => {
+                      const totals: Record<string, number> = {};
+                      cashFlows.forEach((f) => {
+                        totals[f.token] = (totals[f.token] || 0) + f.amount;
+                      });
+                      return (
+                        <span>
+                          Expected inflows:{" "}
+                          {Object.entries(totals)
+                            .map(([t, a]) => `+${a} ${t}`)
+                            .join(", ")}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground py-2 text-center border rounded-lg bg-muted/30">
+                  No expected cash flows. Add inflows to optimize hedging timing.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Deposit Form */}
