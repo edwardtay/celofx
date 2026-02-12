@@ -17,6 +17,11 @@ import {
   Loader2,
   ExternalLink,
   Plus,
+  Brain,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Zap,
 } from "lucide-react";
 import type { FxOrder } from "@/lib/types";
 import { setCachedOrders } from "@/lib/local-cache";
@@ -58,6 +63,53 @@ const statusConfig = {
   executed: { color: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle2 },
   expired: { color: "bg-muted text-muted-foreground", icon: XCircle },
   cancelled: { color: "bg-muted text-muted-foreground", icon: XCircle },
+};
+
+function RateSparkline({ history, target }: { history: { rate: number; timestamp: number }[]; target: number }) {
+  if (!history || history.length < 2) return null;
+  const rates = history.map((h) => h.rate);
+  const min = Math.min(...rates, target) * 0.999;
+  const max = Math.max(...rates, target) * 1.001;
+  const range = max - min || 1;
+  const w = 80;
+  const h = 24;
+  const points = rates.map((r, i) => `${(i / (rates.length - 1)) * w},${h - ((r - min) / range) * h}`).join(" ");
+  const targetY = h - ((target - min) / range) * h;
+  return (
+    <svg width={w} height={h} className="inline-block">
+      <line x1={0} y1={targetY} x2={w} y2={targetY} stroke="currentColor" strokeDasharray="2 2" className="text-muted-foreground/40" strokeWidth={0.5} />
+      <polyline points={points} fill="none" stroke="currentColor" strokeWidth={1.5} className={rates[rates.length - 1] >= target ? "text-emerald-500" : "text-blue-500"} />
+    </svg>
+  );
+}
+
+function getMomentum(history: { rate: number; timestamp: number }[], targetRate: number) {
+  if (!history || history.length < 3) return "stable" as const;
+  const recent = history.slice(-3);
+  const delta = recent[2].rate - recent[0].rate;
+  const threshold = targetRate * 0.0005;
+  if (delta > threshold) return "improving" as const;
+  if (delta < -threshold) return "declining" as const;
+  return "stable" as const;
+}
+
+function getUrgency(deadline: number) {
+  const hoursLeft = (deadline - Date.now()) / 3_600_000;
+  if (hoursLeft < 2) return "high" as const;
+  if (hoursLeft < 12) return "medium" as const;
+  return "low" as const;
+}
+
+const momentumConfig = {
+  improving: { icon: TrendingUp, label: "Improving", color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+  stable: { icon: Minus, label: "Stable", color: "text-muted-foreground bg-muted/50 border-border" },
+  declining: { icon: TrendingDown, label: "Declining", color: "text-red-600 bg-red-50 border-red-200" },
+};
+
+const urgencyConfig = {
+  high: { icon: Zap, label: "Urgent", color: "text-amber-700 bg-amber-50 border-amber-200" },
+  medium: { icon: Clock, label: "Medium", color: "text-blue-600 bg-blue-50 border-blue-200" },
+  low: { icon: Clock, label: "Low", color: "text-muted-foreground bg-muted/50 border-border" },
 };
 
 export default function OrdersPage() {
@@ -412,22 +464,51 @@ export default function OrdersPage() {
                               </p>
                             )}
                           </div>
-                          <div className="text-right space-y-0.5">
-                            {order.status === "pending" && (
-                              <CountdownTimer deadline={order.deadline} />
+                          <div className="flex items-center gap-2">
+                            {order.status === "pending" && order.rateHistory && (
+                              <RateSparkline history={order.rateHistory} target={order.targetRate} />
                             )}
-                            {order.checksCount != null && order.checksCount > 0 && (
-                              <p className="text-[10px] text-muted-foreground">
-                                {order.checksCount} checks
-                              </p>
-                            )}
+                            <div className="text-right space-y-0.5">
+                              {order.status === "pending" && (
+                                <CountdownTimer deadline={order.deadline} />
+                              )}
+                              {order.checksCount != null && order.checksCount > 0 && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  {order.checksCount} checks
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
 
+                        {order.status === "pending" && (() => {
+                          const momentum = getMomentum(order.rateHistory || [], order.targetRate);
+                          const urgency = getUrgency(order.deadline);
+                          const mCfg = momentumConfig[momentum];
+                          const uCfg = urgencyConfig[urgency];
+                          const MIcon = mCfg.icon;
+                          const UIcon = uCfg.icon;
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${mCfg.color}`}>
+                                <MIcon className="size-2.5 mr-0.5" />
+                                {mCfg.label}
+                              </Badge>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${uCfg.color}`}>
+                                <UIcon className="size-2.5 mr-0.5" />
+                                {uCfg.label}
+                              </Badge>
+                            </div>
+                          );
+                        })()}
+
                         {order.agentReasoning && (
-                          <p className="text-[11px] text-muted-foreground border-t pt-2 leading-relaxed">
-                            {order.agentReasoning}
-                          </p>
+                          <div className="border-t pt-2 flex gap-2">
+                            <Brain className="size-3.5 text-violet-500 mt-0.5 shrink-0" />
+                            <p className="text-[11px] text-foreground/80 leading-relaxed">
+                              {order.agentReasoning}
+                            </p>
+                          </div>
                         )}
 
                         <div className="flex items-center justify-between">
@@ -492,52 +573,65 @@ export default function OrdersPage() {
                     return (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 transition-colors text-xs"
+                        className="py-2 px-2 rounded hover:bg-muted/50 transition-colors text-xs space-y-1"
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-muted-foreground">
-                            {formatAddress(order.creator)}
-                          </span>
-                          <span className="font-mono font-medium">
-                            {order.amountIn} {order.fromToken}
-                          </span>
-                          <ArrowRight className="size-2.5 text-muted-foreground" />
-                          <span className="font-mono font-medium">
-                            {order.toToken}
-                          </span>
-                          <span className="text-muted-foreground">
-                            @ {order.targetRate}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {order.status === "pending" && (
-                            <CountdownTimer deadline={order.deadline} />
-                          )}
-                          {order.executedRate && (
-                            <span className="font-mono text-emerald-600">
-                              {order.executedRate.toFixed(4)}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-muted-foreground">
+                              {formatAddress(order.creator)}
                             </span>
-                          )}
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] ${cfg.color}`}
-                          >
-                            {order.status}
-                          </Badge>
-                          <span className="text-muted-foreground">
-                            {formatTimeAgo(order.createdAt)}
-                          </span>
-                          {order.executedTxHash && (
-                            <a
-                              href={`https://celoscan.io/tx/${order.executedTxHash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-foreground"
+                            <span className="font-mono font-medium">
+                              {order.amountIn} {order.fromToken}
+                            </span>
+                            <ArrowRight className="size-2.5 text-muted-foreground" />
+                            <span className="font-mono font-medium">
+                              {order.toToken}
+                            </span>
+                            <span className="text-muted-foreground">
+                              @ {order.targetRate}
+                            </span>
+                            {order.status === "pending" && order.rateHistory && order.rateHistory.length >= 2 && (
+                              <RateSparkline history={order.rateHistory} target={order.targetRate} />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {order.status === "pending" && (
+                              <CountdownTimer deadline={order.deadline} />
+                            )}
+                            {order.executedRate && (
+                              <span className="font-mono text-emerald-600">
+                                {order.executedRate.toFixed(4)}
+                              </span>
+                            )}
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] ${cfg.color}`}
                             >
-                              <ExternalLink className="size-3" />
-                            </a>
-                          )}
+                              {order.status}
+                            </Badge>
+                            <span className="text-muted-foreground">
+                              {formatTimeAgo(order.createdAt)}
+                            </span>
+                            {order.executedTxHash && (
+                              <a
+                                href={`https://celoscan.io/tx/${order.executedTxHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                <ExternalLink className="size-3" />
+                              </a>
+                            )}
+                          </div>
                         </div>
+                        {order.agentReasoning && (
+                          <div className="flex items-start gap-1.5 pl-1">
+                            <Brain className="size-3 text-violet-500 mt-0.5 shrink-0" />
+                            <p className="text-[11px] text-foreground/70 leading-relaxed">
+                              {order.agentReasoning}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
