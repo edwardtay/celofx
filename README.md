@@ -26,9 +26,11 @@ AI-powered FX arbitrage agent that compares real forex rates with Mento on-chain
 Most "AI agent" hackathon projects are chatbot wrappers — the AI generates text but doesn't make real decisions. CeloFX is different:
 
 - **AI is the decision-maker** — Claude receives rich market data (momentum, volatility, urgency, forex divergence) and decides per-order whether to execute, wait, or skip. The decision framework has 7+ conditions the agent reasons through.
-- **Real on-chain execution** — Agent wallet (`0x6652...a303`) holds stablecoins and executes real Mento Broker swaps with CIP-64 fee abstraction (gas paid in cUSD)
-- **Auditable reasoning** — Every execution stores Claude's reasoning on-chain-adjacent (`agentReasoning` field). "Rate declining, locked in before drop" isn't a template — it's generated per-decision.
+- **Real on-chain execution** — Agent wallet (`0x6652...a303`) holds stablecoins and executes real Mento Broker swaps with CIP-64 fee abstraction (gas paid in cUSD). 9 verified trades on Celo mainnet.
+- **Policy enforcement, not just declaration** — Daily volume cap (500 cUSD / 24h), circuit breaker, profitability guard (+0.3% min spread) are all enforced in code before every swap. Not just a policy document — hard runtime limits.
+- **Decision audit trail** — Every execution is hashed with `keccak256(orderId, action, reasoning, timestamp)` BEFORE the swap tx is sent. Decision log is publicly queryable via [`/api/agent/decisions`](https://celofx.vercel.app/api/agent/decisions).
 - **Forex-aware order engine** — Orders aren't simple limit orders. The agent checks if Mento rate vs real forex spread is favorable, if forex is trending toward or away from target, and adjusts execution timing accordingly.
+- **24 real on-chain reputation feedbacks** — 12 unique clients on ERC-8004 Reputation Registry. All verifiable on Celoscan.
 
 ### The Decision Engine
 
@@ -52,6 +54,30 @@ Then reasons through rules like:
 - Rate at target + improving momentum + low urgency → **WAIT** (let it climb)
 - Rate below target + high urgency + gap < 1% → **EXECUTE** at market (better than expiring)
 - Spread vs forex < -1% → **NEVER EXECUTE** (forex disagrees, Mento will correct)
+
+### Security & Trust Minimization
+
+The agent's policy is not just a document — every limit is enforced at runtime:
+
+| Guard | How It Works | Endpoint |
+|-------|-------------|----------|
+| **Daily volume cap** | Rolling 24h window, rejects swaps over 500 cUSD | `checkVolumeLimit()` in every swap handler |
+| **Profitability guard** | Double-checks on-chain rate vs forex BEFORE swap. Rejects if spread < +0.3% | Protects vault depositors from negative trades |
+| **Circuit breaker** | `AGENT_PAUSED=true` halts all execution with 503 | Emergency kill switch |
+| **Decision hashing** | `keccak256(orderId, action, reasoning, timestamp)` committed BEFORE swap tx | [`/api/agent/decisions`](https://celofx.vercel.app/api/agent/decisions) |
+| **Standing Intent** | Cryptographically signed policy: allowed tokens, protocols, spending limits | [`/api/agent/policy`](https://celofx.vercel.app/api/agent/policy) |
+| **TEE attestation** | Intel TDX via Phala Cloud — private key never touches disk in plaintext | [`/api/tee/attestation`](https://celofx.vercel.app/api/tee/attestation) |
+
+Verify a decision hash:
+```bash
+# Get all committed decisions
+curl https://celofx.vercel.app/api/agent/decisions
+
+# Verify a specific hash
+curl -X POST https://celofx.vercel.app/api/agent/decisions \
+  -H "Content-Type: application/json" \
+  -d '{"orderId":"...","action":"execute","reasoning":"...","timestamp":...,"expectedHash":"0x..."}'
+```
 
 ### Verify On-Chain
 
@@ -199,11 +225,12 @@ User creates order: "Swap 50 cUSD → cEUR when rate hits 0.845, deadline 48h"
 |------|-------------|
 | [`agent-tools.ts`](frontend/src/lib/agent-tools.ts) | 9 tool definitions + decision framework system prompt |
 | [`analyze/route.ts`](frontend/src/app/api/agent/analyze/route.ts) | Agentic loop: fetch data → analyze orders → execute with reasoning |
+| [`agent-policy.ts`](frontend/src/lib/agent-policy.ts) | Standing Intent, decision hashing, volume tracking, circuit breaker |
 | [`mento-sdk.ts`](frontend/src/lib/mento-sdk.ts) | On-chain Mento Broker (`getAmountOut`, `swapIn`, bidirectional quotes) |
-| [`orders/page.tsx`](frontend/src/app/orders/page.tsx) | Orders UI with sparklines, momentum badges, agent reasoning |
+| [`decisions/route.ts`](frontend/src/app/api/agent/decisions/route.ts) | Decision audit API: query/verify committed decision hashes |
 | [`api/[transport]/route.ts`](frontend/src/app/api/[transport]/route.ts) | MCP server with 5 tools (rate analysis, signals, trades, performance) |
 | [`api/a2a/route.ts`](frontend/src/app/api/a2a/route.ts) | A2A endpoint with JSON-RPC task handling |
-| [`seed-orders.ts`](frontend/src/lib/seed-orders.ts) | Seed orders with rate history for demo |
+| [`orders/page.tsx`](frontend/src/app/orders/page.tsx) | Orders UI with sparklines, momentum badges, agent reasoning |
 
 ## Running Locally
 
