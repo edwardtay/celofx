@@ -1,32 +1,29 @@
 "use client";
 
-import { useReputationSummary } from "@/hooks/use-agent-profile";
+import { useReputationFeedback } from "@/hooks/use-agent-profile";
 import { Star, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
-// Known on-chain data for FX Arbitrage Agent (ERC-8004 #10): 5 feedbacks, scores 90+80+95+75 = avg ~85/100
-const FALLBACK_COUNT = 5;
-const FALLBACK_STARS = 4;
-
 export function ReputationBadge() {
-  const { data: summary } = useReputationSummary();
+  const { data: feedback } = useReputationFeedback();
 
-  let onChainCount = FALLBACK_COUNT;
-  let avgStars = FALLBACK_STARS;
+  let onChainCount = 0;
+  let avgStars = 4;
 
-  if (summary) {
+  if (feedback) {
     try {
-      const count = Number((summary as [bigint, bigint, number])[0]);
-      const summaryValue = Number((summary as [bigint, bigint, number])[1]);
-      const summaryDecimals = Number((summary as [bigint, bigint, number])[2]);
-      if (count > 0) {
-        onChainCount = count;
-        const avgValue =
-          summaryValue / Math.pow(10, summaryDecimals) / count;
-        avgStars = Math.round(avgValue / 20);
+      type FeedbackResult = [string[], bigint[], bigint[], number[], string[], string[], boolean[]];
+      const [, , values, decimals] = feedback as FeedbackResult;
+      onChainCount = values.length;
+      if (onChainCount > 0) {
+        let totalScore = 0;
+        for (let i = 0; i < values.length; i++) {
+          totalScore += Number(values[i]) / Math.pow(10, Number(decimals[i]));
+        }
+        avgStars = Math.round(totalScore / onChainCount / 20);
       }
     } catch {
-      // Keep fallback values
+      // Keep defaults
     }
   }
 

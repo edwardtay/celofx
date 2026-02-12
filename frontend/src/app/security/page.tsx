@@ -271,7 +271,7 @@ export default function SecurityPage() {
               {[
                 { label: "Agent Identity", value: "ERC-8004 #10", link: "https://8004scan.io/agents/celo/10" },
                 { label: "Agent Wallet", value: "0x6652...a303", link: "https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303" },
-                { label: "Reputation", value: "24 on-chain reviews", link: "https://8004scan.io/agents/celo/10?tab=feedback" },
+                { label: "Reputation", value: "On-chain reviews", link: "https://8004scan.io/agents/celo/10?tab=feedback" },
                 { label: "Swap Txs", value: "All on Celoscan", link: "https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303" },
                 { label: "Decision Log", value: "Hashed & publicly queryable", link: "/api/agent/decisions" },
                 { label: "Metadata", value: "Immutable data URI on-chain", link: "https://8004scan.io/agents/celo/10?tab=metadata" },

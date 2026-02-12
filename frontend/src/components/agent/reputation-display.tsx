@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  useReputationSummary,
   useReputationFeedback,
 } from "@/hooks/use-agent-profile";
 import { REPUTATION_REGISTRY_ADDRESS } from "@/config/contracts";
@@ -45,7 +44,6 @@ function valueToStars(value: number): number {
 }
 
 export function ReputationDisplay() {
-  const { data: summary } = useReputationSummary();
   const { data: feedbackData } = useReputationFeedback();
   // Client-only timestamp to avoid hydration mismatch
   const [now, setNow] = useState(0);
@@ -57,15 +55,6 @@ export function ReputationDisplay() {
     ...f,
     timestamp: now - (f.offsetDays ?? 1) * 24 * 60 * 60 * 1000,
   }));
-
-  const onChainCount = summary ? Number((summary as [bigint, bigint, number])[0]) : 0;
-  const summaryValue = summary ? Number((summary as [bigint, bigint, number])[1]) : 0;
-  const summaryDecimals = summary ? Number((summary as [bigint, bigint, number])[2]) : 0;
-  const hasOnChainData = onChainCount > 0;
-  const avgValue = hasOnChainData
-    ? summaryValue / Math.pow(10, summaryDecimals) / onChainCount
-    : seedFeedbackData.reduce((sum, f) => sum + f.value, 0) / seedFeedbackData.length;
-  const avgStars = Math.round(avgValue / 20);
 
   type FeedbackResult = [string[], bigint[], bigint[], number[], string[], string[], boolean[]];
   const feedbackList = feedbackData
@@ -83,6 +72,11 @@ export function ReputationDisplay() {
     : seedFeedback;
 
   const displayCount = feedbackList.length;
+  const hasOnChainData = feedbackData ? (feedbackData as FeedbackResult)[0].length > 0 : false;
+  const avgValue = feedbackList.length > 0
+    ? feedbackList.reduce((sum, f) => sum + f.value, 0) / feedbackList.length
+    : 0;
+  const avgStars = Math.round(avgValue / 20);
 
   return (
     <Card>
