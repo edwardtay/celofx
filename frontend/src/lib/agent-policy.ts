@@ -90,3 +90,75 @@ export function verifyDecision(decision: AgentDecision, expectedHash: string): b
   );
   return hash === expectedHash;
 }
+
+// ── Daily Volume Tracker ──
+// Enforces the maxDailyVolume policy limit (500 cUSD rolling 24h window)
+
+const MAX_DAILY_VOLUME_USD = 500;
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+interface VolumeEntry {
+  amount: number;
+  timestamp: number;
+}
+
+const volumeLog: VolumeEntry[] = [];
+
+function pruneOldEntries() {
+  const cutoff = Date.now() - TWENTY_FOUR_HOURS;
+  while (volumeLog.length > 0 && volumeLog[0].timestamp < cutoff) {
+    volumeLog.shift();
+  }
+}
+
+export function getDailyVolume(): number {
+  pruneOldEntries();
+  return volumeLog.reduce((sum, e) => sum + e.amount, 0);
+}
+
+export function checkVolumeLimit(amountUsd: number): {
+  allowed: boolean;
+  currentVolume: number;
+  limit: number;
+  remaining: number;
+} {
+  pruneOldEntries();
+  const current = volumeLog.reduce((sum, e) => sum + e.amount, 0);
+  const remaining = Math.max(0, MAX_DAILY_VOLUME_USD - current);
+  return {
+    allowed: current + amountUsd <= MAX_DAILY_VOLUME_USD,
+    currentVolume: +current.toFixed(2),
+    limit: MAX_DAILY_VOLUME_USD,
+    remaining: +remaining.toFixed(2),
+  };
+}
+
+export function recordVolume(amountUsd: number) {
+  volumeLog.push({ amount: amountUsd, timestamp: Date.now() });
+}
+
+export function getVolumeLog() {
+  pruneOldEntries();
+  return [...volumeLog];
+}
+
+// ── Circuit Breaker ──
+// Emergency pause — checked before any swap execution
+
+export function isAgentPaused(): boolean {
+  return process.env.AGENT_PAUSED === "true";
+}
+
+export function getAgentStatus(): {
+  paused: boolean;
+  dailyVolume: number;
+  dailyLimit: number;
+  decisionsLogged: number;
+} {
+  return {
+    paused: isAgentPaused(),
+    dailyVolume: getDailyVolume(),
+    dailyLimit: MAX_DAILY_VOLUME_USD,
+    decisionsLogged: decisionLog.length,
+  };
+}

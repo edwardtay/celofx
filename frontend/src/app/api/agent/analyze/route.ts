@@ -14,7 +14,7 @@ import { createWalletClient, http, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
-import { commitDecision } from "@/lib/agent-policy";
+import { commitDecision, isAgentPaused, checkVolumeLimit, recordVolume, getAgentStatus } from "@/lib/agent-policy";
 
 export const maxDuration = 60;
 
@@ -50,6 +50,15 @@ function verifyAuth(request: Request): { ok: boolean; via: "bearer" | "ratelimit
 }
 
 export async function POST(request: Request) {
+  // Circuit breaker — emergency pause
+  if (isAgentPaused()) {
+    const status = getAgentStatus();
+    return new Response(
+      JSON.stringify({ error: "Agent is paused (circuit breaker active)", ...status }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const auth = verifyAuth(request);
   if (!auth.ok) {
     return new Response(
@@ -450,6 +459,21 @@ export async function POST(request: Request) {
                   }
                 }
 
+                // Daily volume limit enforcement (policy: 500 cUSD / 24h)
+                const amountUsd = parseFloat(order.amountIn);
+                const volCheck = checkVolumeLimit(amountUsd);
+                if (!volCheck.allowed) {
+                  const tcEntry = { tool: "execute_order", summary: `${orderId} — BLOCKED by daily volume limit (${volCheck.currentVolume}/${volCheck.limit} cUSD)` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({
+                    error: `Daily volume limit reached. Used ${volCheck.currentVolume} of ${volCheck.limit} cUSD (remaining: ${volCheck.remaining} cUSD). Try again later or reduce amount.`,
+                    orderId,
+                    volumeStatus: volCheck,
+                  });
+                  break;
+                }
+
                 // Commit decision hash BEFORE execution (auditability)
                 const decisionHash = commitDecision({
                   orderId,
@@ -505,6 +529,9 @@ export async function POST(request: Request) {
                     await publicClient.waitForTransactionReceipt({ hash: swapHash });
                     txHash = swapHash;
                   }
+
+                  // Record volume after successful execution
+                  recordVolume(amountUsd);
 
                   patchOrder(orderId, {
                     status: "executed",
@@ -569,6 +596,23 @@ export async function POST(request: Request) {
                 const toToken = input.toToken as MentoToken;
                 const amount = input.amount as string;
                 const spreadPct = (input.spreadPct as number) || 0;
+
+                // ── DAILY VOLUME LIMIT ──
+                const swapAmountUsd = parseFloat(amount);
+                const swapVolCheck = checkVolumeLimit(swapAmountUsd);
+                if (!swapVolCheck.allowed) {
+                  const tcEntry = {
+                    tool: "execute_mento_swap",
+                    summary: `${fromToken}→${toToken} BLOCKED — daily volume limit (${swapVolCheck.currentVolume}/${swapVolCheck.limit} cUSD)`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({
+                    error: `Daily volume limit reached. Used ${swapVolCheck.currentVolume} of ${swapVolCheck.limit} cUSD (remaining: ${swapVolCheck.remaining} cUSD). Policy enforced.`,
+                    volumeStatus: swapVolCheck,
+                  });
+                  break;
+                }
 
                 // ── PROFITABILITY GUARD ──
                 // Verify on-chain rate vs forex before executing. Protects vault depositors.
@@ -710,6 +754,7 @@ export async function POST(request: Request) {
                   }
 
                   if (txStatus !== "failed") {
+                    recordVolume(swapAmountUsd);
                     updateTrade(tradeId, {
                       status: txStatus,
                       approvalTxHash: approvalHash,
