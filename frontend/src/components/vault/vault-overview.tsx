@@ -95,7 +95,7 @@ export function VaultOverview() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Vault className="size-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Capital Vault</span>
+            <span className="text-sm font-medium">Hedging Vault</span>
             <Badge
               variant="outline"
               className="gap-1 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200"

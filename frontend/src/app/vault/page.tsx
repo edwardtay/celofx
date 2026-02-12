@@ -422,7 +422,7 @@ export default function VaultPage() {
 
               {!isConnected ? (
                 <p className="text-sm text-muted-foreground py-4">
-                  Connect your wallet to deposit cUSD into the trading vault.
+                  Connect your wallet to deposit cUSD into the hedging vault.
                 </p>
               ) : step === "confirm" ? (
                 /* ── Confirmation step ── */
