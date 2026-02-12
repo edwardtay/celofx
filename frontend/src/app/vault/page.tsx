@@ -232,11 +232,11 @@ export default function VaultPage() {
       <main className="flex-1 px-6 py-6 max-w-6xl mx-auto w-full space-y-6">
         <div>
           <h1 className="text-2xl font-display tracking-tight">
-            Capital Vault
+            Hedging
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-            Deposit cUSD to the agent&apos;s trading pool. The agent monitors Mento
-            rates 24/7 and only trades when spreads are profitable — protecting your capital.
+            Manage a hedged FX portfolio across Celo stablecoins. The agent monitors
+            drift from target allocation and rebalances automatically.
           </p>
         </div>
 
