@@ -1515,13 +1515,13 @@ export async function POST(request: Request) {
                   );
                   const data = await res.json();
                   const corridors = [
-                    { corridor: "US→EU", pair: "USD/EUR", rate: data.rates?.EUR, currency: "cEUR" },
-                    { corridor: "US→BR", pair: "USD/BRL", rate: data.rates?.BRL, currency: "cREAL" },
-                    { corridor: "US→MX", pair: "USD/MXN", rate: data.rates?.MXN, currency: "MXN" },
-                    { corridor: "US→PH", pair: "USD/PHP", rate: data.rates?.PHP, currency: "PHP" },
-                    { corridor: "US→IN", pair: "USD/INR", rate: data.rates?.INR, currency: "INR" },
-                    { corridor: "US→NG", pair: "USD/NGN", rate: data.rates?.NGN, currency: "NGN" },
-                    { corridor: "US→KE", pair: "USD/KES", rate: data.rates?.KES, currency: "KES" },
+                    { corridor: "US→NG", pair: "USD/NGN", rate: data.rates?.NGN, currency: "NGN", region: "West Africa" },
+                    { corridor: "US→KE", pair: "USD/KES", rate: data.rates?.KES, currency: "KES", region: "East Africa" },
+                    { corridor: "US→EU", pair: "USD/EUR", rate: data.rates?.EUR, currency: "cEUR", region: "Europe" },
+                    { corridor: "US→BR", pair: "USD/BRL", rate: data.rates?.BRL, currency: "cREAL", region: "South America" },
+                    { corridor: "US→PH", pair: "USD/PHP", rate: data.rates?.PHP, currency: "PHP", region: "Southeast Asia" },
+                    { corridor: "US→MX", pair: "USD/MXN", rate: data.rates?.MXN, currency: "MXN", region: "North America" },
+                    { corridor: "US→IN", pair: "USD/INR", rate: data.rates?.INR, currency: "INR", region: "South Asia" },
                   ].filter(c => c.rate);
 
                   result = JSON.stringify({

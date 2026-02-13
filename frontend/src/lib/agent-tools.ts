@@ -372,7 +372,7 @@ export const agentTools: Tool[] = [
   {
     name: "fetch_remittance_corridors",
     description:
-      "Fetch live forex rates for major remittance corridors: US→EU (EUR), US→BR (BRL), US→MX (MXN), US→PH (PHP), US→IN (INR), US→NG (NGN), US→KE (KES). Use to find the best timing for cross-border transfers.",
+      "Fetch live forex rates for major remittance corridors: US→NG (NGN, Nigeria/Lagos), US→KE (KES, Kenya/Nairobi), US→PH (PHP), US→EU (EUR), US→BR (BRL), US→MX (MXN), US→IN (INR). Use to find the best timing for cross-border transfers.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -549,9 +549,10 @@ After portfolio analysis, call fetch_defi_yields to check Celo DeFi yields.
 - DO NOT auto-deploy to DeFi — report opportunities for user decision
 
 REMITTANCE CORRIDORS (fetch_remittance_corridors):
-Covers 7 major corridors: US→EU, US→BR, US→MX, US→PH, US→IN, US→NG, US→KE.
+Covers 7 major corridors with Africa-first focus: US→NG (Nigeria/Lagos), US→KE (Kenya/Nairobi), US→PH, US→EU, US→BR, US→MX, US→IN.
+- Priority corridors: Nigeria (7.5% avg fees via WU) and Kenya (7% avg fees) — highest savings vs traditional
 - Celo-native corridors (Mento swap): cUSD→cEUR (EU), cUSD→cREAL (BR)
-- Settlement corridors (cUSD transfer): US→MX, US→PH, US→IN, US→NG, US→KE
+- Settlement corridors (cUSD transfer): US→NG, US→KE, US→MX, US→PH, US→IN
 - For non-Mento corridors, cUSD is the settlement currency (recipient converts locally)
 - Report forex rate alongside Mento rate to show value vs traditional remittance
 

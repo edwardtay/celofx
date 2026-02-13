@@ -13,26 +13,26 @@ Currency mapping:
 - For countries using other currencies (PHP, NGN, KES, MXN): use cUSD as toToken (stablecoin bridge)
 
 Examples:
+- "Send $100 to Lagos, Nigeria" → {"fromToken":"cUSD","toToken":"cUSD","amount":100,"corridor":"USD → NGN","recipientCountry":"Nigeria","language":"en"}
+- "Send $75 to Nairobi, Kenya" → {"fromToken":"cUSD","toToken":"cUSD","amount":75,"corridor":"USD → KES","recipientCountry":"Kenya","language":"en"}
 - "Send $50 to my mom in the Philippines" → {"fromToken":"cUSD","toToken":"cUSD","amount":50,"corridor":"USD → PHP","recipientCountry":"Philippines","language":"en"}
-- "Enviar 100 dólares a mi hermano en Nigeria" → {"fromToken":"cUSD","toToken":"cUSD","amount":100,"corridor":"USD → NGN","recipientCountry":"Nigeria","language":"es"}
 - "Envoyer 200 euros au Sénégal" → {"fromToken":"cEUR","toToken":"cUSD","amount":200,"corridor":"EUR → XOF","recipientCountry":"Senegal","language":"fr"}
 - "Transferir 500 reais para euros" → {"fromToken":"cREAL","toToken":"cEUR","amount":500,"corridor":"BRL → EUR","recipientCountry":null,"language":"pt"}
 - "Send $100 in euros" → {"fromToken":"cUSD","toToken":"cEUR","amount":100,"corridor":"USD → EUR","recipientCountry":null,"language":"en"}
-- "Convert 200 reais to dollars" → {"fromToken":"cREAL","toToken":"cUSD","amount":200,"corridor":"BRL → USD","recipientCountry":null,"language":"pt"}
 
 Default fromToken is cUSD if ambiguous. Always pick the most logical pair. Detect the input language.`;
 
 // Realistic fee data by corridor (source: World Bank Remittance Prices Worldwide Q4 2024)
 const CORRIDOR_FEES: Record<string, { westernUnion: number; wise: number; remitly: number; moneygram: number }> = {
-  "USD → EUR": { westernUnion: 0.045, wise: 0.0065, remitly: 0.015, moneygram: 0.04 },
-  "USD → PHP": { westernUnion: 0.055, wise: 0.01, remitly: 0.012, moneygram: 0.045 },
   "USD → NGN": { westernUnion: 0.075, wise: 0.015, remitly: 0.02, moneygram: 0.065 },
   "USD → KES": { westernUnion: 0.07, wise: 0.012, remitly: 0.018, moneygram: 0.055 },
+  "EUR → NGN": { westernUnion: 0.08, wise: 0.016, remitly: 0.022, moneygram: 0.065 },
+  "USD → EUR": { westernUnion: 0.045, wise: 0.0065, remitly: 0.015, moneygram: 0.04 },
+  "USD → PHP": { westernUnion: 0.055, wise: 0.01, remitly: 0.012, moneygram: 0.045 },
   "USD → MXN": { westernUnion: 0.06, wise: 0.008, remitly: 0.01, moneygram: 0.05 },
   "USD → BRL": { westernUnion: 0.065, wise: 0.012, remitly: 0.015, moneygram: 0.055 },
   "EUR → USD": { westernUnion: 0.05, wise: 0.007, remitly: 0.015, moneygram: 0.045 },
   "EUR → XOF": { westernUnion: 0.08, wise: 0.018, remitly: 0.025, moneygram: 0.07 },
-  "EUR → NGN": { westernUnion: 0.08, wise: 0.016, remitly: 0.022, moneygram: 0.065 },
   "BRL → USD": { westernUnion: 0.065, wise: 0.013, remitly: 0.018, moneygram: 0.055 },
   "BRL → EUR": { westernUnion: 0.07, wise: 0.014, remitly: 0.02, moneygram: 0.06 },
 };
@@ -42,13 +42,13 @@ const CELOFX_FEE = 0.001; // 0.1%
 
 // Last-mile currency mapping: corridor → local currency ISO code
 const CORRIDOR_LOCAL_CURRENCY: Record<string, { code: string; symbol: string; name: string }> = {
-  "USD → PHP": { code: "PHP", symbol: "₱", name: "Philippine Peso" },
   "USD → NGN": { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
   "USD → KES": { code: "KES", symbol: "KSh", name: "Kenyan Shilling" },
+  "EUR → NGN": { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
+  "USD → PHP": { code: "PHP", symbol: "₱", name: "Philippine Peso" },
   "USD → MXN": { code: "MXN", symbol: "$", name: "Mexican Peso" },
   "USD → BRL": { code: "BRL", symbol: "R$", name: "Brazilian Real" },
   "EUR → XOF": { code: "XOF", symbol: "CFA", name: "West African CFA" },
-  "EUR → NGN": { code: "NGN", symbol: "₦", name: "Nigerian Naira" },
 };
 
 // Frankfurter API cache for local currency rates

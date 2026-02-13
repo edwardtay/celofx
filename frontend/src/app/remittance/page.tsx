@@ -93,12 +93,12 @@ type ExecStep =
   | "done";
 
 const QUICK_ACTIONS = [
+  { label: "\u{1F1F3}\u{1F1EC} Nigeria", message: "Send $100 to Lagos, Nigeria" },
+  { label: "\u{1F1F0}\u{1F1EA} Kenya", message: "Send $75 to Nairobi, Kenya" },
   { label: "\u{1F1F5}\u{1F1ED} Philippines", message: "Send $50 to my family in the Philippines" },
-  { label: "\u{1F1F3}\u{1F1EC} Nigeria", message: "Send $100 to Nigeria" },
   { label: "\u{1F1F8}\u{1F1F3} S\u00e9n\u00e9gal", message: "Envoyer 200 euros au S\u00e9n\u00e9gal" },
   { label: "\u{1F1E7}\u{1F1F7} Brasil", message: "Transferir 500 reais para euros" },
   { label: "\u{1F1F2}\u{1F1FD} M\u00e9xico", message: "Enviar 100 d\u00f3lares a M\u00e9xico" },
-  { label: "\u{1F1F0}\u{1F1EA} Kenya", message: "Send $75 to Kenya" },
 ];
 
 export default function RemittancePage() {

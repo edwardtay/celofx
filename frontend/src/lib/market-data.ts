@@ -77,6 +77,18 @@ export async function fetchForexRates(): Promise<AssetPrice[]> {
 
     const prices: AssetPrice[] = [
       {
+        symbol: "USD/NGN",
+        name: "Nigerian Naira",
+        price: data.rates?.NGN ?? 1580,
+        change24h: 0.45,
+      },
+      {
+        symbol: "USD/KES",
+        name: "Kenyan Shilling",
+        price: data.rates?.KES ?? 129,
+        change24h: -0.1,
+      },
+      {
         symbol: "EUR/USD",
         name: "Euro",
         price: data.rates?.EUR ? 1 / data.rates.EUR : 1.08,
@@ -124,27 +136,16 @@ export async function fetchForexRates(): Promise<AssetPrice[]> {
         price: data.rates?.INR ?? 83.4,
         change24h: 0.02,
       },
-      {
-        symbol: "USD/NGN",
-        name: "Nigerian Naira",
-        price: data.rates?.NGN ?? 1580,
-        change24h: 0.45,
-      },
-      {
-        symbol: "USD/KES",
-        name: "Kenyan Shilling",
-        price: data.rates?.KES ?? 129,
-        change24h: -0.1,
-      },
     ];
     setCache("forex", prices);
     return prices;
   } catch {
     return [
+      { symbol: "USD/NGN", name: "Nigerian Naira", price: 1580, change24h: 0.45 },
+      { symbol: "USD/KES", name: "Kenyan Shilling", price: 129, change24h: -0.1 },
       { symbol: "EUR/USD", name: "Euro", price: 1.08, change24h: -0.12 },
       { symbol: "GBP/USD", name: "British Pound", price: 1.248, change24h: -0.25 },
       { symbol: "USD/JPY", name: "Japanese Yen", price: 152.3, change24h: 0.18 },
-      { symbol: "USD/CHF", name: "Swiss Franc", price: 0.893, change24h: 0.05 },
       { symbol: "USD/BRL", name: "Brazilian Real", price: 5.7, change24h: 0.32 },
       { symbol: "USD/MXN", name: "Mexican Peso", price: 20.5, change24h: -0.15 },
       { symbol: "USD/PHP", name: "Philippine Peso", price: 56.2, change24h: 0.08 },
