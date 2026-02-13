@@ -115,6 +115,8 @@ export async function getPortfolioComposition(): Promise<PortfolioComposition> {
     cEUR: 1 / forex.eurPerUsd,
     cREAL: 1 / forex.brlPerUsd,
     CELO: 0, // not part of portfolio
+    USDC: 1, // 1:1 USD peg
+    USDT: 1, // 1:1 USD peg
   };
 
   const alloc = getTargetAllocation();

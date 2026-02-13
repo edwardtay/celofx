@@ -242,7 +242,7 @@ export async function GET(req: Request) {
     return Response.json({
       jsonrpc: "2.0",
       result: {
-        protocolVersion: "2025-03-26",
+        protocolVersion: "2025-06-18",
         serverInfo: { name: "CeloFX MCP Server", version: "1.0.0" },
         capabilities: { tools: { listChanged: false } },
         tools: MCP_TOOLS,
@@ -270,7 +270,7 @@ export async function POST(req: Request) {
           return Response.json({
             jsonrpc: "2.0", id,
             result: {
-              protocolVersion: "2025-03-26",
+              protocolVersion: "2025-06-18",
               serverInfo: { name: "CeloFX MCP Server", version: "1.0.0" },
               capabilities: { tools: { listChanged: false } },
             },

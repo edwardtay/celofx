@@ -10,6 +10,8 @@ export const TOKENS = {
   cEUR: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73" as Address,
   cREAL: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787" as Address,
   CELO: "0x471EcE3750Da237f93B8E339c536989b8978a438" as Address,
+  USDC: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" as Address,
+  USDT: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e" as Address,
 } as const;
 
 export type MentoToken = keyof typeof TOKENS;

@@ -20,9 +20,13 @@ export const AGENT_POLICY = {
       { symbol: "cUSD", address: "0x765DE816845861e75A25fCA122bb6898B8B1282a" },
       { symbol: "cEUR", address: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73" },
       { symbol: "cREAL", address: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787" },
+      { symbol: "USDC", address: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" },
+      { symbol: "USDT", address: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e" },
     ],
     allowedProtocols: [
       { name: "Mento Broker", address: "0x777A8255cA72412f0d706dc03C9D1987306B4CaD" },
+      { name: "Uniswap V3 SwapRouter02", address: "0x5615CDAb10dc425a742d643d949a7F474C01abc4" },
+      { name: "Uniswap V3 QuoterV2", address: "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8" },
     ],
     maxSwapPerTx: "100 cUSD",
     maxDailyVolume: "500 cUSD",

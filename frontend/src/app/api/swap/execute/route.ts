@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildSwapTx, TOKENS, type MentoToken, MIN_PROFITABLE_SPREAD_PCT } from "@/lib/mento-sdk";
 import { addTrade, updateTrade } from "@/lib/trade-store";
 import type { Trade } from "@/lib/types";
-import { createPublicClient, createWalletClient, http } from "viem";
+import { createPublicClient, createWalletClient, http, formatGwei } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
@@ -10,7 +10,12 @@ import { getAttestation, getTeeHeaders } from "@/lib/tee";
 export const maxDuration = 60;
 
 const MAX_AMOUNT = 5; // Max notional per swap (USD equivalent)
-const ALLOWED_TOKENS = new Set(["cUSD", "cEUR", "cREAL"]);
+const ALLOWED_TOKENS = new Set(["cUSD", "cEUR", "cREAL", "USDC", "USDT"]);
+
+// Gas thresholds: reject if gas cost eats >50% of expected profit
+const MAX_GAS_PRICE_GWEI = BigInt(50); // Celo gas is usually <5 gwei, 50 = extreme
+const SWAP_GAS_ESTIMATE = BigInt(250_000); // ~250K gas for approve + swap
+const GAS_PROFIT_MAX_RATIO = 0.5; // Gas must be <50% of profit
 
 function verifyAuth(request: NextRequest): boolean {
   const secret = process.env.AGENT_API_SECRET;
@@ -72,14 +77,45 @@ export async function POST(request: NextRequest) {
     };
     const pairKey = `${fromToken}/${toToken}`;
     const expectedForex = forexMap[pairKey];
+    let realSpread = 0;
     if (expectedForex) {
-      const realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
+      realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
       if (realSpread < MIN_PROFITABLE_SPREAD_PCT) {
         return NextResponse.json({
           error: `Swap rejected: spread ${realSpread.toFixed(2)}% is not profitable (need > +${MIN_PROFITABLE_SPREAD_PCT}%). Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}. Vault capital protected.`,
           spread: realSpread,
         }, { status: 400 });
       }
+    }
+
+    // Gas price check: reject if gas is abnormally high
+    const publicClientForGas = createPublicClient({
+      chain: celo,
+      transport: http("https://forno.celo.org"),
+    });
+    const gasPrice = await publicClientForGas.getGasPrice();
+    const gasPriceGwei = gasPrice / BigInt(1_000_000_000);
+
+    if (gasPriceGwei > MAX_GAS_PRICE_GWEI) {
+      return NextResponse.json({
+        error: `Gas price too high: ${formatGwei(gasPrice)} gwei (max ${MAX_GAS_PRICE_GWEI} gwei). Waiting for lower gas.`,
+        gasPrice: formatGwei(gasPrice),
+      }, { status: 400 });
+    }
+
+    // Estimate gas cost in USD (CELO ~$0.50, gas in gwei)
+    const gasCostWei = gasPrice * SWAP_GAS_ESTIMATE;
+    const gasCostCelo = Number(gasCostWei) / 1e18;
+    const gasCostUsd = gasCostCelo * 0.5; // rough CELO price estimate
+    const expectedProfitUsd = numAmount * (realSpread / 100);
+
+    if (expectedProfitUsd > 0 && gasCostUsd / expectedProfitUsd > GAS_PROFIT_MAX_RATIO) {
+      return NextResponse.json({
+        error: `Gas cost ($${gasCostUsd.toFixed(4)}) exceeds ${GAS_PROFIT_MAX_RATIO * 100}% of expected profit ($${expectedProfitUsd.toFixed(4)}). Skipping to protect capital.`,
+        gasPrice: formatGwei(gasPrice),
+        gasCostUsd,
+        expectedProfitUsd,
+      }, { status: 400 });
     }
 
     // Build swap tx
@@ -147,6 +183,8 @@ export async function POST(request: NextRequest) {
         rate: swapResult.summary.rate,
         amountOut: swapResult.summary.expectedOut,
         celoscanUrl: `https://celoscan.io/tx/${swapHash}`,
+        gasPriceGwei: formatGwei(gasPrice),
+        gasCostUsd: +gasCostUsd.toFixed(6),
         teeAttestation,
       },
       { headers: getTeeHeaders() }

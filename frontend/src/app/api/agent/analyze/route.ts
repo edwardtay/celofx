@@ -67,6 +67,13 @@ export async function POST(request: Request) {
     );
   }
 
+  // Parse optional cash flows from request body
+  let cashFlows: Array<{ token: string; amount: number; date: string; note: string }> = [];
+  try {
+    const body = await request.json().catch(() => ({}));
+    if (Array.isArray(body?.cashFlows)) cashFlows = body.cashFlows;
+  } catch { /* no body */ }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return new Response(
@@ -182,6 +189,22 @@ export async function POST(request: Request) {
                 const entry = { tool: "fetch_mento_rates", summary: `${data.length} Mento pairs (CoinGecko)` };
                 toolCallLog.push(entry);
                 send("tool_call", entry);
+                break;
+              }
+              case "fetch_cross_venue_rates": {
+                try {
+                  const { getCrossVenueRates } = await import("@/lib/uniswap-quotes");
+                  const crossVenueData = await getCrossVenueRates();
+                  result = JSON.stringify(crossVenueData);
+                  const cvEntry = { tool: "fetch_cross_venue_rates", summary: `${crossVenueData.length} cross-venue pairs (Mento vs Uniswap V3)` };
+                  toolCallLog.push(cvEntry);
+                  send("tool_call", cvEntry);
+                } catch (e) {
+                  result = JSON.stringify({ error: "Failed to fetch cross-venue rates", details: e instanceof Error ? e.message : "unknown" });
+                  const cvEntry = { tool: "fetch_cross_venue_rates", summary: "Cross-venue fetch failed" };
+                  toolCallLog.push(cvEntry);
+                  send("tool_call", cvEntry);
+                }
                 break;
               }
               case "generate_fx_action": {
@@ -595,37 +618,81 @@ export async function POST(request: Request) {
                   const composition = await getPortfolioComposition();
                   const allocation = getTargetAllocation();
 
-                  let recommendations: Array<{ action: string; fromToken: string; toToken: string; amount: string; reason: string }> = [];
+                  // ── Cash flow analysis ──
+                  // Summarize expected inflows within next 7 days per token
+                  const now = Date.now();
+                  const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+                  const upcomingFlows: Record<string, number> = {};
+                  const allFlows: Array<{ token: string; amount: number; daysUntil: number; note: string }> = [];
+                  for (const flow of cashFlows) {
+                    const flowDate = new Date(flow.date).getTime();
+                    const daysUntil = Math.ceil((flowDate - now) / 86400000);
+                    if (flowDate > now && flowDate - now <= SEVEN_DAYS) {
+                      upcomingFlows[flow.token] = (upcomingFlows[flow.token] || 0) + flow.amount;
+                    }
+                    if (flowDate > now) {
+                      allFlows.push({ token: flow.token, amount: flow.amount, daysUntil, note: flow.note });
+                    }
+                  }
+
+                  let recommendations: Array<{ action: string; fromToken: string; toToken: string; amount: string; reason: string; priority: number }> = [];
 
                   if (composition.needsRebalance && composition.totalValueCusd > 5) {
-                    // Find most overweight and most underweight
+                    // Sort by drift — generate recommendations for ALL drifted pairs
                     const sorted = [...composition.holdings].sort((a, b) => b.driftPct - a.driftPct);
-                    const overweight = sorted[0];
-                    const underweight = sorted[sorted.length - 1];
+                    const overweightTokens = sorted.filter(h => h.driftPct > DRIFT_THRESHOLD_PCT);
+                    const underweightTokens = sorted.filter(h => h.driftPct < -DRIFT_THRESHOLD_PCT);
 
-                    if (overweight && underweight && overweight.driftPct > 0 && underweight.driftPct < 0) {
-                      // Cap rebalance at 50 cUSD equivalent or half the drift
-                      const driftValue = Math.min(
-                        Math.abs(overweight.driftPct / 100) * composition.totalValueCusd,
-                        Math.abs(underweight.driftPct / 100) * composition.totalValueCusd,
-                        50
-                      );
-                      const swapAmount = Math.max(0.1, Number(driftValue.toFixed(2)));
+                    // Batch: pair each overweight with each underweight
+                    for (const over of overweightTokens) {
+                      for (const under of underweightTokens) {
+                        // Calculate swap amount — cap at 50 cUSD or the smaller drift
+                        const driftValue = Math.min(
+                          Math.abs(over.driftPct / 100) * composition.totalValueCusd,
+                          Math.abs(under.driftPct / 100) * composition.totalValueCusd,
+                          50
+                        );
+                        let swapAmount = Math.max(0.1, Number(driftValue.toFixed(2)));
 
-                      recommendations.push({
-                        action: "rebalance_swap",
-                        fromToken: overweight.token,
-                        toToken: underweight.token,
-                        amount: String(swapAmount),
-                        reason: `${overweight.token} is +${overweight.driftPct.toFixed(1)}% overweight, ${underweight.token} is ${underweight.driftPct.toFixed(1)}% underweight. Swap ${swapAmount} ${overweight.token} value to ${underweight.token} to reduce drift.`,
-                      });
+                        // ── Cash flow adjustment ──
+                        // If underweight token has upcoming inflows, reduce urgency / amount
+                        const expectedInflow = upcomingFlows[under.token] || 0;
+                        let cashFlowNote = "";
+                        if (expectedInflow > 0) {
+                          const inflowCoversPct = (expectedInflow / composition.totalValueCusd) * 100;
+                          if (inflowCoversPct >= Math.abs(under.driftPct) * 0.5) {
+                            // Expected inflow covers >50% of the drift — reduce swap amount
+                            swapAmount = Math.max(0.1, Number((swapAmount * 0.5).toFixed(2)));
+                            cashFlowNote = ` Reduced by 50% — expected +${expectedInflow.toFixed(0)} ${under.token} inflow within 7 days covers part of the drift.`;
+                          }
+                        }
+                        // If overweight token has upcoming inflows, increase priority
+                        const overInflow = upcomingFlows[over.token] || 0;
+                        let priority = Math.abs(over.driftPct) + Math.abs(under.driftPct);
+                        if (overInflow > 0) {
+                          priority += 5; // More urgent — more of this token coming
+                          cashFlowNote += ` +${overInflow.toFixed(0)} ${over.token} expected soon — higher rebalance priority.`;
+                        }
+
+                        recommendations.push({
+                          action: "rebalance_swap",
+                          fromToken: over.token,
+                          toToken: under.token,
+                          amount: String(swapAmount),
+                          reason: `${over.token} is +${over.driftPct.toFixed(1)}% overweight, ${under.token} is ${under.driftPct.toFixed(1)}% underweight. Swap ${swapAmount} ${over.token} value to ${under.token} to reduce drift.${cashFlowNote}`,
+                          priority,
+                        });
+                      }
                     }
+
+                    // Sort by priority (highest first) — agent executes in order
+                    recommendations.sort((a, b) => b.priority - a.priority);
                   }
 
                   const tcEntry = {
                     tool: "check_portfolio_drift",
                     summary: composition.needsRebalance
-                      ? `Drift ${composition.maxDriftPct.toFixed(1)}% — rebalance needed`
+                      ? `Drift ${composition.maxDriftPct.toFixed(1)}% — ${recommendations.length} rebalance swap(s)${Object.keys(upcomingFlows).length > 0 ? ` (cash flows factored)` : ""}`
                       : `Portfolio balanced (max drift ${composition.maxDriftPct.toFixed(1)}%)`,
                   };
                   toolCallLog.push(tcEntry);
@@ -634,6 +701,7 @@ export async function POST(request: Request) {
                     maxDriftPct: composition.maxDriftPct,
                     needsRebalance: composition.needsRebalance,
                     holdings: composition.holdings.map(h => ({ token: h.token, actualPct: h.actualPct, targetPct: h.targetPct, driftPct: h.driftPct })),
+                    cashFlows: allFlows.length > 0 ? allFlows : undefined,
                   });
 
                   result = JSON.stringify({
@@ -641,8 +709,12 @@ export async function POST(request: Request) {
                     targetAllocation: allocation,
                     driftThreshold: DRIFT_THRESHOLD_PCT,
                     recommendations,
+                    expectedCashFlows: allFlows.length > 0 ? allFlows : undefined,
+                    upcomingInflowsSummary: Object.keys(upcomingFlows).length > 0
+                      ? Object.entries(upcomingFlows).map(([t, a]) => `+${a.toFixed(0)} ${t} within 7d`).join(", ")
+                      : "No expected inflows",
                     instructions: composition.needsRebalance
-                      ? "Portfolio drift exceeds threshold. Execute recommended rebalance swaps using execute_mento_swap with spreadPct: 999 (rebalance bypass)."
+                      ? `Portfolio drift exceeds threshold. ${recommendations.length} rebalance swap(s) recommended (sorted by priority). Execute each using execute_mento_swap with spreadPct: 999 (rebalance bypass). Cash flows have been factored into amounts.`
                       : "Portfolio is balanced. No rebalancing needed.",
                   });
                 } catch (err) {

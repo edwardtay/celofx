@@ -7,7 +7,7 @@ import {
 } from "@/lib/order-store";
 import type { FxOrder, OrderStatus } from "@/lib/types";
 
-const VALID_TOKENS = ["cUSD", "cEUR", "cREAL"];
+const VALID_TOKENS = ["cUSD", "cEUR", "cREAL", "USDC", "USDT"];
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -27,12 +27,22 @@ export async function POST(request: NextRequest) {
   const { action } = body;
 
   if (action === "create") {
-    const { creator, fromToken, toToken, amountIn, targetRate, deadlineHours } =
+    const { creator, fromToken, toToken, amountIn, targetRate, deadlineHours, conditionType, pctChangeThreshold, pctChangeTimeframe } =
       body;
 
-    if (!creator || !fromToken || !toToken || !amountIn || !targetRate) {
+    const cType = conditionType || "rate_reaches";
+
+    if (!creator || !fromToken || !toToken || !amountIn) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // For pct_change conditions, targetRate is optional (computed from current rate + threshold)
+    if (cType === "rate_reaches" && !targetRate) {
+      return NextResponse.json(
+        { error: "Target rate required for rate-based alerts" },
         { status: 400 }
       );
     }
@@ -76,11 +86,16 @@ export async function POST(request: NextRequest) {
       fromToken,
       toToken,
       amountIn: amount.toString(),
-      targetRate: rate,
+      targetRate: rate || 0,
       deadline: now + hours * 60 * 60 * 1000,
       status: "pending",
       createdAt: now,
       checksCount: 0,
+      conditionType: cType as FxOrder["conditionType"],
+      ...(cType === "pct_change" && {
+        pctChangeThreshold: parseFloat(pctChangeThreshold) || 5,
+        pctChangeTimeframe: pctChangeTimeframe || "24h",
+      }),
     };
 
     addOrder(order);

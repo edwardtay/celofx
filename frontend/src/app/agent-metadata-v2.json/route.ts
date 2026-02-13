@@ -20,7 +20,7 @@ export async function GET() {
         {
           name: "MCP",
           endpoint: "https://celofx.vercel.app/api/mcp",
-          version: "2025-03-26",
+          version: "2025-06-18",
           tools: [
             {
               name: "get_mento_rates",
@@ -84,15 +84,27 @@ export async function GET() {
           endpoint: "https://github.com/agntcy/oasf/",
           version: "0.8.0",
           skills: [
-            "analytical_skills",
-            "tool_interaction",
-            "advanced_reasoning_planning",
+            "analytical_skills/mathematical_reasoning",
+            "analytical_skills/data_analysis",
+            "tool_interaction/api_integration",
+            "tool_interaction/blockchain_interaction",
+            "advanced_reasoning_planning/strategic_planning",
+            "advanced_reasoning_planning/risk_assessment",
           ],
-          domains: ["finance_and_business"],
+          domains: [
+            "finance_and_business/investment_services",
+            "finance_and_business/foreign_exchange",
+            "finance_and_business/risk_management",
+            "technology/blockchain",
+            "technology/defi",
+          ],
           capabilities: [
             "autonomous_execution",
             "on_chain_verification",
             "cross_market_analysis",
+            "multi_venue_arbitrage",
+            "portfolio_hedging",
+            "gas_optimization",
           ],
         },
       ],

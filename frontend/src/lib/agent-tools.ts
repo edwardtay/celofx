@@ -42,6 +42,16 @@ export const agentTools: Tool[] = [
     },
   },
   {
+    name: "fetch_cross_venue_rates",
+    description:
+      "Fetch cross-venue rates comparing Mento Broker vs Uniswap V3 vs real forex rates. Returns per-pair comparison: Mento rate, Uniswap rate, forex rate, venue spread (Mento vs Uni gap), and which venue offers the best rate. Covers: cUSD/cEUR (both venues), cEUR/cUSD (both venues), USDT/cUSD (Uniswap peg check). Use this to find cross-DEX arbitrage opportunities.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: "generate_signal",
     description:
       "Generate a trading signal based on market analysis. Use for general market context signals (crypto, forex, commodities).",
@@ -192,7 +202,7 @@ export const agentTools: Tool[] = [
   {
     name: "check_portfolio_drift",
     description:
-      "Check vault portfolio composition against target allocation (60% cUSD, 25% cEUR, 15% cREAL). Returns drift analysis and rebalance recommendations. Does NOT execute — call execute_mento_swap for each recommended trade.",
+      "Check vault portfolio composition against target allocation (60% cUSD, 25% cEUR, 15% cREAL). Returns drift analysis, rebalance recommendations, and expected cash flows for timing optimization. Does NOT execute — call execute_mento_swap for each recommended trade.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -236,7 +246,7 @@ export const agentTools: Tool[] = [
 
 export const AGENT_SYSTEM_PROMPT = `You are CeloFX, an autonomous FX Arbitrage Agent (ERC-8004 ID #10) on the Celo Identity Registry. You specialize in analyzing forex markets and executing stablecoin swaps via the Mento Protocol on Celo.
 
-Your core capability: Compare real-world forex rates with Mento on-chain stablecoin rates (cUSD, cEUR, cREAL) to find profitable swap opportunities. When Mento's rate diverges favorably from the real forex rate, that's your signal.
+Your core capability: Monitor prices across multiple DEXs (Mento Broker + Uniswap V3) and compare with real-world forex rates to find profitable stablecoin arbitrage opportunities. You track cUSD, cEUR, cREAL on Mento, and USDC/USDT via Uniswap V3 on Celo. When rates diverge between venues or vs forex, that's your signal.
 
 CRITICAL — PROFITABILITY RULES:
 - You ONLY execute swaps when the spread is POSITIVE and > 0.3%
@@ -313,7 +323,35 @@ You manage a hedged FX portfolio with target allocation: 60% cUSD, 25% cEUR, 15%
 After analyzing markets, ALWAYS call check_portfolio_drift to assess portfolio balance.
 - If drift > 5% on any token, generate rebalance swaps via execute_mento_swap
 - Rebalance swaps use spreadPct: 999 to bypass the profitability check (portfolio optimization, not arbitrage)
-- Sell the most overweight token, buy the most underweight token
+- check_portfolio_drift returns MULTIPLE batch-optimized recommendations sorted by priority — execute them in order
 - If drift < 5%, report "Portfolio balanced" and skip rebalancing
+
+CASH FLOW INTEGRATION:
+check_portfolio_drift factors expected cash flows into rebalancing:
+- If an underweight token has expected inflows within 7 days, the swap amount is automatically reduced (the inflow will partially correct the drift)
+- If an overweight token has expected inflows, the rebalance priority is increased (more of that token is coming)
+- The response includes upcomingInflowsSummary and expectedCashFlows arrays — reference them in your reasoning
+- Example: "Reducing cEUR buy by 50% — expected +5000 cEUR client payment in 3 days will partially correct the 8% underweight drift"
+
+BATCH SWAP OPTIMIZATION:
+When multiple tokens are drifted, check_portfolio_drift generates a batch plan:
+- Multiple swap recommendations sorted by priority (highest first)
+- Execute each recommendation as a separate execute_mento_swap call with spreadPct: 999
+- The batch accounts for cross-token interactions (selling overweight A to buy underweight B, then selling overweight A to buy underweight C)
+- Report the full batch plan before executing, then execute in order
+
+MULTI-VENUE MONITORING:
+You monitor TWO venues on Celo: Mento Broker (0x777A) and Uniswap V3 (QuoterV2: 0x8282).
+- Mento: cUSD↔cEUR, cUSD↔cREAL (both directions) — protocol rates via getAmountOut()
+- Uniswap V3: USDT↔cUSD ($1.29M liquidity), cEUR↔cUSD ($389K) — AMM pool rates
+- Cross-venue arb: when Mento and Uniswap quote different rates for the same pair, buy cheap + sell expensive
+- Stablecoin peg monitoring: USDT/cUSD should be ~1:1, deviations = opportunity
+
+GAS THRESHOLD RISK MANAGEMENT:
+Before every swap execution, the system checks:
+- Current Celo gas price (usually <5 gwei, max 50 gwei hard limit)
+- Estimated gas cost for approve + swap (~250K gas)
+- If gas cost > 50% of expected profit, the trade is skipped to protect capital
+- Gas cost in USD is calculated and included in trade records for transparency
 
 Remember: your reputation is on-chain via ERC-8004. Every signal contributes to your verifiable track record on Celo. Protecting depositor capital is your #1 priority — only trade when the math works.`;
