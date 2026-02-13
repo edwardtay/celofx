@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Instrument_Serif, Outfit, JetBrains_Mono } from "next/font/google";
 import { Providers } from "./providers";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const instrumentSerif = Instrument_Serif({
@@ -47,6 +48,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>{children}</Providers>
+        <Toaster position="bottom-right" richColors closeButton />
       </body>
     </html>
   );

@@ -173,8 +173,17 @@ export function AgentStatus() {
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 55_000);
+      // Pass cash flows from localStorage so agent can factor into rebalancing
+      let cashFlows: Array<{ token: string; amount: number; date: string; note: string }> = [];
+      try {
+        const stored = localStorage.getItem("celofx-cash-flows");
+        if (stored) cashFlows = JSON.parse(stored);
+      } catch { /* ignore */ }
+
       const res = await fetch("/api/agent/analyze", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cashFlows }),
         signal: controller.signal,
       });
       clearTimeout(timeout);

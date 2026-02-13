@@ -406,6 +406,68 @@ export default function VaultPage() {
           </p>
         </div>
 
+        {/* Movement Alerts — large FX moves (>1% 24h) */}
+        {forexMovements.filter((m) => Math.abs(m.change24h) > 1).length > 0 && (
+          <div className="space-y-2">
+            {forexMovements
+              .filter((m) => Math.abs(m.change24h) > 1)
+              .sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))
+              .map((m) => (
+                <div
+                  key={m.pair}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border ${
+                    Math.abs(m.change24h) > 2
+                      ? "border-red-200 bg-red-50"
+                      : "border-amber-200 bg-amber-50"
+                  }`}
+                >
+                  <AlertTriangle
+                    className={`size-4 shrink-0 ${
+                      Math.abs(m.change24h) > 2
+                        ? "text-red-600"
+                        : "text-amber-600"
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className={`text-sm font-medium ${
+                        Math.abs(m.change24h) > 2
+                          ? "text-red-900"
+                          : "text-amber-900"
+                      }`}
+                    >
+                      {m.pair} moved{" "}
+                      <span className="font-mono">
+                        {m.change24h >= 0 ? "+" : ""}
+                        {m.change24h.toFixed(2)}%
+                      </span>{" "}
+                      in 24h
+                    </p>
+                    <p
+                      className={`text-xs ${
+                        Math.abs(m.change24h) > 2
+                          ? "text-red-700"
+                          : "text-amber-700"
+                      }`}
+                    >
+                      Current rate: {m.rate.toFixed(4)} —{" "}
+                      {Math.abs(m.change24h) > 2
+                        ? "Significant volatility may trigger rebalancing"
+                        : "Monitor for portfolio drift impact"}
+                    </p>
+                  </div>
+                  <Activity
+                    className={`size-4 shrink-0 ${
+                      Math.abs(m.change24h) > 2
+                        ? "text-red-400"
+                        : "text-amber-400"
+                    }`}
+                  />
+                </div>
+              ))}
+          </div>
+        )}
+
         {/* Overview Stats */}
         {metrics && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

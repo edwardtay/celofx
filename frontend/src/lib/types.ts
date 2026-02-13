@@ -95,6 +95,8 @@ export interface Trade {
 
 export type OrderStatus = "pending" | "executed" | "expired" | "cancelled";
 
+export type AlertConditionType = "rate_reaches" | "pct_change" | "rate_crosses_above" | "rate_crosses_below";
+
 export interface FxOrder {
   id: string;
   creator: string;
@@ -112,6 +114,10 @@ export interface FxOrder {
   lastCheckedAt?: number;
   checksCount?: number;
   rateHistory?: { rate: number; timestamp: number }[];
+  // Flexible alert conditions
+  conditionType?: AlertConditionType;
+  pctChangeThreshold?: number; // e.g. 5 for 5%
+  pctChangeTimeframe?: "1h" | "4h" | "24h";
 }
 
 export interface PortfolioAllocation {
