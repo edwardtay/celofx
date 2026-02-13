@@ -5,6 +5,7 @@ import { getSignals } from "@/lib/signal-store";
 import { getTrades } from "@/lib/trade-store";
 import { getAttestation } from "@/lib/tee";
 import { AGENT_POLICY, getDecisionLog } from "@/lib/agent-policy";
+import { fetchCeloDefiYields } from "@/lib/market-data";
 
 const handler = createMcpHandler(
   (server) => {
@@ -301,6 +302,35 @@ const handler = createMcpHandler(
         };
       }
     );
+    server.registerTool(
+      "get_defi_yields",
+      {
+        title: "Get Celo DeFi Yields",
+        description:
+          "Get live stablecoin DeFi yields on Celo from DeFiLlama. Returns APY, 30d mean APY, TVL for protocols like Aave V3, Uniswap V3, Moola Market.",
+        inputSchema: {},
+      },
+      async () => {
+        try {
+          const yields = await fetchCeloDefiYields();
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({
+                yields,
+                totalTvl: yields.reduce((s, y) => s + y.tvl, 0),
+                bestApy: yields.length > 0 ? Math.max(...yields.map(y => y.apy)) : 0,
+                source: "DeFiLlama",
+              }),
+            }],
+          };
+        } catch {
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ error: "Failed to fetch DeFi yields" }) }],
+          };
+        }
+      }
+    );
   },
   {},
   { basePath: "/api", maxDuration: 60 }
@@ -316,6 +346,7 @@ const MCP_TOOLS = [
   { name: "get_agent_info", description: "Get agent identity: ERC-8004 registration, protocols, capabilities.", inputSchema: { type: "object", properties: {} } },
   { name: "get_agent_policy", description: "Get agent Standing Intent policy: allowed tokens, protocols, spending limits, decision framework.", inputSchema: { type: "object", properties: {} } },
   { name: "get_decision_log", description: "Get keccak256-hashed decision audit trail for verifiable decision auditability.", inputSchema: { type: "object", properties: {} } },
+  { name: "get_defi_yields", description: "Get live Celo stablecoin DeFi yields from Aave V3, Uniswap V3, Moola via DeFiLlama.", inputSchema: { type: "object", properties: {} } },
 ];
 
 // Override GET to return MCP server capabilities (8004scan probes with GET)

@@ -5,6 +5,7 @@ import {
   fetchForexRates,
   fetchCommodityPrices,
   fetchMentoRates,
+  fetchCeloDefiYields,
 } from "@/lib/market-data";
 import { getMentoOnChainRates, buildSwapTx, type MentoToken, TOKENS, MIN_PROFITABLE_SPREAD_PCT } from "@/lib/mento-sdk";
 import { addSignal } from "@/lib/signal-store";
@@ -1482,6 +1483,61 @@ export async function POST(request: Request) {
                   const tcEntry = { tool: "check_recurring_transfers", summary: "Error checking recurring transfers" };
                   toolCallLog.push(tcEntry);
                   send("tool_call", tcEntry);
+                }
+                break;
+              }
+              case "fetch_defi_yields": {
+                try {
+                  const yields = await fetchCeloDefiYields();
+                  result = JSON.stringify({
+                    yields,
+                    totalTvl: yields.reduce((s, y) => s + y.tvl, 0),
+                    bestApy: yields.length > 0 ? Math.max(...yields.map(y => y.apy)) : 0,
+                    source: "DeFiLlama",
+                    instructions: "Compare these yields against vault idle capital. If a pool APY > 2% with TVL > $100K, consider deploying. Report yield opportunities alongside arbitrage analysis.",
+                  });
+                  const yieldEntry = { tool: "fetch_defi_yields", summary: `${yields.length} Celo stablecoin pools, best APY ${yields.length > 0 ? Math.max(...yields.map(y => y.apy)).toFixed(1) : 0}%` };
+                  toolCallLog.push(yieldEntry);
+                  send("tool_call", yieldEntry);
+                } catch (err) {
+                  result = JSON.stringify({ error: `Failed to fetch DeFi yields: ${err instanceof Error ? err.message : "unknown"}` });
+                  const yieldEntry = { tool: "fetch_defi_yields", summary: "Yield fetch failed" };
+                  toolCallLog.push(yieldEntry);
+                  send("tool_call", yieldEntry);
+                }
+                break;
+              }
+              case "fetch_remittance_corridors": {
+                try {
+                  const res = await fetch(
+                    "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL,MXN,PHP,INR,NGN,KES,GHS",
+                    { signal: AbortSignal.timeout(8000) }
+                  );
+                  const data = await res.json();
+                  const corridors = [
+                    { corridor: "US→EU", pair: "USD/EUR", rate: data.rates?.EUR, currency: "cEUR" },
+                    { corridor: "US→BR", pair: "USD/BRL", rate: data.rates?.BRL, currency: "cREAL" },
+                    { corridor: "US→MX", pair: "USD/MXN", rate: data.rates?.MXN, currency: "MXN" },
+                    { corridor: "US→PH", pair: "USD/PHP", rate: data.rates?.PHP, currency: "PHP" },
+                    { corridor: "US→IN", pair: "USD/INR", rate: data.rates?.INR, currency: "INR" },
+                    { corridor: "US→NG", pair: "USD/NGN", rate: data.rates?.NGN, currency: "NGN" },
+                    { corridor: "US→KE", pair: "USD/KES", rate: data.rates?.KES, currency: "KES" },
+                  ].filter(c => c.rate);
+
+                  result = JSON.stringify({
+                    corridors,
+                    source: "Frankfurter (ECB)",
+                    celoCorridors: ["US→EU (cUSD→cEUR)", "US→BR (cUSD→cREAL)"],
+                    instructions: "cUSD→cEUR and cUSD→cREAL are natively supported on Mento. Other corridors can use cUSD as settlement currency. Compare Mento rates vs these forex rates to find favorable execution windows.",
+                  });
+                  const corrEntry = { tool: "fetch_remittance_corridors", summary: `${corridors.length} corridors, EUR ${data.rates?.EUR}, BRL ${data.rates?.BRL}` };
+                  toolCallLog.push(corrEntry);
+                  send("tool_call", corrEntry);
+                } catch (err) {
+                  result = JSON.stringify({ error: `Failed to fetch corridors: ${err instanceof Error ? err.message : "unknown"}` });
+                  const corrEntry = { tool: "fetch_remittance_corridors", summary: "Corridor fetch failed" };
+                  toolCallLog.push(corrEntry);
+                  send("tool_call", corrEntry);
                 }
                 break;
               }

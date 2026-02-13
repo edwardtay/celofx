@@ -360,6 +360,26 @@ export const agentTools: Tool[] = [
     },
   },
   {
+    name: "fetch_defi_yields",
+    description:
+      "Fetch live DeFi stablecoin yields on Celo from DeFiLlama. Returns APY, 30d mean APY, TVL for protocols like Aave V3, Uniswap V3, Moola. Use to compare vault idle capital returns against deployment opportunities.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "fetch_remittance_corridors",
+    description:
+      "Fetch live forex rates for major remittance corridors: US→EU (EUR), US→BR (BRL), US→MX (MXN), US→PH (PHP), US→IN (INR), US→NG (NGN), US→KE (KES). Use to find the best timing for cross-border transfers.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: "get_rebalance_history",
     description:
       "Get portfolio rebalance history with cost tracking. Returns last 10 rebalances, cumulative gas costs, and average drift reduction per rebalance. Use to assess hedging efficiency.",
@@ -519,6 +539,21 @@ REMITTANCE TIMING RULES:
 - Mento spread < -0.5%: WAIT for Mento to correct (unless urgent flag or deadline)
 - If recurring transfer is overdue (past scheduled time): EXECUTE regardless of spread (user expects delivery)
 - For recurring transfers: prefer execution during favorable rate windows, but never delay more than 12h past schedule
+
+DEFI YIELD AWARENESS (fetch_defi_yields):
+After portfolio analysis, call fetch_defi_yields to check Celo DeFi yields.
+- Compare vault idle capital returns (~0%) against DeFi pool APYs
+- Aave V3 on Celo offers lending yields for USDC, USDM, EURM
+- Uniswap V3 LP pools offer fees on cUSD-USDC, cUSD-cEUR pairs
+- Report yield opportunities: "Vault holds X cUSD idle, Aave V3 offers Y% APY"
+- DO NOT auto-deploy to DeFi — report opportunities for user decision
+
+REMITTANCE CORRIDORS (fetch_remittance_corridors):
+Covers 7 major corridors: US→EU, US→BR, US→MX, US→PH, US→IN, US→NG, US→KE.
+- Celo-native corridors (Mento swap): cUSD→cEUR (EU), cUSD→cREAL (BR)
+- Settlement corridors (cUSD transfer): US→MX, US→PH, US→IN, US→NG, US→KE
+- For non-Mento corridors, cUSD is the settlement currency (recipient converts locally)
+- Report forex rate alongside Mento rate to show value vs traditional remittance
 
 HEDGING EFFICIENCY (get_rebalance_history):
 After rebalancing, call get_rebalance_history to track cumulative costs.

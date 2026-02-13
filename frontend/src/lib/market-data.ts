@@ -69,7 +69,7 @@ export async function fetchForexRates(): Promise<AssetPrice[]> {
 
   try {
     const res = await fetch(
-      "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,GBP,JPY,CHF",
+      "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,GBP,JPY,CHF,BRL,MXN,PHP,INR,NGN,KES,GHS",
       { signal: AbortSignal.timeout(8000) }
     );
     if (!res.ok) throw new Error("Frankfurter API error");
@@ -100,6 +100,42 @@ export async function fetchForexRates(): Promise<AssetPrice[]> {
         price: data.rates?.CHF ?? 0.893,
         change24h: 0.05,
       },
+      {
+        symbol: "USD/BRL",
+        name: "Brazilian Real",
+        price: data.rates?.BRL ?? 5.7,
+        change24h: 0.32,
+      },
+      {
+        symbol: "USD/MXN",
+        name: "Mexican Peso",
+        price: data.rates?.MXN ?? 20.5,
+        change24h: -0.15,
+      },
+      {
+        symbol: "USD/PHP",
+        name: "Philippine Peso",
+        price: data.rates?.PHP ?? 56.2,
+        change24h: 0.08,
+      },
+      {
+        symbol: "USD/INR",
+        name: "Indian Rupee",
+        price: data.rates?.INR ?? 83.4,
+        change24h: 0.02,
+      },
+      {
+        symbol: "USD/NGN",
+        name: "Nigerian Naira",
+        price: data.rates?.NGN ?? 1580,
+        change24h: 0.45,
+      },
+      {
+        symbol: "USD/KES",
+        name: "Kenyan Shilling",
+        price: data.rates?.KES ?? 129,
+        change24h: -0.1,
+      },
     ];
     setCache("forex", prices);
     return prices;
@@ -109,6 +145,9 @@ export async function fetchForexRates(): Promise<AssetPrice[]> {
       { symbol: "GBP/USD", name: "British Pound", price: 1.248, change24h: -0.25 },
       { symbol: "USD/JPY", name: "Japanese Yen", price: 152.3, change24h: 0.18 },
       { symbol: "USD/CHF", name: "Swiss Franc", price: 0.893, change24h: 0.05 },
+      { symbol: "USD/BRL", name: "Brazilian Real", price: 5.7, change24h: 0.32 },
+      { symbol: "USD/MXN", name: "Mexican Peso", price: 20.5, change24h: -0.15 },
+      { symbol: "USD/PHP", name: "Philippine Peso", price: 56.2, change24h: 0.08 },
     ];
   }
 }
@@ -219,6 +258,65 @@ export async function fetchMentoRates(): Promise<MentoRate[]> {
     return rates;
   } catch {
     return getMentoFallback();
+  }
+}
+
+export interface DefiYield {
+  protocol: string;
+  pool: string;
+  token: string;
+  apy: number;
+  apyMean30d: number;
+  tvl: number;
+  stablecoin: boolean;
+  chain: string;
+}
+
+export async function fetchCeloDefiYields(): Promise<DefiYield[]> {
+  const cached = getCached<DefiYield[]>("defi-yields");
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      "https://yields.llama.fi/pools",
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (!res.ok) throw new Error("DeFiLlama API error");
+    const data = await res.json();
+
+    // Filter Celo stablecoin pools with >$10K TVL
+    const celoStablePools = (data.data || [])
+      .filter((p: Record<string, unknown>) =>
+        p.chain === "Celo" &&
+        p.stablecoin === true &&
+        (p.tvlUsd as number) > 10000
+      )
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+        (b.tvlUsd as number) - (a.tvlUsd as number)
+      )
+      .slice(0, 15)
+      .map((p: Record<string, unknown>) => ({
+        protocol: p.project as string,
+        pool: p.symbol as string,
+        token: (p.symbol as string).split("-")[0],
+        apy: Number(((p.apy as number) || 0).toFixed(2)),
+        apyMean30d: Number(((p.apyMean30d as number) || 0).toFixed(2)),
+        tvl: Math.round(p.tvlUsd as number),
+        stablecoin: true,
+        chain: "Celo",
+      }));
+
+    setCache("defi-yields", celoStablePools);
+    return celoStablePools;
+  } catch {
+    // Hardcoded fallback from DeFiLlama data (Feb 2026)
+    return [
+      { protocol: "moola-market", pool: "cUSD", token: "cUSD", apy: 0.01, apyMean30d: 0.04, tvl: 618500, stablecoin: true, chain: "Celo" },
+      { protocol: "aave-v3", pool: "USDC", token: "USDC", apy: 0.30, apyMean30d: 1.55, tvl: 300900, stablecoin: true, chain: "Celo" },
+      { protocol: "uniswap-v3", pool: "cUSD-USDC", token: "cUSD", apy: 2.40, apyMean30d: 6.35, tvl: 233800, stablecoin: true, chain: "Celo" },
+      { protocol: "aave-v3", pool: "USDM", token: "USDM", apy: 2.55, apyMean30d: 2.70, tvl: 227800, stablecoin: true, chain: "Celo" },
+      { protocol: "uniswap-v3", pool: "cUSD-cEUR", token: "cUSD", apy: 0.62, apyMean30d: 0.47, tvl: 224400, stablecoin: true, chain: "Celo" },
+    ];
   }
 }
 

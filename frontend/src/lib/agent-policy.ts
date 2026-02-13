@@ -168,8 +168,15 @@ export async function checkGasThreshold(expectedProfitUsd: number): Promise<{
       return { safe: false, gasPriceGwei, estimatedGasCostUsd: 999, profitAfterGas: -999 };
     }
 
-    // Estimate: approve + swap ~250K gas, CELO ~$0.50
-    const celoPrice = 0.5; // conservative estimate
+    // Fetch real CELO price from CoinGecko
+    let celoPrice = 0.08; // fallback
+    try {
+      const priceRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=celo&vs_currencies=usd", { signal: AbortSignal.timeout(3000) });
+      if (priceRes.ok) {
+        const priceData = await priceRes.json();
+        celoPrice = priceData?.celo?.usd ?? 0.08;
+      }
+    } catch { /* use fallback */ }
     const estimatedGas = BigInt(250_000);
     const gasCostCelo = parseFloat(formatGwei(gasPrice * estimatedGas)) / 1e9;
     const estimatedGasCostUsd = gasCostCelo * celoPrice;
