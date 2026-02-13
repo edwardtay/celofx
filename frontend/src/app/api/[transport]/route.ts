@@ -199,9 +199,8 @@ const handler = createMcpHandler(
               tee: {
                 status: tee.status,
                 verified: tee.verified,
-                hardware: "Intel TDX",
-                provider: "Phala Cloud",
-                attestationEndpoint: "https://celofx.vercel.app/api/attestation",
+                infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
+                auditEndpoint: "https://celofx.vercel.app/api/agent/decisions",
               },
               protocols: {
                 mcp: "https://celofx.vercel.app/api/mcp",

@@ -52,7 +52,7 @@ export default function SecurityPage() {
             Security & Trust
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            How CeloFX minimizes trust — on-chain constraints, TEE attestation, and auditable decisions
+            How CeloFX minimizes trust — on-chain constraints, verifiable execution, and auditable decisions
           </p>
         </div>
 
@@ -60,7 +60,7 @@ export default function SecurityPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { icon: Shield, label: "ERC-8004", desc: "On-chain identity #10", color: "text-blue-600" },
-            { icon: Cpu, label: "Intel TDX", desc: "TEE via Phala Cloud", color: "text-green-600" },
+            { icon: Cpu, label: "Phala TEE", desc: "Intel TDX attestation", color: "text-green-600" },
             { icon: Lock, label: "Permissioned", desc: "Token & protocol whitelist", color: "text-amber-600" },
             { icon: Eye, label: "Auditable", desc: "Every decision hashed", color: "text-purple-600" },
           ].map((item) => (
@@ -218,18 +218,18 @@ export default function SecurityPage() {
           <CardContent className="p-5 space-y-4">
             <div className="flex items-center gap-2">
               <Cpu className="h-5 w-5 text-green-600" />
-              <h2 className="font-semibold">TEE Attestation</h2>
-              <Badge variant="outline" className="ml-auto text-xs">Intel TDX</Badge>
+              <h2 className="font-semibold">Verifiable Execution (TEE)</h2>
+              <Badge variant="outline" className="ml-auto text-xs">Phala Cloud</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              Agent runs in a Trusted Execution Environment on Phala Cloud.
-              Intel TDX hardware ensures the private key never touches disk in plaintext.
+              Agent is TEE-ready with Intel TDX support via Phala Cloud.
+              When deployed to a Confidential VM, the private key is hardware-isolated and execution is cryptographically attested.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
                 { label: "Hardware", value: "Intel TDX" },
                 { label: "Provider", value: "Phala Cloud CVM" },
-                { label: "Attestation", value: "Hardware-signed quote" },
+                { label: "Audit", value: "keccak256 decision hashing" },
               ].map((item) => (
                 <div key={item.label} className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -246,11 +246,11 @@ export default function SecurityPage() {
                 View attestation <ExternalLink className="h-3 w-3" />
               </a>
               <a
-                href="https://cloud.phala.com/dashboard/cvms/app_0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5"
+                href="/api/agent/decisions"
                 target="_blank"
                 className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
               >
-                Phala Cloud dashboard <ExternalLink className="h-3 w-3" />
+                Decision audit log <ExternalLink className="h-3 w-3" />
               </a>
             </div>
           </CardContent>

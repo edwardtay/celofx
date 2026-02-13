@@ -35,12 +35,11 @@ export async function GET() {
     tee: {
       status: tee.status,
       verified: tee.verified,
-      hardware: "Intel TDX",
-      provider: "Phala Cloud",
+      infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
     },
     services: {
       a2a: { status: "up", skills: 4 },
-      mcp: { status: "up", tools: 8, protocolVersion: "2025-06-18" },
+      mcp: { status: "up", tools: 9, protocolVersion: "2025-06-18" },
       x402: { status: "up", price: "$0.01", currency: "cUSD" },
       web: { status: "up" },
     },

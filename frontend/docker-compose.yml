@@ -1,0 +1,10 @@
+services:
+  celofx:
+    build: .
+    container_name: celofx
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/tappd.sock:/var/run/tappd.sock
+    env_file:
+      - .env.local

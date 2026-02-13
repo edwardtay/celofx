@@ -85,8 +85,9 @@ export async function GET() {
           name: "TEE",
           endpoint: "https://celofx.vercel.app/api/tee/attestation",
           version: "dstack-dev-0.5.6",
-          hardware: "Intel TDX",
-          provider: "Phala Cloud",
+          status: tee.status,
+          verified: tee.verified,
+          infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
         },
         {
           name: "OASF",
@@ -137,15 +138,10 @@ export async function GET() {
       ],
       supportedTrust: ["reputation", "tee-attestation", "crypto-economic"],
       tee: {
-        hardware: "Intel TDX",
-        provider: "Phala Cloud",
         status: tee.status,
         verified: tee.verified,
+        infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
         attestationEndpoint: "https://celofx.vercel.app/api/tee/attestation",
-        fallbackEndpoint: "https://celofx.vercel.app/api/attestation",
-        cvmAppId: "0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5",
-        cvmDashboard:
-          "https://cloud.phala.com/dashboard/cvms/app_0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5",
       },
     },
     {

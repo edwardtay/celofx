@@ -89,7 +89,7 @@ export function AgentIdentityCard() {
             <p className="text-xs text-muted-foreground mb-1">Trust</p>
             <div className="flex items-center gap-1">
               <ShieldCheck className={`size-3 ${teeStatus === "active" ? "text-emerald-600" : "text-amber-600"}`} />
-              <p className="text-xs">Intel TDX (Phala Cloud)</p>
+              <p className="text-xs">{teeStatus === "active" ? "Intel TDX (Phala)" : "TEE-Ready (Phala)"}</p>
             </div>
           </div>
         </div>

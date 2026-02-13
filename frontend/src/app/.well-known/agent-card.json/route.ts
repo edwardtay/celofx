@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { getAttestation } from "@/lib/tee";
 
 export async function GET() {
+  const tee = await getAttestation();
   return NextResponse.json({
     name: "CeloFX",
     description:
@@ -33,10 +35,10 @@ export async function GET() {
       standard: "EIP-712",
     },
     tee: {
-      hardware: "Intel TDX",
-      provider: "Phala Cloud",
-      attestationEndpoint: "https://0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5-3000.dstack-pha-prod9.phala.network/api/attestation",
-      cvmDashboard: "https://cloud.phala.com/dashboard/cvms/app_0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5",
+      status: tee.status,
+      verified: tee.verified,
+      infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
+      attestationEndpoint: "https://celofx.vercel.app/api/tee/attestation",
     },
     skills: [
       {

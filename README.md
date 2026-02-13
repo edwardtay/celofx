@@ -27,7 +27,7 @@ AI-powered FX arbitrage agent that compares real forex rates with Mento on-chain
 |-----------|---------------------|
 | **Technical Innovation** | Multi-venue DEX arbitrage (Mento + Uniswap V3), Claude AI decision engine with 7-condition framework, cross-market correlation (Mento vs forex), 16 agent tools in agentic loop, gas threshold risk management |
 | **Developer Experience** | 3 protocols (MCP 8 tools, A2A 4 skills, x402), OpenAPI spec 25+ endpoints, "Try it" buttons on /developers, structured error codes, rate limit headers |
-| **Security & Trust** | Circuit breaker, volume limits (500 cUSD/24h), decision hashing (keccak256 before execution), TEE attestation (Intel TDX via Phala), profitability guards (+0.3% min spread), gas price validation, Standing Intent policy |
+| **Security & Trust** | Circuit breaker, volume limits (500 cUSD/24h), decision hashing (keccak256 before execution), TEE-ready (Intel TDX via Phala Cloud), profitability guards (+0.3% min spread), gas price validation, Standing Intent policy |
 | **Real-World Applicability** | 4 FX use cases in one agent: Arbitrage (#10), Hedging (#4), Trading/Alerts (#6), Remittance (#1). Real on-chain volume, verified Celoscan trades, hedged portfolio vault, cross-border remittance with FX optimization |
 
 ### 4 FX Use Cases — One Agent
@@ -49,7 +49,7 @@ Most "AI agent" hackathon projects are chatbot wrappers — the AI generates tex
 - **Policy enforcement, not just declaration** — Daily volume cap (500 cUSD / 24h), circuit breaker, profitability guard (+0.3% min spread), gas threshold — all enforced in code before every swap. Hard runtime limits.
 - **Decision audit trail** — Every execution is hashed with `keccak256(orderId, action, reasoning, timestamp)` BEFORE the swap tx is sent. Decision log is publicly queryable via [`/api/agent/decisions`](https://celofx.vercel.app/api/agent/decisions).
 - **Forex-aware order engine** — Orders aren't simple limit orders. The agent checks if Mento rate vs real forex spread is favorable, if forex is trending toward or away from target, and adjusts execution timing accordingly.
-- **Cross-DEX arbitrage** — Monitors price differences between Mento and Uniswap V3, executes buy-cheap-sell-expensive with atomic two-leg arbs.
+- **Cross-DEX arbitrage** — Monitors price differences between Mento and Uniswap V3, executes buy-cheap-sell-expensive two-leg arbs.
 - **24 real on-chain reputation feedbacks** — 12 unique clients on ERC-8004 Reputation Registry. All verifiable on Celoscan.
 
 ### The Decision Engine
@@ -86,7 +86,7 @@ The agent's policy is not just a document — every limit is enforced at runtime
 | **Circuit breaker** | `AGENT_PAUSED=true` halts all execution with 503 | Emergency kill switch |
 | **Decision hashing** | `keccak256(orderId, action, reasoning, timestamp)` committed BEFORE swap tx | [`/api/agent/decisions`](https://celofx.vercel.app/api/agent/decisions) |
 | **Standing Intent** | Cryptographically signed policy: allowed tokens, protocols, spending limits | [`/api/agent/policy`](https://celofx.vercel.app/api/agent/policy) |
-| **TEE attestation** | Intel TDX via Phala Cloud — private key never touches disk in plaintext | [`/api/tee/attestation`](https://celofx.vercel.app/api/tee/attestation) |
+| **TEE attestation** | TEE-ready: Intel TDX via Phala Cloud CVM with Dockerfile + docker-compose included | [`/api/tee/attestation`](https://celofx.vercel.app/api/tee/attestation) |
 
 Verify a decision hash:
 ```bash
@@ -175,7 +175,7 @@ curl -X POST https://celofx.vercel.app/api/agent/decisions \
 | **A2A** | `/api/a2a` | 4 skills: rate analysis, swap execution, portfolio, performance |
 | **x402** | `/api/premium-signals` | HTTP 402 paywall, $0.01 cUSD per premium signal unlock |
 | **ERC-8004** | On-chain | Identity (#10) + Reputation Registry with on-chain feedback |
-| **TEE** | Phala Cloud | Intel TDX attestation for verifiable execution |
+| **TEE** | Phala Cloud | Intel TDX attestation (Dockerfile + docker-compose included) |
 
 ### Tech Stack
 

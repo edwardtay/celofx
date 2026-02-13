@@ -84,7 +84,7 @@ export function getTeeHeaders(): Record<string, string> {
   return {
     "X-TEE-Status": inTee ? "active" : "self-declared",
     "X-TEE-Timestamp": new Date().toISOString(),
-    "X-TEE-Provider": "Phala Cloud",
+    "X-TEE-Provider": inTee ? "Phala Cloud" : "Vercel",
   };
 }
 

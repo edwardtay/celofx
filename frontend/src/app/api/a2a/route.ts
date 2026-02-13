@@ -106,8 +106,7 @@ async function handleMessage(text: string): Promise<string> {
     tee: {
       status: tee.status,
       verified: tee.verified,
-      hardware: "Intel TDX",
-      provider: "Phala Cloud",
+      infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
     },
     protocols: ["MCP", "A2A", "x402", "OASF"],
     skills: ["fx_rate_analysis", "execute_swap", "portfolio_status", "performance_tracking"],

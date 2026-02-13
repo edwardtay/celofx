@@ -14,11 +14,10 @@ export async function GET() {
       agentId: AGENT_ID,
       agentAddress: AGENT_ADDRESS,
       tee: {
-        hardware: "Intel TDX",
-        provider: "Phala Cloud",
         status: attestation.status,
-        attestationType: "tdx-quote",
         verified: attestation.verified,
+        attestationType: attestation.verified ? "tdx-quote" : "keccak256-hash",
+        infrastructure: attestation.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
       },
       attestation: {
         type: "tee-attestation",
