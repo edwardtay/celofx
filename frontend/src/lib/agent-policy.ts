@@ -146,6 +146,44 @@ export function getVolumeLog() {
   return [...volumeLog];
 }
 
+// ── Gas Threshold Check ──
+// Verify gas cost doesn't eat more than 50% of expected profit before swapping
+
+export async function checkGasThreshold(expectedProfitUsd: number): Promise<{
+  safe: boolean;
+  gasPriceGwei: number;
+  estimatedGasCostUsd: number;
+  profitAfterGas: number;
+}> {
+  try {
+    const { createPublicClient, http, formatGwei } = await import("viem");
+    const { celo } = await import("viem/chains");
+    const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+
+    const gasPrice = await publicClient.getGasPrice();
+    const gasPriceGwei = parseFloat(formatGwei(gasPrice));
+
+    // Hard limit: reject if gas > 50 gwei (Celo is usually <5 gwei)
+    if (gasPriceGwei > 50) {
+      return { safe: false, gasPriceGwei, estimatedGasCostUsd: 999, profitAfterGas: -999 };
+    }
+
+    // Estimate: approve + swap ~250K gas, CELO ~$0.50
+    const celoPrice = 0.5; // conservative estimate
+    const estimatedGas = BigInt(250_000);
+    const gasCostCelo = parseFloat(formatGwei(gasPrice * estimatedGas)) / 1e9;
+    const estimatedGasCostUsd = gasCostCelo * celoPrice;
+
+    const profitAfterGas = expectedProfitUsd - estimatedGasCostUsd;
+    const safe = estimatedGasCostUsd < expectedProfitUsd * 0.5; // gas < 50% of profit
+
+    return { safe, gasPriceGwei, estimatedGasCostUsd, profitAfterGas };
+  } catch {
+    // If gas check fails, allow trade (don't block on gas oracle failure)
+    return { safe: true, gasPriceGwei: 0, estimatedGasCostUsd: 0, profitAfterGas: expectedProfitUsd };
+  }
+}
+
 // ── Circuit Breaker ──
 // Emergency pause — checked before any swap execution
 

@@ -104,6 +104,16 @@ export const identityRegistryAbi = [
   },
   {
     type: "function",
+    name: "setAgentWallet",
+    inputs: [
+      { name: "agentId", type: "uint256", internalType: "uint256" },
+      { name: "wallet", type: "address", internalType: "address" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "isAuthorizedOrOwner",
     inputs: [
       { name: "spender", type: "address", internalType: "address" },

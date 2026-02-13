@@ -24,6 +24,14 @@ export async function GET() {
       schemes: ["none"],
       credentials: null,
     },
+    x402: {
+      supported: true,
+      endpoint: "https://celofx.vercel.app/api/premium-signals",
+      price: "$0.01",
+      currency: "cUSD",
+      chain: "celo",
+      standard: "EIP-712",
+    },
     tee: {
       hardware: "Intel TDX",
       provider: "Phala Cloud",

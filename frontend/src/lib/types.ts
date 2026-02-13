@@ -118,6 +118,7 @@ export interface FxOrder {
   conditionType?: AlertConditionType;
   pctChangeThreshold?: number; // e.g. 5 for 5%
   pctChangeTimeframe?: "1h" | "4h" | "24h";
+  referenceRate?: number; // snapshot of rate at order creation (for pct_change, crosses)
 }
 
 export interface PortfolioAllocation {

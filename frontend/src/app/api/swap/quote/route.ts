@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOnChainQuote, buildSwapTx, type MentoToken, TOKENS } from "@/lib/mento-sdk";
 import { getUniswapQuote, UNI_TOKENS, type UniToken } from "@/lib/uniswap-quotes";
+import { apiError } from "@/lib/api-errors";
 
 const MENTO_TOKENS = new Set(["cUSD", "cEUR", "cREAL", "CELO"]);
 
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 
   if (!from || !to) {
     return NextResponse.json(
-      { error: "Missing from/to token" },
+      apiError("MISSING_FIELDS", "Missing from/to token query parameters"),
       { status: 400 }
     );
   }
@@ -32,12 +33,12 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(
-      { error: `No venue found for ${from}/${to}` },
+      apiError("NO_POOL_FOUND", `No venue found for ${from}/${to}`, { from, to }),
       { status: 400 }
     );
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Quote failed" },
+      apiError("QUOTE_FAILED", err instanceof Error ? err.message : "Quote failed", { from, to, amount }),
       { status: 500 }
     );
   }
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
 
     if (!fromToken || !toToken || !amount) {
       return NextResponse.json(
-        { error: "Missing fromToken, toToken, or amount" },
+        apiError("MISSING_FIELDS", "Missing fromToken, toToken, or amount"),
         { status: 400 }
       );
     }
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Swap build failed" },
+      apiError("SWAP_FAILED", err instanceof Error ? err.message : "Swap build failed", { fromToken: "unknown", toToken: "unknown" }),
       { status: 500 }
     );
   }

@@ -21,15 +21,35 @@ AI-powered FX arbitrage agent that compares real forex rates with Mento on-chain
 8. **Security** ([/security](https://celofx.vercel.app/security)) — Standing Intent policy (keccak256-hashed), decision framework, TEE attestation, on-chain auditability
 9. **Agent** ([/agent](https://celofx.vercel.app/agent)) — ERC-8004 identity (#10), on-chain reputation, execution timeline
 
+### Judging Criteria Alignment
+
+| Criterion | How CeloFX Delivers |
+|-----------|---------------------|
+| **Technical Innovation** | Multi-venue DEX arbitrage (Mento + Uniswap V3), Claude AI decision engine with 7-condition framework, cross-market correlation (Mento vs forex), 16 agent tools in agentic loop, gas threshold risk management |
+| **Developer Experience** | 3 protocols (MCP 8 tools, A2A 4 skills, x402), OpenAPI spec 25+ endpoints, "Try it" buttons on /developers, structured error codes, rate limit headers |
+| **Security & Trust** | Circuit breaker, volume limits (500 cUSD/24h), decision hashing (keccak256 before execution), TEE attestation (Intel TDX via Phala), profitability guards (+0.3% min spread), gas price validation, Standing Intent policy |
+| **Real-World Applicability** | 4 FX use cases in one agent: Arbitrage (#10), Hedging (#4), Trading/Alerts (#6), Remittance (#1). Real on-chain volume, verified Celoscan trades, hedged portfolio vault, cross-border remittance with FX optimization |
+
+### 4 FX Use Cases — One Agent
+
+| Use Case | What CeloFX Does | Key Tools |
+|----------|-------------------|-----------|
+| **Arbitrage** (#10) | Cross-DEX arb between Mento Broker and Uniswap V3 when venue spread > 0.3%. Stablecoin peg monitoring (USDT/cUSD). | `execute_cross_dex_arb`, `execute_uniswap_swap`, `fetch_cross_venue_rates` |
+| **Hedging** (#4) | Portfolio vault with 60/25/15 target allocation (cUSD/cEUR/cREAL). Auto-rebalances when drift > 5%. Cash flow integration reduces unnecessary swaps. | `check_portfolio_drift`, `execute_mento_swap`, `get_rebalance_history` |
+| **Trading/Alerts** (#6) | Smart FX Orders with 4 condition types (rate_reaches, pct_change, crosses_above, crosses_below). AI reasons through momentum, volatility, urgency, forex correlation. | `check_pending_orders`, `execute_order`, `generate_signal` |
+| **Remittance** (#1) | Agent-initiated cross-border transfers: swap via Mento + ERC-20 transfer to recipient. Recurring schedules with FX timing optimization. | `execute_remittance`, `check_recurring_transfers` |
+
 ### What Makes This Different
 
 Most "AI agent" hackathon projects are chatbot wrappers — the AI generates text but doesn't make real decisions. CeloFX is different:
 
 - **AI is the decision-maker** — Claude receives rich market data (momentum, volatility, urgency, forex divergence) and decides per-order whether to execute, wait, or skip. The decision framework has 7+ conditions the agent reasons through.
-- **Real on-chain execution** — Agent wallet (`0x6652...a303`) holds stablecoins and executes real Mento Broker swaps with CIP-64 fee abstraction (gas paid in cUSD). 9 verified trades on Celo mainnet.
-- **Policy enforcement, not just declaration** — Daily volume cap (500 cUSD / 24h), circuit breaker, profitability guard (+0.3% min spread) are all enforced in code before every swap. Not just a policy document — hard runtime limits.
+- **Real on-chain execution** — Agent wallet (`0x6652...a303`) holds stablecoins and executes real Mento Broker + Uniswap V3 swaps with CIP-64 fee abstraction (gas paid in cUSD). Verified trades on Celo mainnet.
+- **Gas-aware profitability** — Before every swap, the agent checks Celo gas price and rejects trades where gas cost > 50% of expected profit. Capital protection is automated, not manual.
+- **Policy enforcement, not just declaration** — Daily volume cap (500 cUSD / 24h), circuit breaker, profitability guard (+0.3% min spread), gas threshold — all enforced in code before every swap. Hard runtime limits.
 - **Decision audit trail** — Every execution is hashed with `keccak256(orderId, action, reasoning, timestamp)` BEFORE the swap tx is sent. Decision log is publicly queryable via [`/api/agent/decisions`](https://celofx.vercel.app/api/agent/decisions).
 - **Forex-aware order engine** — Orders aren't simple limit orders. The agent checks if Mento rate vs real forex spread is favorable, if forex is trending toward or away from target, and adjusts execution timing accordingly.
+- **Cross-DEX arbitrage** — Monitors price differences between Mento and Uniswap V3, executes buy-cheap-sell-expensive with atomic two-leg arbs.
 - **24 real on-chain reputation feedbacks** — 12 unique clients on ERC-8004 Reputation Registry. All verifiable on Celoscan.
 
 ### The Decision Engine
@@ -107,16 +127,19 @@ curl -X POST https://celofx.vercel.app/api/agent/decisions \
 ┌─────────────────────────────▼───────────────────────────────────┐
 │                     Claude AI (Sonnet 4.5)                       │
 │                                                                  │
-│  Tools:                          Decision Engine:                │
+│  Tools (16):                     Decision Engine:                │
 │  ├─ fetch_mento_rates            ├─ momentum (last 3 rates)     │
-│  ├─ fetch_forex                  ├─ volatility (std dev)        │
-│  ├─ fetch_crypto                 ├─ urgency (time to deadline)  │
-│  ├─ fetch_commodities            ├─ forex signal (trend)        │
-│  ├─ check_pending_orders ──────► ├─ spread vs forex             │
-│  ├─ execute_order ◄──────────────┤                              │
-│  ├─ generate_signal              │  EXECUTE / WAIT / SKIP       │
-│  ├─ generate_fx_action           │  + detailed reasoning        │
-│  └─ execute_mento_swap           └──────────────────────────────│
+│  ├─ fetch_cross_venue_rates      ├─ volatility (std dev)        │
+│  ├─ fetch_forex / crypto / comm  ├─ urgency (time to deadline)  │
+│  ├─ check_pending_orders ──────► ├─ forex signal (trend)        │
+│  ├─ execute_order ◄──────────────├─ spread vs forex             │
+│  ├─ execute_mento_swap           ├─ gas threshold check         │
+│  ├─ execute_uniswap_swap         │                              │
+│  ├─ execute_cross_dex_arb        │  EXECUTE / WAIT / SKIP       │
+│  ├─ execute_remittance           │  + detailed reasoning        │
+│  ├─ check_recurring_transfers    └──────────────────────────────│
+│  ├─ check_portfolio_drift                                       │
+│  └─ get_rebalance_history                                       │
 │                                                                  │
 └───────────┬────────────────────────────────┬─────────────────────┘
             │                                │
@@ -138,7 +161,7 @@ curl -X POST https://celofx.vercel.app/api/agent/decisions \
               │                        │
               │   ERC-8004 Identity    │
               │   ERC-8004 Reputation  │
-              │   MCP Server (5 tools) │
+              │   MCP Server (8 tools) │
               │   A2A Endpoint         │
               │   x402 Payments        │
               └────────────────────────┘
@@ -148,7 +171,7 @@ curl -X POST https://celofx.vercel.app/api/agent/decisions \
 
 | Protocol | Endpoint | What It Does |
 |----------|----------|-------------|
-| **MCP** | `/api/mcp` | 5 tools: rates, signals, trades, performance, agent info |
+| **MCP** | `/api/mcp` | 8 tools: rates, cross-venue, signals, trades, performance, agent info, policy, decisions |
 | **A2A** | `/api/a2a` | 4 skills: rate analysis, swap execution, portfolio, performance |
 | **x402** | `/api/premium-signals` | HTTP 402 paywall, $0.01 cUSD per premium signal unlock |
 | **ERC-8004** | On-chain | Identity (#10) + Reputation Registry with on-chain feedback |
@@ -157,7 +180,7 @@ curl -X POST https://celofx.vercel.app/api/agent/decisions \
 ### Tech Stack
 
 - **Frontend**: Next.js 16, React 19, Tailwind v4, shadcn/ui, wagmi, viem, RainbowKit
-- **AI Agent**: Claude Sonnet 4.5 with tool-use (9 tools in agentic loop)
+- **AI Agent**: Claude Sonnet 4.5 with tool-use (16 tools in agentic loop)
 - **On-Chain**: Mento Broker for stablecoin swaps, ERC-8004 for identity/reputation
 - **Payments**: x402 protocol with EIP-712 signatures
 - **Chain**: Celo mainnet (not testnet)
@@ -223,7 +246,7 @@ User creates order: "Swap 50 cUSD → cEUR when rate hits 0.845, deadline 48h"
 
 | File | What It Does |
 |------|-------------|
-| [`agent-tools.ts`](frontend/src/lib/agent-tools.ts) | 9 tool definitions + decision framework system prompt |
+| [`agent-tools.ts`](frontend/src/lib/agent-tools.ts) | 16 tool definitions + decision framework system prompt |
 | [`analyze/route.ts`](frontend/src/app/api/agent/analyze/route.ts) | Agentic loop: fetch data → analyze orders → execute with reasoning |
 | [`agent-policy.ts`](frontend/src/lib/agent-policy.ts) | Standing Intent, decision hashing, volume tracking, circuit breaker |
 | [`mento-sdk.ts`](frontend/src/lib/mento-sdk.ts) | On-chain Mento Broker (`getAmountOut`, `swapIn`, bidirectional quotes) |
@@ -264,7 +287,11 @@ Most existing solutions are either manual or use simple limit orders. CeloFX is 
 | Decision intelligence | Human judgment | `if rate >= target` | Claude with 7-condition framework |
 | Forex awareness | Yes | No | Yes (Frankfurter API correlation) |
 | Momentum tracking | No | No | Yes (rate history + std dev) |
-| On-chain execution | Manual | Yes | Yes (Mento Broker + CIP-64) |
-| Auditable reasoning | No | No | Yes (per-order reasoning stored) |
+| Multi-venue arbitrage | No | No | Yes (Mento + Uniswap V3 cross-DEX) |
+| Gas-aware execution | No | No | Yes (rejects if gas > 50% of profit) |
+| On-chain execution | Manual | Yes | Yes (Mento + Uniswap + CIP-64) |
+| Portfolio hedging | No | No | Yes (60/25/15 auto-rebalance) |
+| Remittance | No | No | Yes (swap + transfer, recurring) |
+| Auditable reasoning | No | No | Yes (keccak256 decision hashing) |
 | On-chain identity | No | No | ERC-8004 (#10) |
-| Agent protocols | No | No | MCP + A2A + x402 + TEE |
+| Agent protocols | No | No | MCP (8) + A2A (4) + x402 + TEE |

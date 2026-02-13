@@ -6,6 +6,7 @@ import {
   updateOrder,
 } from "@/lib/order-store";
 import type { FxOrder, OrderStatus } from "@/lib/types";
+import { apiError } from "@/lib/api-errors";
 
 const VALID_TOKENS = ["cUSD", "cEUR", "cREAL", "USDC", "USDT"];
 
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     if (!creator || !fromToken || !toToken || !amountIn) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        apiError("MISSING_FIELDS", "Missing required fields: creator, fromToken, toToken, amountIn"),
         { status: 400 }
       );
     }
@@ -42,21 +43,21 @@ export async function POST(request: NextRequest) {
     // For pct_change conditions, targetRate is optional (computed from current rate + threshold)
     if (cType === "rate_reaches" && !targetRate) {
       return NextResponse.json(
-        { error: "Target rate required for rate-based alerts" },
+        apiError("MISSING_FIELDS", "Target rate required for rate-based alerts"),
         { status: 400 }
       );
     }
 
     if (!VALID_TOKENS.includes(fromToken) || !VALID_TOKENS.includes(toToken)) {
       return NextResponse.json(
-        { error: "Invalid token. Use cUSD, cEUR, or cREAL" },
+        apiError("INVALID_TOKEN", `Invalid token. Use: ${VALID_TOKENS.join(", ")}`, { fromToken, toToken }),
         { status: 400 }
       );
     }
 
     if (fromToken === toToken) {
       return NextResponse.json(
-        { error: "From and to tokens must be different" },
+        apiError("INVALID_TOKEN", "From and to tokens must be different"),
         { status: 400 }
       );
     }
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     const amount = parseFloat(amountIn);
     if (isNaN(amount) || amount <= 0) {
       return NextResponse.json(
-        { error: "Invalid amount" },
+        apiError("INVALID_AMOUNT", "Amount must be a positive number", { amountIn }),
         { status: 400 }
       );
     }
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     const rate = parseFloat(targetRate);
     if (isNaN(rate) || rate <= 0) {
       return NextResponse.json(
-        { error: "Invalid target rate" },
+        apiError("INVALID_AMOUNT", "Target rate must be a positive number", { targetRate }),
         { status: 400 }
       );
     }
@@ -98,6 +99,15 @@ export async function POST(request: NextRequest) {
       }),
     };
 
+    // Snapshot current rate for pct_change / crosses conditions
+    if (order.conditionType && order.conditionType !== "rate_reaches") {
+      try {
+        const { getOnChainQuote } = await import("@/lib/mento-sdk");
+        const currentQuote = await getOnChainQuote(fromToken as Parameters<typeof getOnChainQuote>[0], toToken as Parameters<typeof getOnChainQuote>[1], "1");
+        order.referenceRate = currentQuote.rate;
+      } catch { /* fallback: agent uses rateHistory[0] */ }
+    }
+
     addOrder(order);
 
     return NextResponse.json({ order }, { status: 201 });
@@ -108,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     if (!orderId || !creator) {
       return NextResponse.json(
-        { error: "Missing orderId or creator" },
+        apiError("MISSING_FIELDS", "Missing orderId or creator"),
         { status: 400 }
       );
     }
@@ -116,21 +126,21 @@ export async function POST(request: NextRequest) {
     const order = getOrder(orderId);
     if (!order) {
       return NextResponse.json(
-        { error: "Order not found" },
+        apiError("ORDER_NOT_FOUND", "Order not found", { orderId }),
         { status: 404 }
       );
     }
 
     if (order.creator.toLowerCase() !== creator.toLowerCase()) {
       return NextResponse.json(
-        { error: "Only the order creator can cancel" },
+        apiError("ORDER_NOT_PENDING", "Only the order creator can cancel"),
         { status: 403 }
       );
     }
 
     if (order.status !== "pending") {
       return NextResponse.json(
-        { error: `Cannot cancel order with status: ${order.status}` },
+        apiError("ORDER_NOT_PENDING", `Cannot cancel order with status: ${order.status}`, { status: order.status }),
         { status: 400 }
       );
     }
@@ -143,7 +153,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { error: "Invalid action. Use 'create' or 'cancel'" },
+    apiError("MISSING_FIELDS", "Invalid action. Use 'create' or 'cancel'"),
     { status: 400 }
   );
 }

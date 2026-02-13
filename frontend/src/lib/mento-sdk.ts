@@ -28,6 +28,16 @@ const ERC20_ABI = [
     ],
     outputs: [{ name: "", type: "bool" }],
   },
+  {
+    name: "transfer",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
 ] as const;
 
 const BROKER_ABI = [
@@ -380,5 +390,28 @@ export async function buildSwapTx(
       rate: quote.rate,
       slippagePct,
     },
+  };
+}
+
+/**
+ * Build an ERC-20 transfer transaction.
+ * Used by remittance to send swapped tokens to a recipient address.
+ */
+export function buildTransferTx(
+  token: MentoToken,
+  recipientAddress: Address,
+  amount: string
+) {
+  const amountWei = parseUnits(amount, 18); // All Mento tokens are 18 decimals
+
+  const data = encodeFunctionData({
+    abi: ERC20_ABI,
+    functionName: "transfer",
+    args: [recipientAddress, amountWei],
+  });
+
+  return {
+    to: TOKENS[token] as Address,
+    data,
   };
 }

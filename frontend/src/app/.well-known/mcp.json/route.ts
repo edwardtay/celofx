@@ -4,7 +4,8 @@ export async function GET() {
   return NextResponse.json(
     {
       name: "CeloFX",
-      version: "2025-06-18",
+      version: "1.0.0",
+      protocolVersion: "2025-06-18",
       description:
         "Autonomous FX arbitrage agent — monitors Mento & Uniswap V3 on Celo, compares with real forex rates, and executes stablecoin swaps when spreads are profitable.",
       tools: [
@@ -78,6 +79,13 @@ export async function GET() {
           description: "On-chain verified swap history",
         },
       ],
+      x402: {
+        supported: true,
+        endpoint: "https://celofx.vercel.app/api/premium-signals",
+        price: "$0.01",
+        currency: "cUSD",
+        chain: "celo",
+      },
     },
     {
       headers: {

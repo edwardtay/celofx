@@ -14,7 +14,8 @@ import { createWalletClient, http, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
-import { commitDecision, isAgentPaused, checkVolumeLimit, recordVolume, getAgentStatus } from "@/lib/agent-policy";
+import { commitDecision, isAgentPaused, checkVolumeLimit, recordVolume, getAgentStatus, checkGasThreshold } from "@/lib/agent-policy";
+import { apiError } from "@/lib/api-errors";
 
 export const maxDuration = 60;
 
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   if (isAgentPaused()) {
     const status = getAgentStatus();
     return new Response(
-      JSON.stringify({ error: "Agent is paused (circuit breaker active)", ...status }),
+      JSON.stringify(apiError("AGENT_PAUSED", "Agent is paused (circuit breaker active)", status)),
       { status: 503, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -62,8 +63,8 @@ export async function POST(request: Request) {
   const auth = verifyAuth(request);
   if (!auth.ok) {
     return new Response(
-      JSON.stringify({ error: "Rate limited — wait 30 seconds" }),
-      { status: 429, headers: { "Content-Type": "application/json" } }
+      JSON.stringify(apiError("RATE_LIMITED", "Rate limited — wait 30 seconds", { retryAfterSeconds: 30 })),
+      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "30" } }
     );
   }
 
@@ -361,6 +362,38 @@ export async function POST(request: Request) {
                       else if (forexGap < -0.5) forexSignal = "unfavorable";
                     }
 
+                    // ── Condition-type-aware evaluation ──
+                    const conditionType = order.conditionType || "rate_reaches";
+                    let conditionMet = false;
+                    let conditionLabel = "";
+
+                    switch (conditionType) {
+                      case "rate_reaches":
+                        conditionMet = quote.rate >= order.targetRate;
+                        conditionLabel = `rate ${quote.rate.toFixed(4)} ${conditionMet ? ">=" : "<"} target ${order.targetRate}`;
+                        break;
+                      case "pct_change": {
+                        const refRate = order.referenceRate || (history[0]?.rate ?? quote.rate);
+                        const pctChange = ((quote.rate - refRate) / refRate) * 100;
+                        const threshold = order.pctChangeThreshold || 5;
+                        conditionMet = Math.abs(pctChange) >= threshold;
+                        conditionLabel = `${pctChange.toFixed(2)}% change (threshold: ±${threshold}%)`;
+                        break;
+                      }
+                      case "rate_crosses_above": {
+                        const prevRate = history.length >= 2 ? history[history.length - 2].rate : (order.referenceRate ?? 0);
+                        conditionMet = prevRate < order.targetRate && quote.rate >= order.targetRate;
+                        conditionLabel = `prev ${prevRate.toFixed(4)} → now ${quote.rate.toFixed(4)} (cross above ${order.targetRate})`;
+                        break;
+                      }
+                      case "rate_crosses_below": {
+                        const prevRate = history.length >= 2 ? history[history.length - 2].rate : (order.referenceRate ?? Infinity);
+                        conditionMet = prevRate >= order.targetRate && quote.rate < order.targetRate;
+                        conditionLabel = `prev ${prevRate.toFixed(4)} → now ${quote.rate.toFixed(4)} (cross below ${order.targetRate})`;
+                        break;
+                      }
+                    }
+
                     orderAnalysis.push({
                       orderId: order.id,
                       pair,
@@ -368,7 +401,9 @@ export async function POST(request: Request) {
                       currentRate: quote.rate,
                       targetRate: order.targetRate,
                       rateGapPct: Number(rateGapPct.toFixed(3)),
-                      meetsTarget: quote.rate >= order.targetRate,
+                      meetsTarget: conditionMet,
+                      conditionType,
+                      conditionLabel,
                       momentum,
                       volatility,
                       urgency,
@@ -489,11 +524,7 @@ export async function POST(request: Request) {
                   const tcEntry = { tool: "execute_order", summary: `${orderId} — BLOCKED by daily volume limit (${volCheck.currentVolume}/${volCheck.limit} cUSD)` };
                   toolCallLog.push(tcEntry);
                   send("tool_call", tcEntry);
-                  result = JSON.stringify({
-                    error: `Daily volume limit reached. Used ${volCheck.currentVolume} of ${volCheck.limit} cUSD (remaining: ${volCheck.remaining} cUSD). Try again later or reduce amount.`,
-                    orderId,
-                    volumeStatus: volCheck,
-                  });
+                  result = JSON.stringify(apiError("VOLUME_LIMIT_EXCEEDED", `Daily volume limit reached (${volCheck.currentVolume}/${volCheck.limit} cUSD).`, { orderId, volumeStatus: volCheck }));
                   break;
                 }
 
@@ -743,10 +774,7 @@ export async function POST(request: Request) {
                   };
                   toolCallLog.push(tcEntry);
                   send("tool_call", tcEntry);
-                  result = JSON.stringify({
-                    error: `Daily volume limit reached. Used ${swapVolCheck.currentVolume} of ${swapVolCheck.limit} cUSD (remaining: ${swapVolCheck.remaining} cUSD). Policy enforced.`,
-                    volumeStatus: swapVolCheck,
-                  });
+                  result = JSON.stringify(apiError("VOLUME_LIMIT_EXCEEDED", `Daily volume limit reached. Used ${swapVolCheck.currentVolume} of ${swapVolCheck.limit} cUSD.`, { volumeStatus: swapVolCheck }));
                   break;
                 }
 
@@ -763,11 +791,11 @@ export async function POST(request: Request) {
                   };
                   toolCallLog.push(tcEntry);
                   send("tool_call", tcEntry);
-                  result = JSON.stringify({
-                    error: `Swap rejected: spread ${spreadPct.toFixed(2)}% is below the +${MIN_PROFITABLE_SPREAD_PCT}% profitability threshold. Only positive spreads (Mento gives MORE than forex) above ${MIN_PROFITABLE_SPREAD_PCT}% are executed. Current spread is ${spreadPct < 0 ? "negative (Mento gives less than forex — would lose money)" : "too small to cover fees"}. Vault capital protected.`,
-                    spreadPct,
-                    threshold: MIN_PROFITABLE_SPREAD_PCT,
-                  });
+                  result = JSON.stringify(apiError(
+                    spreadPct < 0 ? "SPREAD_NEGATIVE" : "SPREAD_TOO_LOW",
+                    `Swap rejected: spread ${spreadPct.toFixed(2)}% is below +${MIN_PROFITABLE_SPREAD_PCT}% threshold.`,
+                    { spreadPct, threshold: MIN_PROFITABLE_SPREAD_PCT, reason: spreadPct < 0 ? "negative_spread" : "below_threshold" }
+                  ));
                   break;
                 }
 
@@ -810,6 +838,25 @@ export async function POST(request: Request) {
                     }
                   }
                   } // end if (!isRebalanceTrade)
+
+                  // ── GAS THRESHOLD CHECK ──
+                  if (!isRebalanceTrade) {
+                    const expectedProfitUsd = (spreadPct / 100) * parseFloat(amount);
+                    const gasCheck = await checkGasThreshold(expectedProfitUsd);
+                    if (!gasCheck.safe) {
+                      const tcEntry = {
+                        tool: "execute_mento_swap",
+                        summary: `${fromToken}→${toToken} BLOCKED — gas ${gasCheck.gasPriceGwei.toFixed(1)} gwei, cost $${gasCheck.estimatedGasCostUsd.toFixed(4)} > 50% of $${expectedProfitUsd.toFixed(4)} profit`,
+                      };
+                      toolCallLog.push(tcEntry);
+                      send("tool_call", tcEntry);
+                      result = JSON.stringify({
+                        error: `Swap skipped: gas cost ($${gasCheck.estimatedGasCostUsd.toFixed(4)}) exceeds 50% of expected profit ($${expectedProfitUsd.toFixed(4)}). Gas: ${gasCheck.gasPriceGwei.toFixed(1)} gwei. Capital protected.`,
+                        gasCheck,
+                      });
+                      break;
+                    }
+                  }
 
                   // Commit decision hash before execution (auditability)
                   const swapDecisionHash = commitDecision({
@@ -903,6 +950,26 @@ export async function POST(request: Request) {
                       approvalTxHash: approvalHash,
                       swapTxHash: swapHash,
                     });
+
+                    // Track rebalance cost for hedging efficiency
+                    if (isRebalanceTrade && txStatus === "confirmed") {
+                      try {
+                        const { addRebalance } = await import("@/lib/rebalance-store");
+                        const { getPortfolioComposition } = await import("@/lib/portfolio-config");
+                        const postComposition = await getPortfolioComposition();
+                        // Estimate gas cost: ~250K gas * ~5 gwei * CELO price (~$0.50)
+                        const estimatedGasCostUsd = 0.001; // negligible on Celo
+                        addRebalance({
+                          id: `rebal-${tradeId}`,
+                          timestamp: Date.now(),
+                          trades: [{ fromToken, toToken, amountIn: amount, amountOut: swapResult.summary.expectedOut, txHash: swapHash }],
+                          driftBefore: spreadPct, // caller passes drift info via reasoning
+                          driftAfter: postComposition.maxDriftPct,
+                          totalCostUsd: estimatedGasCostUsd,
+                          trigger: `drift rebalance`,
+                        });
+                      } catch { /* non-critical: don't fail the trade */ }
+                    }
                   }
 
                   const signal: Signal = {
@@ -974,6 +1041,473 @@ export async function POST(request: Request) {
                     error: `Swap not executed: ${reason}`,
                     tradeId,
                   });
+                }
+                break;
+              }
+              case "execute_uniswap_swap": {
+                const input = toolUse.input as Record<string, unknown>;
+                const tradeId = `trade-uni-${Date.now()}-${signalCount}`;
+                const fromToken = input.fromToken as string;
+                const toToken = input.toToken as string;
+                const amount = input.amount as string;
+                const spreadPct = (input.spreadPct as number) || 0;
+
+                // Safety checks
+                const uniVolCheck = checkVolumeLimit(parseFloat(amount));
+                if (!uniVolCheck.allowed) {
+                  const tcEntry = { tool: "execute_uniswap_swap", summary: `${fromToken}→${toToken} BLOCKED — daily volume limit` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify(apiError("VOLUME_LIMIT_EXCEEDED", `Daily volume limit reached (${uniVolCheck.currentVolume}/${uniVolCheck.limit} cUSD).`, { volumeStatus: uniVolCheck }));
+                  break;
+                }
+
+                try {
+                  const { buildUniswapSwapTx, UNI_TOKENS } = await import("@/lib/uniswap-quotes");
+                  type UniToken = keyof typeof UNI_TOKENS;
+
+                  const privateKey = process.env.AGENT_PRIVATE_KEY;
+                  if (!privateKey) {
+                    result = JSON.stringify(apiError("MISSING_PRIVATE_KEY", "No AGENT_PRIVATE_KEY configured"));
+                    const tcEntry = { tool: "execute_uniswap_swap", summary: `${fromToken}→${toToken} — no private key` };
+                    toolCallLog.push(tcEntry);
+                    send("tool_call", tcEntry);
+                    break;
+                  }
+
+                  const normalizedKey = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as `0x${string}`;
+                  const account = privateKeyToAccount(normalizedKey);
+
+                  // Commit decision before execution
+                  const decHash = commitDecision({
+                    orderId: tradeId,
+                    action: "execute",
+                    reasoning: (input.reasoning as string) || `Uniswap swap ${fromToken}→${toToken}`,
+                    timestamp: Date.now(),
+                    currentRate: 0,
+                    targetRate: 0,
+                    momentum: "n/a",
+                    urgency: "immediate",
+                  });
+                  send("decision_hash", { orderId: tradeId, hash: decHash, action: "execute" });
+
+                  const swapResult = await buildUniswapSwapTx(
+                    fromToken as UniToken,
+                    toToken as UniToken,
+                    amount,
+                    account.address
+                  );
+
+                  const wallet = createWalletClient({
+                    account,
+                    chain: celo,
+                    transport: http("https://forno.celo.org"),
+                  });
+                  const feeCurrency = TOKENS.cUSD as `0x${string}`;
+                  const { createPublicClient: createPubClient } = await import("viem");
+                  const publicClient = createPubClient({ chain: celo, transport: http("https://forno.celo.org") });
+
+                  // Approve
+                  const approvalHash = await wallet.sendTransaction({
+                    to: swapResult.approvalTx.to,
+                    data: swapResult.approvalTx.data as `0x${string}`,
+                    feeCurrency,
+                  });
+                  await publicClient.waitForTransactionReceipt({ hash: approvalHash });
+
+                  // Swap
+                  const swapHash = await wallet.sendTransaction({
+                    to: swapResult.swapTx.to,
+                    data: swapResult.swapTx.data as `0x${string}`,
+                    feeCurrency,
+                  });
+                  await publicClient.waitForTransactionReceipt({ hash: swapHash });
+
+                  recordVolume(parseFloat(amount));
+
+                  const trade: Trade = {
+                    id: tradeId,
+                    pair: `${fromToken}/${toToken}`,
+                    fromToken,
+                    toToken,
+                    amountIn: amount,
+                    amountOut: swapResult.summary.expectedOut,
+                    rate: swapResult.summary.rate,
+                    spreadPct,
+                    status: "confirmed",
+                    approvalTxHash: approvalHash,
+                    swapTxHash: swapHash,
+                    timestamp: Date.now(),
+                  };
+                  addTrade(trade);
+
+                  const tcEntry = { tool: "execute_uniswap_swap", summary: `${amount} ${fromToken}→${toToken} CONFIRMED (Uniswap V3)` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+
+                  result = JSON.stringify({
+                    success: true,
+                    tradeId,
+                    swap: swapResult.summary,
+                    approvalTxHash: approvalHash,
+                    swapTxHash: swapHash,
+                    venue: "uniswap-v3",
+                  });
+                } catch (err) {
+                  const tcEntry = { tool: "execute_uniswap_swap", summary: `${fromToken}→${toToken} FAILED: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({ error: `Uniswap swap failed: ${err instanceof Error ? err.message : "unknown"}`, tradeId });
+                }
+                break;
+              }
+              case "execute_cross_dex_arb": {
+                const input = toolUse.input as Record<string, unknown>;
+                const arbId = `arb-${Date.now()}`;
+                const pair = input.pair as string;
+                const amount = input.amount as string;
+                const buyVenue = input.buyVenue as "mento" | "uniswap";
+                const sellVenue = input.sellVenue as "mento" | "uniswap";
+                const venueSpreadPct = input.venueSpreadPct as number;
+
+                const arbVolCheck = checkVolumeLimit(parseFloat(amount));
+                if (!arbVolCheck.allowed) {
+                  const tcEntry = { tool: "execute_cross_dex_arb", summary: `${pair} BLOCKED — daily volume limit` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify(apiError("VOLUME_LIMIT_EXCEEDED", "Daily volume limit reached.", { volumeStatus: arbVolCheck }));
+                  break;
+                }
+
+                if (venueSpreadPct < 0.3) {
+                  const tcEntry = { tool: "execute_cross_dex_arb", summary: `${pair} BLOCKED — venue spread ${venueSpreadPct}% < 0.3%` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify(apiError("ARB_SPREAD_TOO_LOW", `Venue spread ${venueSpreadPct}% is below 0.3% threshold.`, { venueSpreadPct, threshold: 0.3 }));
+                  break;
+                }
+
+                try {
+                  const [tokenA, tokenB] = pair.split("/");
+                  const privateKey = process.env.AGENT_PRIVATE_KEY;
+                  if (!privateKey) {
+                    result = JSON.stringify(apiError("MISSING_PRIVATE_KEY", "No AGENT_PRIVATE_KEY configured"));
+                    const tcEntry = { tool: "execute_cross_dex_arb", summary: `${pair} — no private key` };
+                    toolCallLog.push(tcEntry);
+                    send("tool_call", tcEntry);
+                    break;
+                  }
+
+                  const normalizedKey = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as `0x${string}`;
+                  const account = privateKeyToAccount(normalizedKey);
+
+                  const decHash = commitDecision({
+                    orderId: arbId,
+                    action: "execute",
+                    reasoning: (input.reasoning as string) || `Cross-DEX arb ${pair}: buy on ${buyVenue}, sell on ${sellVenue}`,
+                    timestamp: Date.now(),
+                    currentRate: 0,
+                    targetRate: 0,
+                    momentum: "n/a",
+                    urgency: "immediate",
+                  });
+                  send("decision_hash", { orderId: arbId, hash: decHash, action: "execute" });
+
+                  const wallet = createWalletClient({ account, chain: celo, transport: http("https://forno.celo.org") });
+                  const feeCurrency = TOKENS.cUSD as `0x${string}`;
+                  const { createPublicClient: createPubClient } = await import("viem");
+                  const publicClient = createPubClient({ chain: celo, transport: http("https://forno.celo.org") });
+
+                  let buyTxHash: string | undefined;
+                  let sellTxHash: string | undefined;
+                  let buyAmountOut = "0";
+                  let sellAmountOut = "0";
+
+                  // ── BUY LEG ──
+                  if (buyVenue === "mento") {
+                    const { buildSwapTx: buildMentoSwap } = await import("@/lib/mento-sdk");
+                    const buyResult = await buildMentoSwap(tokenA as MentoToken, tokenB as MentoToken, amount);
+                    const appHash = await wallet.sendTransaction({ to: buyResult.approvalTx.to, data: buyResult.approvalTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: appHash });
+                    const swHash = await wallet.sendTransaction({ to: buyResult.swapTx.to, data: buyResult.swapTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: swHash });
+                    buyTxHash = swHash;
+                    buyAmountOut = buyResult.summary.expectedOut;
+                  } else {
+                    const { buildUniswapSwapTx, UNI_TOKENS } = await import("@/lib/uniswap-quotes");
+                    type UniToken = keyof typeof UNI_TOKENS;
+                    const buyResult = await buildUniswapSwapTx(tokenA as UniToken, tokenB as UniToken, amount, account.address);
+                    const appHash = await wallet.sendTransaction({ to: buyResult.approvalTx.to, data: buyResult.approvalTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: appHash });
+                    const swHash = await wallet.sendTransaction({ to: buyResult.swapTx.to, data: buyResult.swapTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: swHash });
+                    buyTxHash = swHash;
+                    buyAmountOut = buyResult.summary.expectedOut;
+                  }
+
+                  // ── SELL LEG ── (sell what we bought back to original token)
+                  if (sellVenue === "mento") {
+                    const { buildSwapTx: buildMentoSwap } = await import("@/lib/mento-sdk");
+                    const sellResult = await buildMentoSwap(tokenB as MentoToken, tokenA as MentoToken, buyAmountOut);
+                    const appHash = await wallet.sendTransaction({ to: sellResult.approvalTx.to, data: sellResult.approvalTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: appHash });
+                    const swHash = await wallet.sendTransaction({ to: sellResult.swapTx.to, data: sellResult.swapTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: swHash });
+                    sellTxHash = swHash;
+                    sellAmountOut = sellResult.summary.expectedOut;
+                  } else {
+                    const { buildUniswapSwapTx, UNI_TOKENS } = await import("@/lib/uniswap-quotes");
+                    type UniToken = keyof typeof UNI_TOKENS;
+                    const sellResult = await buildUniswapSwapTx(tokenB as UniToken, tokenA as UniToken, buyAmountOut, account.address);
+                    const appHash = await wallet.sendTransaction({ to: sellResult.approvalTx.to, data: sellResult.approvalTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: appHash });
+                    const swHash = await wallet.sendTransaction({ to: sellResult.swapTx.to, data: sellResult.swapTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: swHash });
+                    sellTxHash = swHash;
+                    sellAmountOut = sellResult.summary.expectedOut;
+                  }
+
+                  const pnl = parseFloat(sellAmountOut) - parseFloat(amount);
+                  recordVolume(parseFloat(amount));
+
+                  const trade: Trade = {
+                    id: arbId,
+                    pair,
+                    fromToken: tokenA,
+                    toToken: tokenA,
+                    amountIn: amount,
+                    amountOut: sellAmountOut,
+                    rate: parseFloat(sellAmountOut) / parseFloat(amount),
+                    spreadPct: venueSpreadPct,
+                    status: "confirmed",
+                    swapTxHash: sellTxHash,
+                    pnl,
+                    timestamp: Date.now(),
+                  };
+                  addTrade(trade);
+
+                  const tcEntry = { tool: "execute_cross_dex_arb", summary: `${pair} arb CONFIRMED — P&L: ${pnl >= 0 ? "+" : ""}${pnl.toFixed(4)} ${tokenA}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+
+                  result = JSON.stringify({
+                    success: true,
+                    arbId,
+                    buyLeg: { venue: buyVenue, txHash: buyTxHash, amountOut: buyAmountOut },
+                    sellLeg: { venue: sellVenue, txHash: sellTxHash, amountOut: sellAmountOut },
+                    pnl,
+                    decisionHash: decHash,
+                  });
+                } catch (err) {
+                  const tcEntry = { tool: "execute_cross_dex_arb", summary: `${pair} arb FAILED: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({ error: `Cross-DEX arb failed: ${err instanceof Error ? err.message : "unknown"}` });
+                }
+                break;
+              }
+              case "execute_remittance": {
+                const input = toolUse.input as Record<string, unknown>;
+                const remitId = `remit-${Date.now()}`;
+                const fromToken = input.fromToken as MentoToken;
+                const toToken = input.toToken as MentoToken;
+                const amount = input.amount as string;
+                const recipientAddress = input.recipientAddress as string;
+                const corridor = input.corridor as string;
+
+                // Validate address
+                const { isAddress } = await import("viem");
+                if (!isAddress(recipientAddress)) {
+                  const tcEntry = { tool: "execute_remittance", summary: `BLOCKED — invalid recipient address` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify(apiError("INVALID_ADDRESS", `Invalid recipient address: ${recipientAddress}`, { recipientAddress }));
+                  break;
+                }
+
+                const remitVolCheck = checkVolumeLimit(parseFloat(amount));
+                if (!remitVolCheck.allowed) {
+                  const tcEntry = { tool: "execute_remittance", summary: `${corridor} BLOCKED — daily volume limit` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify(apiError("VOLUME_LIMIT_EXCEEDED", "Daily volume limit reached.", { volumeStatus: remitVolCheck }));
+                  break;
+                }
+
+                try {
+                  const privateKey = process.env.AGENT_PRIVATE_KEY;
+                  if (!privateKey) {
+                    result = JSON.stringify(apiError("MISSING_PRIVATE_KEY", "No AGENT_PRIVATE_KEY configured"));
+                    const tcEntry = { tool: "execute_remittance", summary: `${corridor} — no private key` };
+                    toolCallLog.push(tcEntry);
+                    send("tool_call", tcEntry);
+                    break;
+                  }
+
+                  const normalizedKey = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as `0x${string}`;
+                  const account = privateKeyToAccount(normalizedKey);
+
+                  const decHash = commitDecision({
+                    orderId: remitId,
+                    action: "execute",
+                    reasoning: (input.reasoning as string) || `Remittance ${amount} ${fromToken}→${toToken} to ${recipientAddress} (${corridor})`,
+                    timestamp: Date.now(),
+                    currentRate: 0,
+                    targetRate: 0,
+                    momentum: "n/a",
+                    urgency: "immediate",
+                  });
+                  send("decision_hash", { orderId: remitId, hash: decHash, action: "execute" });
+
+                  const wallet = createWalletClient({ account, chain: celo, transport: http("https://forno.celo.org") });
+                  const feeCurrency = TOKENS.cUSD as `0x${string}`;
+                  const { createPublicClient: createPubClient } = await import("viem");
+                  const publicClient = createPubClient({ chain: celo, transport: http("https://forno.celo.org") });
+
+                  let swapTxHash: string | undefined;
+                  let transferAmount = amount;
+
+                  // Step 1: Swap if cross-currency
+                  if (fromToken !== toToken) {
+                    const { buildSwapTx: buildMentoSwap } = await import("@/lib/mento-sdk");
+                    const swapResult = await buildMentoSwap(fromToken, toToken, amount);
+
+                    const appHash = await wallet.sendTransaction({ to: swapResult.approvalTx.to, data: swapResult.approvalTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: appHash });
+
+                    const swHash = await wallet.sendTransaction({ to: swapResult.swapTx.to, data: swapResult.swapTx.data as `0x${string}`, feeCurrency });
+                    await publicClient.waitForTransactionReceipt({ hash: swHash });
+
+                    swapTxHash = swHash;
+                    transferAmount = swapResult.summary.expectedOut;
+                  }
+
+                  // Step 2: Transfer to recipient
+                  const { buildTransferTx } = await import("@/lib/mento-sdk");
+                  const transferTx = buildTransferTx(toToken, recipientAddress as `0x${string}`, transferAmount);
+
+                  const transferHash = await wallet.sendTransaction({
+                    to: transferTx.to,
+                    data: transferTx.data as `0x${string}`,
+                    feeCurrency,
+                  });
+                  await publicClient.waitForTransactionReceipt({ hash: transferHash });
+
+                  recordVolume(parseFloat(amount));
+
+                  const trade: Trade = {
+                    id: remitId,
+                    pair: `${fromToken}/${toToken}`,
+                    fromToken,
+                    toToken,
+                    amountIn: amount,
+                    amountOut: transferAmount,
+                    rate: fromToken !== toToken ? parseFloat(transferAmount) / parseFloat(amount) : 1,
+                    spreadPct: 0,
+                    status: "confirmed",
+                    swapTxHash: transferHash,
+                    timestamp: Date.now(),
+                  };
+                  addTrade(trade);
+
+                  // Auto-advance any matching recurring transfer schedule
+                  try {
+                    const { getRecurring: getRecurringList, advanceNextExecution } = await import("@/lib/recurring-store");
+                    const matching = getRecurringList({ active: true }).find(
+                      r => r.recipientAddress.toLowerCase() === recipientAddress.toLowerCase() && r.fromToken === fromToken && r.toToken === toToken
+                    );
+                    if (matching) {
+                      advanceNextExecution(matching.id);
+                      const { updateRecurring: updateRec } = await import("@/lib/recurring-store");
+                      updateRec(matching.id, { lastTxHash: transferHash });
+                    }
+                  } catch { /* non-critical */ }
+
+                  const tcEntry = { tool: "execute_remittance", summary: `${corridor}: ${amount} ${fromToken}→${transferAmount} ${toToken} → ${recipientAddress.slice(0, 8)}...` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+
+                  result = JSON.stringify({
+                    success: true,
+                    remitId,
+                    corridor,
+                    fromToken,
+                    toToken,
+                    amountSent: amount,
+                    amountDelivered: transferAmount,
+                    recipientAddress,
+                    swapTxHash: swapTxHash || "same-currency",
+                    transferTxHash: transferHash,
+                    decisionHash: decHash,
+                  });
+                } catch (err) {
+                  const tcEntry = { tool: "execute_remittance", summary: `${corridor} FAILED: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({ error: `Remittance failed: ${err instanceof Error ? err.message : "unknown"}` });
+                }
+                break;
+              }
+              case "check_recurring_transfers": {
+                try {
+                  const { getRecurring } = await import("@/lib/recurring-store");
+                  const dueTransfers = getRecurring({ active: true, dueNow: true });
+                  const allActive = getRecurring({ active: true });
+
+                  const tcEntry = {
+                    tool: "check_recurring_transfers",
+                    summary: `${dueTransfers.length} due now, ${allActive.length} active total`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+
+                  result = JSON.stringify({
+                    dueTransfers: dueTransfers.map(t => ({
+                      id: t.id,
+                      fromToken: t.fromToken,
+                      toToken: t.toToken,
+                      amount: t.amount,
+                      recipientAddress: t.recipientAddress,
+                      corridor: t.corridor,
+                      frequency: t.frequency,
+                      executionCount: t.executionCount,
+                    })),
+                    activeCount: allActive.length,
+                    instructions: dueTransfers.length > 0
+                      ? "Execute each due transfer via execute_remittance, then the system will advance nextExecution automatically."
+                      : "No recurring transfers are due right now.",
+                  });
+                } catch (err) {
+                  result = JSON.stringify({ error: `Failed to check recurring transfers: ${err instanceof Error ? err.message : "unknown"}` });
+                  const tcEntry = { tool: "check_recurring_transfers", summary: "Error checking recurring transfers" };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                }
+                break;
+              }
+              case "get_rebalance_history": {
+                try {
+                  const { getRebalances, getCumulativeRebalanceCost } = await import("@/lib/rebalance-store");
+                  const recent = getRebalances(10);
+                  const cumulative = getCumulativeRebalanceCost();
+
+                  const tcEntry = {
+                    tool: "get_rebalance_history",
+                    summary: `${cumulative.count} rebalances, $${cumulative.totalCostUsd.toFixed(4)} total cost`,
+                  };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+
+                  result = JSON.stringify({
+                    recentRebalances: recent,
+                    cumulative,
+                    instructions: "Use this data to assess hedging efficiency. If avg cost per rebalance is high relative to drift reduction, consider widening the drift threshold.",
+                  });
+                } catch (err) {
+                  result = JSON.stringify({ error: `Failed to get rebalance history: ${err instanceof Error ? err.message : "unknown"}` });
+                  const tcEntry = { tool: "get_rebalance_history", summary: "Error fetching rebalance history" };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
                 }
                 break;
               }

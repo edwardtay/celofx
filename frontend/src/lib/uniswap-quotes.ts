@@ -1,8 +1,9 @@
-import { createPublicClient, http, parseUnits, formatUnits, type Address } from "viem";
+import { createPublicClient, http, parseUnits, formatUnits, encodeFunctionData, type Address } from "viem";
 import { celo } from "viem/chains";
 
 // ─── Uniswap V3 on Celo Mainnet ───
 export const UNISWAP_QUOTER_V2 = "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8" as const;
+export const UNISWAP_SWAP_ROUTER_02 = "0x5615CDAb10dc425a742d643d949a7F474C01abc4" as const;
 
 // Tokens (including 6-decimal stablecoins)
 export const UNI_TOKENS = {
@@ -242,4 +243,108 @@ function getBestVenue(
   const uniSpread = Math.abs(((uniRate - forexRate) / forexRate) * 100);
   if (Math.abs(mentoSpread - uniSpread) < 0.05) return "tied";
   return mentoSpread > uniSpread ? "mento" : "uniswap";
+}
+
+// ─── SwapRouter02 ABI (exactInputSingle) ───
+const SWAP_ROUTER_ABI = [
+  {
+    name: "exactInputSingle",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      {
+        name: "params",
+        type: "tuple",
+        components: [
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "fee", type: "uint24" },
+          { name: "recipient", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOutMinimum", type: "uint256" },
+          { name: "sqrtPriceLimitX96", type: "uint160" },
+        ],
+      },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+] as const;
+
+const ERC20_APPROVE_ABI = [
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+/**
+ * Build Uniswap V3 swap transaction data (approve + exactInputSingle).
+ * Returns tx params that can be sent via a wallet, same shape as buildSwapTx() in mento-sdk.
+ */
+export async function buildUniswapSwapTx(
+  tokenIn: UniToken,
+  tokenOut: UniToken,
+  amountIn: string,
+  recipient: Address,
+  slippagePct: number = 1
+) {
+  const inInfo = UNI_TOKENS[tokenIn];
+  const outInfo = UNI_TOKENS[tokenOut];
+
+  const quote = await getUniswapQuote(tokenIn, tokenOut, amountIn);
+  const amountInWei = parseUnits(amountIn, inInfo.decimals);
+  const amountOutWei = parseUnits(quote.amountOut, outInfo.decimals);
+
+  // Apply slippage tolerance
+  const amountOutMinimum = (amountOutWei * BigInt(100 - slippagePct)) / BigInt(100);
+
+  const approvalData = encodeFunctionData({
+    abi: ERC20_APPROVE_ABI,
+    functionName: "approve",
+    args: [UNISWAP_SWAP_ROUTER_02 as Address, amountInWei],
+  });
+
+  const swapData = encodeFunctionData({
+    abi: SWAP_ROUTER_ABI,
+    functionName: "exactInputSingle",
+    args: [
+      {
+        tokenIn: inInfo.address,
+        tokenOut: outInfo.address,
+        fee: quote.fee,
+        recipient,
+        amountIn: amountInWei,
+        amountOutMinimum,
+        sqrtPriceLimitX96: BigInt(0),
+      },
+    ],
+  });
+
+  return {
+    quote,
+    approvalTx: {
+      to: inInfo.address as Address,
+      data: approvalData,
+    },
+    swapTx: {
+      to: UNISWAP_SWAP_ROUTER_02 as Address,
+      data: swapData,
+    },
+    summary: {
+      tokenIn,
+      tokenOut,
+      amountIn,
+      expectedOut: quote.amountOut,
+      minOut: formatUnits(amountOutMinimum, outInfo.decimals),
+      rate: quote.rate,
+      slippagePct,
+      venue: "uniswap-v3" as const,
+    },
+  };
 }

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+import { getAgentStatus } from "@/lib/agent-policy";
+import { getAttestation } from "@/lib/tee";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const agentStatus = getAgentStatus();
+  const tee = await getAttestation();
+
   return NextResponse.json(
     {
       type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
@@ -12,11 +17,6 @@ export async function GET() {
       image: "https://celofx.vercel.app/celofx-logo.png",
       services: [
         { name: "web", endpoint: "https://celofx.vercel.app" },
-        {
-          name: "agentWallet",
-          endpoint:
-            "eip155:42220:0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
-        },
         {
           name: "MCP",
           endpoint: "https://celofx.vercel.app/api/mcp",
@@ -73,6 +73,15 @@ export async function GET() {
           ],
         },
         {
+          name: "X402",
+          endpoint: "https://celofx.vercel.app/api/premium-signals",
+          version: "1.0.0",
+          price: "$0.01",
+          currency: "cUSD",
+          chain: "celo",
+          standard: "EIP-712",
+        },
+        {
           name: "TEE",
           endpoint: "https://celofx.vercel.app/api/tee/attestation",
           version: "dstack-dev-0.5.6",
@@ -111,10 +120,14 @@ export async function GET() {
       health: {
         endpoint: "https://celofx.vercel.app/api/health",
         interval: 60,
+        status: agentStatus.paused ? "paused" : "healthy",
+        dailyVolumeUsed: agentStatus.dailyVolume,
+        dailyVolumeLimit: agentStatus.dailyLimit,
+        decisionsLogged: agentStatus.decisionsLogged,
       },
       x402Support: true,
-      active: true,
-      updatedAt: "2026-02-13T00:00:00Z",
+      active: !agentStatus.paused,
+      updatedAt: new Date().toISOString(),
       registrations: [
         {
           agentId: 10,
@@ -126,6 +139,8 @@ export async function GET() {
       tee: {
         hardware: "Intel TDX",
         provider: "Phala Cloud",
+        status: tee.status,
+        verified: tee.verified,
         attestationEndpoint: "https://celofx.vercel.app/api/tee/attestation",
         fallbackEndpoint: "https://celofx.vercel.app/api/attestation",
         cvmAppId: "0e73394e6e0afc0e4de5cb899d11edf4edeb3cd5",

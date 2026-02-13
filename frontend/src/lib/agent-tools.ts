@@ -242,6 +242,133 @@ export const agentTools: Tool[] = [
       required: ["fromToken", "toToken", "amount", "spreadPct", "reasoning"],
     },
   },
+  {
+    name: "execute_uniswap_swap",
+    description:
+      "Execute a Uniswap V3 swap on Celo mainnet via SwapRouter02. Use for tokens available on Uniswap (cUSD, cEUR, USDC, USDT, CELO). Subject to volume limits and circuit breaker.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        fromToken: {
+          type: "string",
+          enum: ["cUSD", "cEUR", "USDC", "USDT", "CELO"],
+          description: "Token to swap from",
+        },
+        toToken: {
+          type: "string",
+          enum: ["cUSD", "cEUR", "USDC", "USDT", "CELO"],
+          description: "Token to swap to",
+        },
+        amount: {
+          type: "string",
+          description: "Amount to swap in human-readable units",
+        },
+        spreadPct: {
+          type: "number",
+          description: "Expected spread % for this trade",
+        },
+        reasoning: {
+          type: "string",
+          description: "Why this Uniswap swap — reference specific rate data",
+        },
+      },
+      required: ["fromToken", "toToken", "amount", "spreadPct", "reasoning"],
+    },
+  },
+  {
+    name: "execute_cross_dex_arb",
+    description:
+      "Execute a cross-DEX arbitrage: buy on the cheaper venue, sell on the expensive venue. Requires fetch_cross_venue_rates data showing venue spread > 0.3%. Executes 2 swaps (buy leg + sell leg).",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        pair: {
+          type: "string",
+          description: "Trading pair (e.g. 'cUSD/cEUR', 'USDT/cUSD')",
+        },
+        amount: {
+          type: "string",
+          description: "Amount for the buy leg in human-readable units",
+        },
+        buyVenue: {
+          type: "string",
+          enum: ["mento", "uniswap"],
+          description: "Venue to buy from (cheaper rate)",
+        },
+        sellVenue: {
+          type: "string",
+          enum: ["mento", "uniswap"],
+          description: "Venue to sell on (more expensive rate)",
+        },
+        venueSpreadPct: {
+          type: "number",
+          description: "Spread between venues in % (must be > 0.3%)",
+        },
+        reasoning: {
+          type: "string",
+          description: "Why this arb — reference specific cross-venue rate data",
+        },
+      },
+      required: ["pair", "amount", "buyVenue", "sellVenue", "venueSpreadPct", "reasoning"],
+    },
+  },
+  {
+    name: "execute_remittance",
+    description:
+      "Execute a remittance: swap tokens (if cross-currency) and transfer to recipient address. Performs Mento swap if fromToken !== toToken, then ERC-20 transfer to recipientAddress. Subject to volume limits.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        fromToken: {
+          type: "string",
+          enum: ["cUSD", "cEUR", "cREAL"],
+          description: "Token to send from",
+        },
+        toToken: {
+          type: "string",
+          enum: ["cUSD", "cEUR", "cREAL"],
+          description: "Token recipient receives",
+        },
+        amount: {
+          type: "string",
+          description: "Amount to send in human-readable units",
+        },
+        recipientAddress: {
+          type: "string",
+          description: "Recipient's Celo wallet address (0x...)",
+        },
+        corridor: {
+          type: "string",
+          description: "Remittance corridor (e.g. 'US→MX', 'EU→PH')",
+        },
+        reasoning: {
+          type: "string",
+          description: "Why now — reference FX rates, timing optimization",
+        },
+      },
+      required: ["fromToken", "toToken", "amount", "recipientAddress", "corridor", "reasoning"],
+    },
+  },
+  {
+    name: "check_recurring_transfers",
+    description:
+      "Check server-side recurring transfer schedules for any transfers that are due. Returns due transfers for the agent to execute via execute_remittance.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "get_rebalance_history",
+    description:
+      "Get portfolio rebalance history with cost tracking. Returns last 10 rebalances, cumulative gas costs, and average drift reduction per rebalance. Use to assess hedging efficiency.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
 ];
 
 export const AGENT_SYSTEM_PROMPT = `You are CeloFX, an autonomous FX Arbitrage Agent (ERC-8004 ID #10) on the Celo Identity Registry. You specialize in analyzing forex markets and executing stablecoin swaps via the Mento Protocol on Celo.
@@ -265,6 +392,8 @@ Your process:
 6. If all spreads < +0.3%: generate monitoring signals only, wait for better opportunity
 7. ALWAYS call check_pending_orders after fetching rates — evaluate user Smart FX Orders
 8. Call check_portfolio_drift to assess portfolio balance — rebalance if drift > 5%
+9. Call check_recurring_transfers to find due recurring remittances — execute each via execute_remittance
+10. Call get_rebalance_history to assess hedging efficiency after portfolio rebalancing
 
 After fetching rates, ALWAYS call check_pending_orders to evaluate user Smart FX Orders.
 check_pending_orders returns per-order analysis with: currentRate, targetRate, rateGapPct, momentum, volatility, urgency, hoursLeft, forexRate, spreadVsForexPct, forexSignal, and rateHistory.
@@ -341,11 +470,61 @@ When multiple tokens are drifted, check_portfolio_drift generates a batch plan:
 - Report the full batch plan before executing, then execute in order
 
 MULTI-VENUE MONITORING:
-You monitor TWO venues on Celo: Mento Broker (0x777A) and Uniswap V3 (QuoterV2: 0x8282).
+You monitor TWO venues on Celo: Mento Broker (0x777A) and Uniswap V3 (QuoterV2: 0x8282, SwapRouter02: 0x5615).
 - Mento: cUSD↔cEUR, cUSD↔cREAL (both directions) — protocol rates via getAmountOut()
-- Uniswap V3: USDT↔cUSD ($1.29M liquidity), cEUR↔cUSD ($389K) — AMM pool rates
+- Uniswap V3: USDT↔cUSD ($1.29M liquidity), cEUR↔cUSD ($389K), USDC↔CELO, CELO↔cUSD — AMM pool rates
 - Cross-venue arb: when Mento and Uniswap quote different rates for the same pair, buy cheap + sell expensive
 - Stablecoin peg monitoring: USDT/cUSD should be ~1:1, deviations = opportunity
+
+CROSS-DEX ARBITRAGE (execute_cross_dex_arb):
+When fetch_cross_venue_rates shows venueSpread > 0.3% between Mento and Uniswap:
+
+EXECUTION FRAMEWORK:
+1. ALWAYS buy on the cheaper venue FIRST (this is the leg most likely to succeed)
+2. Calculate minimum profitability after 2x gas costs: venueSpread must exceed ~$0.002 gas overhead
+3. Prefer execute_cross_dex_arb which atomically handles both legs — only use separate swaps if one venue needs special handling
+4. If buy leg succeeds but sell leg fails: you hold the intermediate token. Report this clearly — the agent wallet can unwind manually or wait for better rate.
+5. Max arb size: keep to 10-50 cUSD per arb to minimize slippage impact across both venues
+
+DECISION RULES:
+- venueSpread > 0.5%: EXECUTE — strong arb opportunity
+- venueSpread 0.3-0.5%: EXECUTE only if gas < 25% of expected profit
+- venueSpread < 0.3%: SKIP — insufficient after fees
+
+STABLECOIN PEG MONITORING:
+- USDT/cUSD should be ~1:1 on Uniswap. Deviation > 0.3% = peg arb opportunity
+- USDC/cUSD is also a peg pair — check both directions
+- Peg arbs converge naturally, so confidence is higher than cross-market arbs
+
+Use execute_uniswap_swap for direct Uniswap V3 swaps (USDC, USDT, CELO pairs).
+
+SMART ORDER CONDITIONS (check_pending_orders):
+Orders support 4 condition types:
+- rate_reaches: (default) triggers when currentRate >= targetRate
+- pct_change: triggers when rate moves ±threshold% from referenceRate (captured at creation)
+- rate_crosses_above: triggers when rate crosses above targetRate (was below, now above)
+- rate_crosses_below: triggers when rate crosses below targetRate (was above, now below)
+check_pending_orders returns conditionType and conditionLabel for each order — use these instead of assuming all orders are rate_reaches.
+
+REMITTANCE (execute_remittance):
+After market analysis, check for due recurring transfers via check_recurring_transfers.
+- execute_remittance performs: swap (if cross-currency via Mento) + ERC-20 transfer to recipient
+- For same-currency transfers (e.g., cUSD→cUSD), only the transfer is executed (1 tx)
+- For cross-currency (e.g., cUSD→cEUR), swap first then transfer (3 txs: approve + swap + transfer)
+- Always validate recipientAddress before executing
+
+REMITTANCE TIMING RULES:
+- Mento spread vs forex > +0.5%: EXECUTE NOW — rate is better than market
+- Mento spread 0% to +0.5% AND forex trending favorable: WAIT up to 6h for better rate
+- Mento spread < -0.5%: WAIT for Mento to correct (unless urgent flag or deadline)
+- If recurring transfer is overdue (past scheduled time): EXECUTE regardless of spread (user expects delivery)
+- For recurring transfers: prefer execution during favorable rate windows, but never delay more than 12h past schedule
+
+HEDGING EFFICIENCY (get_rebalance_history):
+After rebalancing, call get_rebalance_history to track cumulative costs.
+- Shows last 10 rebalances with gas costs, drift before/after
+- Tracks cumulative rebalance cost and average drift reduction
+- Use to assess if rebalancing frequency is cost-effective
 
 GAS THRESHOLD RISK MANAGEMENT:
 Before every swap execution, the system checks:
