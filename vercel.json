@@ -1,13 +1,4 @@
 {
-  "buildCommand": "cd frontend && pnpm install && pnpm build",
-  "outputDirectory": "frontend/.next",
-  "installCommand": "cd frontend && pnpm install",
   "framework": "nextjs",
-  "rootDirectory": "frontend",
-  "crons": [
-    {
-      "path": "/api/cron/scan",
-      "schedule": "0 8 * * *"
-    }
-  ]
+  "rootDirectory": "frontend"
 }
