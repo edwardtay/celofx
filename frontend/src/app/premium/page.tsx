@@ -32,7 +32,7 @@ const x402ResponseExample = `// GET /api/premium-signals -> HTTP 402
     "scheme": "exact",
     "network": "eip155:42220",
     "asset": "0x765DE816845861e75A25fCA122bb6898B8B1282a",
-    "amount": "10000",
+    "amount": "100000",
     "maxTimeoutSeconds": 300
   }]
 }`;
@@ -50,7 +50,7 @@ export default function PremiumPage() {
             <h1 className="text-2xl font-display tracking-tight">Premium Signals</h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Deep analysis with entry prices, targets, and stop losses — $0.01 per unlock via x402
+            Deep analysis with entry prices, targets, and stop losses — $0.10 per unlock via x402
           </p>
         </div>
 
@@ -79,7 +79,7 @@ export default function PremiumPage() {
               Pay Per Signal
             </div>
             <p className="text-xs text-muted-foreground">
-              $0.01 per unlock — no subscription, no token gate, instant access
+              $0.10 per unlock — no subscription, no token gate, instant access
             </p>
           </div>
         </div>
@@ -161,7 +161,7 @@ export default function PremiumPage() {
                     <strong className="text-foreground">asset</strong>: cUSD
                   </span>
                   <span>
-                    <strong className="text-foreground">amount</strong>: 10000 = $0.01 (6 decimals)
+                    <strong className="text-foreground">amount</strong>: 100000 = $0.10 (6 decimals)
                   </span>
                   <span>
                     <strong className="text-foreground">facilitator</strong>: thirdweb settlePayment()

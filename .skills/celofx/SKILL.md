@@ -27,7 +27,7 @@ CeloFX is an autonomous FX arbitrage agent on Celo that compares Mento Broker on
 | A2A | `https://celofx.vercel.app/.well-known/agent-card.json` | Agent-to-agent discovery card |
 | ERC-8004 | `https://celofx.vercel.app/agent-metadata-v2.json` | On-chain agent identity metadata |
 | OASF | `https://celofx.vercel.app/.well-known/oasf.json` | Open Agent Skills Framework manifest |
-| x402 | `https://celofx.vercel.app/api/premium-signals` | Paid premium signals ($0.01 cUSD) |
+| x402 | `https://celofx.vercel.app/api/premium-signals` | Paid premium signals ($0.10 cUSD) |
 | Health | `https://celofx.vercel.app/api/health` | Agent health status |
 
 ## On-Chain Addresses (Celo Mainnet, Chain ID 42220)

@@ -84,7 +84,7 @@ export async function GET() {
       x402: {
         supported: true,
         endpoint: `${base}/api/premium-signals`,
-        price: "$0.01",
+        price: "$0.10",
         currency: "cUSD",
         chain: "celo",
       },

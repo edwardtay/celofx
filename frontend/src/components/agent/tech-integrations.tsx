@@ -13,7 +13,7 @@ const integrations = [
   {
     name: "x402 via thirdweb",
     desc: "HTTP 402 micropayments for premium signals",
-    detail: "thirdweb settlePayment() facilitator + $0.01 cUSD via EIP-712 on Celo — no gas fees",
+    detail: "thirdweb settlePayment() facilitator + $0.10 cUSD via EIP-712 on Celo — no gas fees",
     link: "https://portal.thirdweb.com/x402",
     color: "border-l-blue-500",
   },

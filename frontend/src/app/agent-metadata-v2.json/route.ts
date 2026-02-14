@@ -78,7 +78,7 @@ export async function GET() {
           name: "X402",
           endpoint: `${base}/api/premium-signals`,
           version: "1.0.0",
-          price: "$0.01",
+          price: "$0.10",
           currency: "cUSD",
           chain: "celo",
           standard: "EIP-712",

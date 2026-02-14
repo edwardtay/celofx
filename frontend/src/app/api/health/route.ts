@@ -40,7 +40,7 @@ export async function GET() {
     services: {
       a2a: { status: "up", skills: 4 },
       mcp: { status: "up", tools: 9, protocolVersion: "2025-06-18" },
-      x402: { status: "up", price: "$0.01", currency: "cUSD" },
+      x402: { status: "up", price: "$0.10", currency: "cUSD" },
       web: { status: "up" },
     },
     stats: {

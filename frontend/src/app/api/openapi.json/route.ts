@@ -410,7 +410,7 @@ const SPEC = {
       get: {
         tags: ["Signals"],
         summary: "Premium signals (x402)",
-        description: "Premium trading signals with entry/exit prices. Requires x402 micropayment (0.01 cUSD via EIP-712 signature).",
+        description: "Premium alpha report with live arbitrage data. Requires x402 micropayment (0.10 cUSD via EIP-712 signature).",
         parameters: [
           { name: "X-Payment", in: "header", schema: { type: "string" }, description: "EIP-712 payment signature" },
         ],

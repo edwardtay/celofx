@@ -275,7 +275,7 @@ export function PremiumGate({
 
             {!loading && (
               <div className="flex items-center gap-2 text-sm">
-                <span className="font-mono font-semibold">$0.01</span>
+                <span className="font-mono font-semibold">$0.10</span>
                 <span className="text-muted-foreground">in cUSD on Celo</span>
               </div>
             )}
@@ -308,7 +308,7 @@ export function PremiumGate({
             {!walletClient && !isDemo && (
               <div className="flex flex-col items-center gap-1">
                 <p className="text-xs text-amber-600">
-                  Connect wallet to pay $0.01 cUSD via x402
+                  Connect wallet to pay $0.10 cUSD via x402
                 </p>
                 <a
                   href="/premium?demo=true"
@@ -319,7 +319,7 @@ export function PremiumGate({
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              $0.01 cUSD settled on Celo via x402 protocol
+              $0.10 cUSD settled on Celo via x402 protocol
             </p>
           </div>
         </div>

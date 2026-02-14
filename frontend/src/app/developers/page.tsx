@@ -408,7 +408,7 @@ function X402Tab() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-medium mb-1">x402 Micropayments — $0.01 per signal</h3>
+        <h3 className="text-sm font-medium mb-1">x402 Micropayments — $0.10 per signal</h3>
         <p className="text-xs text-muted-foreground">
           Premium signals behind HTTP 402. No subscription, no account — just sign and pay.
         </p>
@@ -419,7 +419,7 @@ function X402Tab() {
         <div className="space-y-1.5">
           {[
             { step: "1", text: "GET /api/premium-signals → HTTP 402 + payment requirements" },
-            { step: "2", text: "Client signs EIP-712 payment (0.01 cUSD)" },
+            { step: "2", text: "Client signs EIP-712 payment (0.10 cUSD)" },
             { step: "3", text: "Retry with X-PAYMENT header → 200 + premium data" },
           ].map((s) => (
             <div key={s.step} className="flex items-start gap-2 text-xs">
@@ -440,7 +440,7 @@ curl -I ${BASE_URL}/api/premium-signals
 
 # Headers:
 # X-Payment-Required: true
-# X-Payment-Amount: 10000  (0.01 cUSD, 6 decimals)
+# X-Payment-Amount: 100000  (0.10 cUSD, 6 decimals)
 # X-Payment-Token: 0x765DE816845861e75A25fCA122bb6898B8B1282a`}
         />
       </div>
