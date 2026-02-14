@@ -6,6 +6,7 @@ import { getTrades } from "@/lib/trade-store";
 import { getAttestation } from "@/lib/tee";
 import { AGENT_POLICY, getDecisionLog } from "@/lib/agent-policy";
 import { fetchCeloDefiYields } from "@/lib/market-data";
+import { getBaseUrl } from "@/lib/format";
 
 const handler = createMcpHandler(
   (server) => {
@@ -200,12 +201,12 @@ const handler = createMcpHandler(
                 status: tee.status,
                 verified: tee.verified,
                 infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
-                auditEndpoint: "https://celofx.vercel.app/api/agent/decisions",
+                auditEndpoint: `${getBaseUrl()}/api/agent/decisions`,
               },
               protocols: {
-                mcp: "https://celofx.vercel.app/api/mcp",
-                a2a: "https://celofx.vercel.app/.well-known/agent-card.json",
-                x402: "https://celofx.vercel.app/api/premium-signals",
+                mcp: `${getBaseUrl()}/api/mcp`,
+                a2a: `${getBaseUrl()}/.well-known/agent-card.json`,
+                x402: `${getBaseUrl()}/api/premium-signals`,
                 oasf: { skills: ["analytical_skills/mathematical_reasoning", "tool_interaction"], domains: ["finance_and_business/investment_services"] },
               },
               capabilities: [
@@ -216,7 +217,7 @@ const handler = createMcpHandler(
                 "x402_micropayments",
                 "celo_fee_abstraction",
               ],
-              website: "https://celofx.vercel.app",
+              website: `${getBaseUrl()}`,
             }),
           }],
         };
@@ -295,7 +296,7 @@ const handler = createMcpHandler(
                 timestamp: new Date(d.timestamp).toISOString(),
                 reasoning: d.reasoning.slice(0, 200),
               })),
-              verifyEndpoint: "https://celofx.vercel.app/api/agent/decisions",
+              verifyEndpoint: `${getBaseUrl()}/api/agent/decisions`,
             }),
           }],
         };

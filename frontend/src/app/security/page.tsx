@@ -4,6 +4,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
 import {
   Shield,
   Lock,
@@ -25,7 +26,7 @@ const POLICY = {
   allowedProtocol: "Mento Broker (0x777A...)",
   maxSwapPerTx: "100 cUSD",
   maxDailyVolume: "500 cUSD",
-  minSpread: "0.3%",
+  minSpread: "0.1%",
   model: "Claude Sonnet 4.5",
 };
 
@@ -43,6 +44,15 @@ const NEVER_EXECUTE = [
 ];
 
 export default function SecurityPage() {
+  const [teeVerified, setTeeVerified] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/attestation")
+      .then((r) => r.json())
+      .then((d) => setTeeVerified(d?.tee?.verified === true))
+      .catch(() => setTeeVerified(false));
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -60,7 +70,7 @@ export default function SecurityPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { icon: Shield, label: "ERC-8004", desc: "On-chain identity #10", color: "text-blue-600" },
-            { icon: Cpu, label: "Phala TEE", desc: "Intel TDX attestation", color: "text-green-600" },
+            { icon: Cpu, label: teeVerified ? "TEE Active" : "TEE Ready", desc: teeVerified ? "Intel TDX verified" : "Phala CVM ready", color: teeVerified ? "text-green-600" : "text-amber-600" },
             { icon: Lock, label: "Permissioned", desc: "Token & protocol whitelist", color: "text-amber-600" },
             { icon: Eye, label: "Auditable", desc: "Every decision hashed", color: "text-purple-600" },
           ].map((item) => (
@@ -219,16 +229,19 @@ export default function SecurityPage() {
             <div className="flex items-center gap-2">
               <Cpu className="h-5 w-5 text-green-600" />
               <h2 className="font-semibold">Verifiable Execution (TEE)</h2>
-              <Badge variant="outline" className="ml-auto text-xs">Phala Cloud</Badge>
+              <Badge variant="outline" className={`ml-auto text-xs ${teeVerified ? "border-green-500 text-green-700" : ""}`}>
+                {teeVerified ? "Verified" : "TEE-Ready"}
+              </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              Agent is TEE-ready with Intel TDX support via Phala Cloud.
-              When deployed to a Confidential VM, the private key is hardware-isolated and execution is cryptographically attested.
+              {teeVerified
+                ? "Agent runs in a Trusted Execution Environment (Intel TDX via Phala Cloud). Private key is hardware-isolated and execution is cryptographically attested."
+                : "Agent is TEE-ready with Intel TDX support via Phala Cloud. When deployed to a Confidential VM, the private key is hardware-isolated and execution is cryptographically attested."}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
                 { label: "Hardware", value: "Intel TDX" },
-                { label: "Provider", value: "Phala Cloud CVM" },
+                { label: "Provider", value: teeVerified ? "Phala Cloud CVM (Active)" : "Phala Cloud CVM (Ready)" },
                 { label: "Audit", value: "keccak256 decision hashing" },
               ].map((item) => (
                 <div key={item.label} className="bg-muted/50 rounded-lg p-3">

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { getBaseUrl } from "@/lib/format";
 
 export async function GET() {
+  const base = getBaseUrl();
   return NextResponse.json(
     {
       name: "CeloFX",
@@ -81,7 +83,7 @@ export async function GET() {
       ],
       x402: {
         supported: true,
-        endpoint: "https://celofx.vercel.app/api/premium-signals",
+        endpoint: `${base}/api/premium-signals`,
         price: "$0.01",
         currency: "cUSD",
         chain: "celo",

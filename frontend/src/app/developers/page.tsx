@@ -21,7 +21,7 @@ import {
   Code2,
 } from "lucide-react";
 
-const BASE_URL = "https://celofx.vercel.app";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://celofx.vercel.app";
 
 type TabKey = "quickstart" | "mcp" | "a2a" | "rest" | "x402";
 

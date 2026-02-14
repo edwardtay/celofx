@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getBaseUrl } from "@/lib/format";
 
 const SPEC = {
   openapi: "3.0.3",
@@ -11,7 +12,7 @@ const SPEC = {
     license: { name: "MIT" },
   },
   servers: [
-    { url: "https://celofx.vercel.app", description: "Production (Celo Mainnet)" },
+    { url: "PLACEHOLDER_BASE_URL", description: "Production (Celo Mainnet)" },
     { url: "http://localhost:3000", description: "Local development" },
   ],
   tags: [
@@ -628,7 +629,9 @@ const SPEC = {
 };
 
 export async function GET() {
-  return NextResponse.json(SPEC, {
+  const spec = JSON.parse(JSON.stringify(SPEC));
+  spec.servers[0].url = getBaseUrl();
+  return NextResponse.json(spec, {
     headers: {
       "Cache-Control": "public, max-age=3600",
       "Access-Control-Allow-Origin": "*",

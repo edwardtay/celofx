@@ -9,7 +9,7 @@ import { getAttestation, getTeeHeaders } from "@/lib/tee";
 
 export const maxDuration = 60;
 
-const MAX_AMOUNT = 5; // Max notional per swap (USD equivalent)
+const MAX_AMOUNT = 50; // Max notional per swap (USD equivalent)
 const ALLOWED_TOKENS = new Set(["cUSD", "cEUR", "cREAL", "USDC", "USDT"]);
 
 // Gas thresholds: reject if gas cost eats >50% of expected profit

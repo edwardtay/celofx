@@ -26,7 +26,7 @@ export interface PortfolioComposition {
 }
 
 // ─── Constants ───
-export const DRIFT_THRESHOLD_PCT = 5;
+export const DRIFT_THRESHOLD_PCT = 3;
 const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303" as Address;
 
 const erc20BalanceAbi = [

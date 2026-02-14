@@ -210,7 +210,7 @@ export async function getOnChainQuote(
  * + minimum profit margin (0.25%). getAmountOut() returns net-of-protocol-fee rates,
  * so this threshold IS the expected profit per trade.
  */
-export const MIN_PROFITABLE_SPREAD_PCT = 0.3;
+export const MIN_PROFITABLE_SPREAD_PCT = 0.1;
 
 export interface MentoOnChainRate {
   pair: string;

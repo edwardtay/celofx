@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAgentStatus } from "@/lib/agent-policy";
 import { getAttestation } from "@/lib/tee";
+import { getBaseUrl } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const agentStatus = getAgentStatus();
   const tee = await getAttestation();
+  const base = getBaseUrl();
 
   return NextResponse.json(
     {
@@ -14,12 +16,12 @@ export async function GET() {
       name: "CeloFX",
       description:
         "Autonomous FX arbitrage agent on Celo. Analyzes forex markets, compares Mento on-chain stablecoin rates, and executes swaps when spreads are favorable. Powered by Claude AI.",
-      image: "https://celofx.vercel.app/celofx-logo.png",
+      image: `${base}/celofx-logo.png`,
       services: [
-        { name: "web", endpoint: "https://celofx.vercel.app" },
+        { name: "web", endpoint: base },
         {
           name: "MCP",
-          endpoint: "https://celofx.vercel.app/api/mcp",
+          endpoint: `${base}/api/mcp`,
           version: "2025-06-18",
           tools: [
             {
@@ -47,7 +49,7 @@ export async function GET() {
         {
           name: "A2A",
           endpoint:
-            "https://celofx.vercel.app/.well-known/agent-card.json",
+            `${base}/.well-known/agent-card.json`,
           version: "0.3.0",
           skills: [
             {
@@ -74,7 +76,7 @@ export async function GET() {
         },
         {
           name: "X402",
-          endpoint: "https://celofx.vercel.app/api/premium-signals",
+          endpoint: `${base}/api/premium-signals`,
           version: "1.0.0",
           price: "$0.01",
           currency: "cUSD",
@@ -83,7 +85,7 @@ export async function GET() {
         },
         {
           name: "TEE",
-          endpoint: "https://celofx.vercel.app/api/tee/attestation",
+          endpoint: `${base}/api/tee/attestation`,
           version: "dstack-dev-0.5.6",
           status: tee.status,
           verified: tee.verified,
@@ -119,7 +121,7 @@ export async function GET() {
         },
       ],
       health: {
-        endpoint: "https://celofx.vercel.app/api/health",
+        endpoint: `${base}/api/health`,
         interval: 60,
         status: agentStatus.paused ? "paused" : "healthy",
         dailyVolumeUsed: agentStatus.dailyVolume,
@@ -141,7 +143,7 @@ export async function GET() {
         status: tee.status,
         verified: tee.verified,
         infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
-        attestationEndpoint: "https://celofx.vercel.app/api/tee/attestation",
+        attestationEndpoint: `${base}/api/tee/attestation`,
       },
     },
     {

@@ -30,7 +30,7 @@ export const AGENT_POLICY = {
     ],
     maxSwapPerTx: "100 cUSD",
     maxDailyVolume: "500 cUSD",
-    minProfitableSpread: 0.3,
+    minProfitableSpread: 0.1,
   },
 
   decisionFramework: {
@@ -46,7 +46,7 @@ export const AGENT_POLICY = {
     identity: "ERC-8004 #10 on Celo",
     reputation: "ERC-8004 Reputation Registry",
     tee: "Intel TDX via Phala Cloud",
-    attestationEndpoint: "https://celofx.vercel.app/api/tee/attestation",
+    attestationEndpoint: "/api/tee/attestation",
   },
 } as const;
 

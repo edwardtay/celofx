@@ -678,11 +678,11 @@ export async function POST(request: Request) {
                     // Batch: pair each overweight with each underweight
                     for (const over of overweightTokens) {
                       for (const under of underweightTokens) {
-                        // Calculate swap amount — cap at 50 cUSD or the smaller drift
+                        // Calculate swap amount — cap at 100 cUSD (policy max) or the smaller drift
                         const driftValue = Math.min(
                           Math.abs(over.driftPct / 100) * composition.totalValueCusd,
                           Math.abs(under.driftPct / 100) * composition.totalValueCusd,
-                          50
+                          100
                         );
                         let swapAmount = Math.max(0.1, Number(driftValue.toFixed(2)));
 

@@ -1,23 +1,26 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Outfit, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const instrumentSerif = Instrument_Serif({
+const instrumentSerif = localFont({
+  src: "../../public/fonts/instrument-serif-400.woff2",
   weight: "400",
-  subsets: ["latin"],
   variable: "--font-display",
+  display: "swap",
 });
 
-const outfit = Outfit({
-  subsets: ["latin"],
+const outfit = localFont({
+  src: "../../public/fonts/outfit-variable.woff2",
   variable: "--font-sans",
+  display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+const jetbrainsMono = localFont({
+  src: "../../public/fonts/jetbrains-mono-variable.woff2",
   variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {

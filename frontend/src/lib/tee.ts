@@ -2,7 +2,12 @@ import { createHash } from "crypto";
 
 const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
 const AGENT_ID = 10;
-const DOMAIN = "celofx.vercel.app";
+
+/** Derive domain from APP_BASE_URL env or fallback */
+function getDomain(): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "https://celofx.vercel.app";
+  try { return new URL(base).hostname; } catch { return "celofx.vercel.app"; }
+}
 
 export interface TeeAttestation {
   status: "active" | "self-declared";
@@ -35,7 +40,7 @@ async function getRealTeeAttestation(): Promise<{
 
     const appData = JSON.stringify({
       agentAddress: AGENT_ADDRESS,
-      domain: DOMAIN,
+      domain: getDomain(),
       chain: "celo",
       agentId: AGENT_ID,
     });
@@ -56,7 +61,7 @@ function getSelfDeclaredAttestation(): { quote: string; timestamp: string } {
   const timestamp = new Date().toISOString();
   const appData = {
     agentAddress: AGENT_ADDRESS,
-    domain: DOMAIN,
+    domain: getDomain(),
     chain: "celo",
     agentId: AGENT_ID,
   };

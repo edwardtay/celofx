@@ -37,3 +37,8 @@ export function formatTimeAgo(timestamp: number): string {
 export function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
+
+/** Base URL for the app — portable across Vercel, Phala CVM, local dev */
+export function getBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "https://celofx.vercel.app";
+}

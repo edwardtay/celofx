@@ -3,6 +3,7 @@ import { getMentoOnChainRates } from "@/lib/mento-sdk";
 import { getSignals } from "@/lib/signal-store";
 import { getTrades } from "@/lib/trade-store";
 import { getAttestation } from "@/lib/tee";
+import { getBaseUrl } from "@/lib/format";
 
 const tasks = new Map<string, Record<string, unknown>>();
 
@@ -110,7 +111,7 @@ async function handleMessage(text: string): Promise<string> {
     },
     protocols: ["MCP", "A2A", "x402", "OASF"],
     skills: ["fx_rate_analysis", "execute_swap", "portfolio_status", "performance_tracking"],
-    website: "https://celofx.vercel.app",
+    website: getBaseUrl(),
     hint: "Try asking about rates, trades, signals, or performance",
   });
 }

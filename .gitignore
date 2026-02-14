@@ -41,6 +41,7 @@ private/
 !frontend/public/*.png
 .env.phala
 .playwright-mcp/
+.cache/
 
 # Misc
 *.tsbuildinfo
