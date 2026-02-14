@@ -10,19 +10,29 @@ const modules = [
     summary: "Live Mento and forex spread monitoring with execution logic and on-chain traceability.",
   },
   {
+    title: "Trading",
+    href: "/trading",
+    summary: "Create and manage smart FX orders with live market execution and tracking.",
+  },
+  {
+    title: "Hedging",
+    href: "/vault",
+    summary: "Portfolio allocation and rebalance controls across Celo stablecoins.",
+  },
+  {
     title: "Remittance",
     href: "/remittance",
     summary: "Stablecoin transfers with recipient controls, history, and recurring payment flows.",
   },
   {
+    title: "x402 Premium",
+    href: "/premium",
+    summary: "Pay-per-request premium signal endpoint with HTTP 402 payment flow.",
+  },
+  {
     title: "Developers",
     href: "/developers",
     summary: "MCP, A2A, API, and x402 integration docs with ready-to-use endpoint examples.",
-  },
-  {
-    title: "Security",
-    href: "/security",
-    summary: "Guardrails, signing/auth flows, decision logging, and runtime risk controls.",
   },
 ];
 
