@@ -349,19 +349,49 @@ const MCP_TOOLS = [
   { name: "get_defi_yields", description: "Get live Celo stablecoin DeFi yields from Aave V3, Uniswap V3, Moola via DeFiLlama.", inputSchema: { type: "object", properties: {} } },
 ];
 
-// Override GET to return MCP server capabilities (8004scan probes with GET)
+// GET /api/mcp — return SSE endpoint (Streamable HTTP spec says GET = SSE stream)
+// 8004scan probes GET and expects text/event-stream content-type
 export async function GET(req: Request) {
   const url = new URL(req.url);
   if (url.pathname === "/api/mcp") {
+    const accept = req.headers.get("accept") || "";
+    // If client accepts SSE, return a proper SSE stream with server info
+    if (accept.includes("text/event-stream")) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const msg = JSON.stringify({
+            jsonrpc: "2.0",
+            method: "notifications/message",
+            params: {
+              level: "info",
+              data: "CeloFX MCP Server v1.0.0 — use POST for JSON-RPC requests",
+            },
+          });
+          controller.enqueue(encoder.encode(`event: message\ndata: ${msg}\n\n`));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    }
+    // Non-SSE GET — return server info as JSON (discovery/health check)
     return Response.json({
       jsonrpc: "2.0",
+      id: null,
       result: {
         protocolVersion: "2025-06-18",
         serverInfo: { name: "CeloFX MCP Server", version: "1.0.0" },
         capabilities: { tools: { listChanged: false } },
         tools: MCP_TOOLS,
       },
-      id: null,
+    }, {
+      headers: { "Content-Type": "application/json" },
     });
   }
   return handler(req);
