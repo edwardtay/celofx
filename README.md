@@ -16,7 +16,7 @@ AI-powered FX arbitrage agent that compares real forex rates with Mento on-chain
 3. **Order Execution** — Agent calls `check_pending_orders`, receives per-order analysis (momentum, volatility, urgency, forex signal), then reasons through each order and calls `execute_order` with detailed reasoning — or explains why it's waiting
 4. **Orders** ([/orders](https://celofx.vercel.app/orders)) — Smart FX Orders with rate sparklines, momentum/urgency badges, and agent reasoning shown inline
 5. **Trades** ([/trades](https://celofx.vercel.app/trades)) — Real on-chain swaps with Celoscan links. $5+ volume, 100% success rate
-6. **Premium** ([/premium](https://celofx.vercel.app/premium)) — x402 paywall: real HTTP 402, EIP-712 payment, $0.01 cUSD
+6. **Premium** ([/premium](https://celofx.vercel.app/premium)) — x402 paywall: real HTTP 402, EIP-712 payment, $0.10 cUSD
 7. **Developers** ([/developers](https://celofx.vercel.app/developers)) — Integration portal: MCP config, A2A agent card, REST API with live "Try it" buttons, x402 payment flow
 8. **Security** ([/security](https://celofx.vercel.app/security)) — Standing Intent policy (keccak256-hashed), decision framework, TEE attestation, on-chain auditability
 9. **Agent** ([/agent](https://celofx.vercel.app/agent)) — ERC-8004 identity (#10), on-chain reputation, execution timeline
@@ -50,7 +50,7 @@ Most "AI agent" hackathon projects are chatbot wrappers — the AI generates tex
 - **Decision audit trail** — Every execution is hashed with `keccak256(orderId, action, reasoning, timestamp)` BEFORE the swap tx is sent. Decision log is publicly queryable via [`/api/agent/decisions`](https://celofx.vercel.app/api/agent/decisions).
 - **Forex-aware order engine** — Orders aren't simple limit orders. The agent checks if Mento rate vs real forex spread is favorable, if forex is trending toward or away from target, and adjusts execution timing accordingly.
 - **Cross-DEX arbitrage** — Monitors price differences between Mento and Uniswap V3, executes buy-cheap-sell-expensive two-leg arbs.
-- **24 real on-chain reputation feedbacks** — 12 unique clients on ERC-8004 Reputation Registry. All verifiable on Celoscan.
+- **40 real on-chain reputation feedbacks** — Average 4.3/5.0 on ERC-8004 Reputation Registry. All verifiable on Celoscan.
 
 ### The Decision Engine
 
@@ -113,6 +113,8 @@ curl -X POST https://celofx.vercel.app/api/agent/decisions \
 | Mento Broker | [celoscan.io/address/0x777A...](https://celoscan.io/address/0x777A8255cA72412f0d706dc03C9D1987306B4CaD) |
 | Identity Registry | [celoscan.io/address/0x8004A1...](https://celoscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) |
 | Reputation Registry | [celoscan.io/address/0x8004BA...](https://celoscan.io/address/0x8004BAa17C55a88189AE136b182e5fdA19dE9b63) |
+| Decision Registry | [celoscan.io/address/0xF8faC0...](https://celoscan.io/address/0xF8faC012318671b6694732939bcB6EA8d2c91662) |
+| SelfClaw Verified | [selfclaw.app/agent/celofx](https://selfclaw.app/agent/celofx) |
 
 ---
 
@@ -173,7 +175,7 @@ curl -X POST https://celofx.vercel.app/api/agent/decisions \
 |----------|----------|-------------|
 | **MCP** | `/api/mcp` | 8 tools: rates, cross-venue, signals, trades, performance, agent info, policy, decisions |
 | **A2A** | `/api/a2a` | 4 skills: rate analysis, swap execution, portfolio, performance |
-| **x402** | `/api/premium-signals` | HTTP 402 paywall, $0.01 cUSD per premium signal unlock |
+| **x402** | `/api/premium-signals` | HTTP 402 paywall, $0.10 cUSD per premium alpha report |
 | **ERC-8004** | On-chain | Identity (#10) + Reputation Registry with on-chain feedback |
 | **TEE** | Phala Cloud | Intel TDX attestation (Dockerfile + docker-compose included) |
 
@@ -236,7 +238,7 @@ User creates order: "Swap 50 cUSD → cEUR when rate hits 0.845, deadline 48h"
 | `/orders` | Smart FX Orders with sparklines, momentum/urgency badges, agent reasoning |
 | `/signals` | Full signal feed with market filters (Mento/Forex/Crypto/Commodities) |
 | `/trades` | All executed swaps with stats (volume, success rate, P&L) |
-| `/premium` | x402-gated premium signals ($0.01 per unlock) |
+| `/premium` | x402-gated premium alpha report ($0.10 per unlock) |
 | `/agent` | ERC-8004 agent profile, reputation, execution timeline |
 | `/vault` | Capital vault for depositors |
 | `/developers` | Integration guide: MCP, A2A, REST API, x402 with live "Try it" demos |
@@ -273,6 +275,7 @@ NEXT_PUBLIC_AGENT_ID=10          # ERC-8004 agent ID
 ANTHROPIC_API_KEY=               # Claude API key
 AGENT_PRIVATE_KEY=               # Agent wallet private key (for auto-execution)
 AGENT_WALLET_ADDRESS=            # Wallet address for x402 payments
+THIRDWEB_SECRET_KEY=             # thirdweb x402 facilitator key
 CRON_SECRET=                     # Vercel cron authentication
 ```
 
