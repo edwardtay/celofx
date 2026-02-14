@@ -352,6 +352,20 @@ const SPEC = {
         responses: { "200": { description: "Array of decision hashes" } },
       },
     },
+    "/api/agent/profitability": {
+      get: {
+        tags: ["Agent"],
+        summary: "Dynamic profitability threshold",
+        description: "Returns live spread threshold breakdown for a trade size. Formula: max(0.1%, gas/notional + 0.04%, $0.03/notional).",
+        parameters: [
+          { name: "amount", in: "query", schema: { type: "number", default: 25 }, description: "Trade notional in USD" },
+        ],
+        responses: {
+          "200": { description: "Threshold breakdown with required spread %" },
+          "400": { description: "Invalid amount" },
+        },
+      },
+    },
     "/api/agent/analyze": {
       post: {
         tags: ["Agent"],
@@ -432,8 +446,16 @@ const SPEC = {
       get: {
         tags: ["Protocols"],
         summary: "MCP server manifest",
-        description: "Model Context Protocol server capabilities. 5 tools available: get_mento_rates, get_signals, get_trades, get_performance, get_agent_info.",
+        description: "Model Context Protocol server capabilities with tool, prompt, and resource discovery.",
         responses: { "200": { description: "MCP server manifest" } },
+      },
+    },
+    "/.well-known/agent.json": {
+      get: {
+        tags: ["Protocols"],
+        summary: "Agent discovery alias",
+        description: "Scanner-friendly discovery alias with MCP/A2A/x402 endpoints and registration identifiers.",
+        responses: { "200": { description: "Agent discovery metadata" } },
       },
     },
     "/.well-known/agent-registration.json": {

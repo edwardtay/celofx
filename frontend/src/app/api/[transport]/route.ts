@@ -348,6 +348,28 @@ const MCP_TOOLS = [
   { name: "get_decision_log", description: "Get keccak256-hashed decision audit trail for verifiable decision auditability.", inputSchema: { type: "object", properties: {} } },
   { name: "get_defi_yields", description: "Get live Celo stablecoin DeFi yields from Aave V3, Uniswap V3, Moola via DeFiLlama.", inputSchema: { type: "object", properties: {} } },
 ];
+const MCP_PROMPTS = [
+  {
+    name: "fx_analysis",
+    description: "Analyze current FX spreads between Mento on-chain rates and real forex rates.",
+  },
+  {
+    name: "portfolio_rebalance",
+    description: "Check portfolio drift and generate rebalance recommendations.",
+  },
+];
+const MCP_RESOURCES = [
+  {
+    uri: "celofx://rates",
+    name: "Live FX Rates",
+    description: "Real-time Mento vs Forex rate comparison.",
+  },
+  {
+    uri: "celofx://trades",
+    name: "Trade History",
+    description: "On-chain verified swap history.",
+  },
+];
 
 // GET /api/mcp — return SSE endpoint (Streamable HTTP spec says GET = SSE stream)
 // 8004scan probes GET and expects text/event-stream content-type
@@ -381,14 +403,36 @@ export async function GET(req: Request) {
       });
     }
     // Non-SSE GET — return server info as JSON (discovery/health check)
+    const base = getBaseUrl();
     return Response.json({
       jsonrpc: "2.0",
       id: null,
+      name: "CeloFX",
+      protocolVersion: "2025-06-18",
+      serverInfo: { name: "CeloFX MCP Server", version: "1.0.0" },
+      capabilities: { tools: { listChanged: false } },
+      tools: MCP_TOOLS,
+      tools_count: MCP_TOOLS.length,
+      prompts: MCP_PROMPTS,
+      prompts_count: MCP_PROMPTS.length,
+      resources: MCP_RESOURCES,
+      resources_count: MCP_RESOURCES.length,
+      x402_supported: true,
+      x402Support: true,
+      payment: {
+        protocol: "x402",
+        supported: true,
+        endpoint: `${base}/api/premium-signals`,
+        amount: "0.10",
+        currency: "cUSD",
+      },
       result: {
         protocolVersion: "2025-06-18",
         serverInfo: { name: "CeloFX MCP Server", version: "1.0.0" },
         capabilities: { tools: { listChanged: false } },
         tools: MCP_TOOLS,
+        prompts: MCP_PROMPTS,
+        resources: MCP_RESOURCES,
       },
     }, {
       headers: { "Content-Type": "application/json" },
@@ -472,8 +516,21 @@ export async function POST(req: Request) {
       }
       switch (method) {
         case "initialize":
+          const base = getBaseUrl();
           return Response.json({
             jsonrpc: "2.0", id,
+            name: "CeloFX",
+            serverInfo: { name: "CeloFX MCP Server", version: "1.0.0" },
+            protocolVersion: "2025-06-18",
+            tools_count: MCP_TOOLS.length,
+            x402_supported: true,
+            payment: {
+              protocol: "x402",
+              supported: true,
+              endpoint: `${base}/api/premium-signals`,
+              amount: "0.10",
+              currency: "cUSD",
+            },
             result: {
               protocolVersion: "2025-06-18",
               serverInfo: { name: "CeloFX MCP Server", version: "1.0.0" },
@@ -481,7 +538,12 @@ export async function POST(req: Request) {
             },
           });
         case "tools/list":
-          return Response.json({ jsonrpc: "2.0", id, result: { tools: MCP_TOOLS } });
+          return Response.json({
+            jsonrpc: "2.0",
+            id,
+            tools_count: MCP_TOOLS.length,
+            result: { tools: MCP_TOOLS, prompts: MCP_PROMPTS, resources: MCP_RESOURCES },
+          });
         case "notifications/initialized":
           return Response.json({ jsonrpc: "2.0", id, result: {} });
         case "tools/call": {

@@ -5,6 +5,16 @@ import { getBaseUrl } from "@/lib/format";
 export async function GET() {
   const tee = await getAttestation();
   const base = getBaseUrl();
+  const payment = {
+    protocol: "x402",
+    supported: true,
+    endpoint: `${base}/api/premium-signals`,
+    amount: "0.10",
+    currency: "cUSD",
+    chain: "celo",
+    standard: "EIP-712",
+  };
+
   return NextResponse.json({
     name: "CeloFX",
     description:
@@ -28,14 +38,19 @@ export async function GET() {
       schemes: ["none"],
       credentials: null,
     },
+    x402Support: true,
+    x402_supported: true,
     x402: {
       supported: true,
+      x402_supported: true,
+      x402Support: true,
       endpoint: `${base}/api/premium-signals`,
       price: "$0.10",
       currency: "cUSD",
       chain: "celo",
       standard: "EIP-712",
     },
+    payment,
     tee: {
       status: tee.status,
       verified: tee.verified,

@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint ."
+    "lint": "next lint .",
+    "scan:readiness": "bash ./scripts/scan-readiness.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

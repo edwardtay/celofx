@@ -19,6 +19,7 @@ export async function GET() {
       image: `${base}/celofx-logo.png`,
       services: [
         { name: "web", endpoint: base },
+        { name: "discovery", endpoint: `${base}/.well-known/agent.json` },
         {
           name: "MCP",
           endpoint: `${base}/api/mcp`,
@@ -128,6 +129,7 @@ export async function GET() {
         decisionsLogged: agentStatus.decisionsLogged,
       },
       x402Support: true,
+      x402_supported: true,
       active: !agentStatus.paused,
       updatedAt: new Date().toISOString(),
       registrations: [

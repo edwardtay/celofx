@@ -5,6 +5,7 @@
   "image": "https://celofx.vercel.app/celofx-logo.png",
   "active": true,
   "x402Support": true,
+  "x402_supported": true,
   "updatedAt": 1739318400,
   "services": [
     {
@@ -14,6 +15,10 @@
     {
       "name": "agentWallet",
       "endpoint": "eip155:42220:0x6652AcDc623b7CCd52E115161d84b949bAf3a303"
+    },
+    {
+      "name": "discovery",
+      "endpoint": "https://celofx.vercel.app/.well-known/agent.json"
     },
     {
       "name": "MCP",
