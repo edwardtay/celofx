@@ -4,7 +4,107 @@
  * cannot bypass, even if the AI is compromised.
  */
 
-import { keccak256, encodePacked } from "viem";
+import { keccak256, encodePacked, createPublicClient, createWalletClient, http, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { celo } from "viem/chains";
+
+// ── On-Chain Decision Registry ──
+const DECISION_REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_DECISION_REGISTRY_ADDRESS || "0xF8faC012318671b6694732939bcB6EA8d2c91662") as Hex;
+
+const REGISTRY_ABI = [
+  {
+    type: "function",
+    name: "commitDecision",
+    inputs: [
+      { name: "hash", type: "bytes32" },
+      { name: "action", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "anchorAttestation",
+    inputs: [
+      { name: "hash", type: "bytes32" },
+      { name: "attestationType", type: "string" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    name: "DecisionCommitted",
+    inputs: [
+      { name: "hash", type: "bytes32", indexed: true },
+      { name: "action", type: "string", indexed: false },
+      { name: "timestamp", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "AttestationAnchored",
+    inputs: [
+      { name: "hash", type: "bytes32", indexed: true },
+      { name: "attestationType", type: "string", indexed: false },
+      { name: "timestamp", type: "uint256", indexed: false },
+    ],
+  },
+] as const;
+
+export { REGISTRY_ABI, DECISION_REGISTRY_ADDRESS };
+
+function getRegistryClients() {
+  const pk = process.env.AGENT_PRIVATE_KEY as Hex | undefined;
+  if (!pk) return null;
+  const account = privateKeyToAccount(pk);
+  const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+  const walletClient = createWalletClient({ account, chain: celo, transport: http("https://forno.celo.org") });
+  return { publicClient, walletClient, account };
+}
+
+async function commitDecisionOnChain(hash: Hex, action: string): Promise<string | null> {
+  try {
+    const clients = getRegistryClients();
+    if (!clients) return null;
+    const txHash = await clients.walletClient.writeContract({
+      address: DECISION_REGISTRY_ADDRESS,
+      abi: REGISTRY_ABI,
+      functionName: "commitDecision",
+      args: [hash, action],
+    });
+    return txHash;
+  } catch {
+    return null;
+  }
+}
+
+export async function getOnChainDecisions(): Promise<Array<{ hash: string; action: string; timestamp: bigint; txHash?: string }>> {
+  try {
+    const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+    const logs = await publicClient.getLogs({
+      address: DECISION_REGISTRY_ADDRESS,
+      event: {
+        type: "event",
+        name: "DecisionCommitted",
+        inputs: [
+          { name: "hash", type: "bytes32", indexed: true },
+          { name: "action", type: "string", indexed: false },
+          { name: "timestamp", type: "uint256", indexed: false },
+        ],
+      },
+      fromBlock: BigInt(31000000),
+    });
+    return logs.map((log) => ({
+      hash: log.args.hash as string,
+      action: log.args.action as string,
+      timestamp: log.args.timestamp as bigint,
+      txHash: log.transactionHash,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 export const AGENT_POLICY = {
   version: "1.0",
@@ -68,7 +168,7 @@ export interface AgentDecision {
   urgency: string;
 }
 
-const decisionLog: Array<AgentDecision & { hash: string }> = [];
+const decisionLog: Array<AgentDecision & { hash: string; onChainTxHash?: string }> = [];
 
 export function commitDecision(decision: AgentDecision): string {
   const hash = keccak256(
@@ -77,7 +177,14 @@ export function commitDecision(decision: AgentDecision): string {
       [decision.orderId, decision.action, decision.reasoning, BigInt(decision.timestamp)]
     )
   );
-  decisionLog.push({ ...decision, hash });
+  const entry: AgentDecision & { hash: string; onChainTxHash?: string } = { ...decision, hash };
+  decisionLog.push(entry);
+
+  // Fire-and-forget on-chain commit (non-blocking)
+  commitDecisionOnChain(hash as Hex, decision.action).then((txHash) => {
+    if (txHash) entry.onChainTxHash = txHash;
+  });
+
   return hash;
 }
 

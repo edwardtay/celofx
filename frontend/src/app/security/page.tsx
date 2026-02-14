@@ -19,7 +19,10 @@ import {
   ScrollText,
   Power,
   BarChart3,
+  Database,
 } from "lucide-react";
+
+const DECISION_REGISTRY = "0xF8faC012318671b6694732939bcB6EA8d2c91662";
 
 const POLICY = {
   allowedTokens: ["cUSD", "cEUR", "cREAL"],
@@ -45,12 +48,23 @@ const NEVER_EXECUTE = [
 
 export default function SecurityPage() {
   const [teeVerified, setTeeVerified] = useState(false);
+  const [onChainCount, setOnChainCount] = useState(0);
+  const [attestationAnchored, setAttestationAnchored] = useState(false);
+  const [attestationTxHash, setAttestationTxHash] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/attestation")
       .then((r) => r.json())
-      .then((d) => setTeeVerified(d?.tee?.verified === true))
+      .then((d) => {
+        setTeeVerified(d?.tee?.verified === true);
+        setAttestationAnchored(d?.onChainAnchor?.anchored === true);
+        setAttestationTxHash(d?.onChainAnchor?.txHash || null);
+      })
       .catch(() => setTeeVerified(false));
+    fetch("/api/agent/decisions")
+      .then((r) => r.json())
+      .then((d) => setOnChainCount(d?.onChain?.totalOnChainDecisions ?? 0))
+      .catch(() => {});
   }, []);
 
   return (
@@ -72,7 +86,7 @@ export default function SecurityPage() {
             { icon: Shield, label: "ERC-8004", desc: "On-chain identity #10", color: "text-blue-600" },
             { icon: Cpu, label: teeVerified ? "TEE Active" : "TEE Ready", desc: teeVerified ? "Intel TDX verified" : "Phala CVM ready", color: teeVerified ? "text-green-600" : "text-amber-600" },
             { icon: Lock, label: "Permissioned", desc: "Token & protocol whitelist", color: "text-amber-600" },
-            { icon: Eye, label: "Auditable", desc: "Every decision hashed", color: "text-purple-600" },
+            { icon: Eye, label: "Auditable", desc: "Every decision on-chain", color: "text-purple-600" },
           ].map((item) => (
             <Card key={item.label}>
               <CardContent className="p-4 text-center">
@@ -181,6 +195,53 @@ export default function SecurityPage() {
           </CardContent>
         </Card>
 
+        {/* On-Chain Decision Registry */}
+        <Card>
+          <CardContent className="p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-emerald-600" />
+              <h2 className="font-semibold">On-Chain Decision Registry</h2>
+              <Badge variant="outline" className="ml-auto text-xs border-emerald-500 text-emerald-700">
+                live on Celo
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Every agent decision is committed on-chain as an event on the Decision Registry contract.
+              Anyone can independently verify the full decision history via Celoscan.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Contract</p>
+                <a
+                  href={`https://celoscan.io/address/${DECISION_REGISTRY}#events`}
+                  target="_blank"
+                  className="text-sm font-mono text-blue-600 hover:underline inline-flex items-center gap-1"
+                >
+                  {DECISION_REGISTRY.slice(0, 6)}...{DECISION_REGISTRY.slice(-4)} <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">On-Chain Decisions</p>
+                <p className="text-sm font-mono">{onChainCount}</p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">Attestation Anchor</p>
+                {attestationAnchored ? (
+                  <a
+                    href={attestationTxHash ? `https://celoscan.io/tx/${attestationTxHash}` : "#"}
+                    target="_blank"
+                    className="text-sm font-mono text-blue-600 hover:underline inline-flex items-center gap-1"
+                  >
+                    Anchored <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <p className="text-sm font-mono text-muted-foreground">Pending</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Decision Framework */}
         <Card>
           <CardContent className="p-5 space-y-4">
@@ -242,7 +303,7 @@ export default function SecurityPage() {
               {[
                 { label: "Hardware", value: "Intel TDX" },
                 { label: "Provider", value: teeVerified ? "Phala Cloud CVM (Active)" : "Phala Cloud CVM (Ready)" },
-                { label: "Audit", value: "keccak256 decision hashing" },
+                { label: "Audit", value: "On-chain anchored" },
               ].map((item) => (
                 <div key={item.label} className="bg-muted/50 rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -286,7 +347,8 @@ export default function SecurityPage() {
                 { label: "Agent Wallet", value: "0x6652...a303", link: "https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303" },
                 { label: "Reputation", value: "On-chain reviews", link: "https://8004scan.io/agents/celo/10?tab=feedback" },
                 { label: "Swap Txs", value: "All on Celoscan", link: "https://celoscan.io/address/0x6652AcDc623b7CCd52E115161d84b949bAf3a303" },
-                { label: "Decision Log", value: "Hashed & publicly queryable", link: "/api/agent/decisions" },
+                { label: "Decision Registry", value: `${DECISION_REGISTRY.slice(0, 6)}...${DECISION_REGISTRY.slice(-4)}`, link: `https://celoscan.io/address/${DECISION_REGISTRY}#events` },
+                { label: "Decision Log", value: "API + on-chain events", link: "/api/agent/decisions" },
                 { label: "Metadata", value: "Immutable data URI on-chain", link: "https://8004scan.io/agents/celo/10?tab=metadata" },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">

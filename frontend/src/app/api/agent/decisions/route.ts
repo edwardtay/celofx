@@ -1,4 +1,4 @@
-import { getDecisionLog, verifyDecision, getAgentStatus, getVolumeLog, AGENT_POLICY, hashPolicy } from "@/lib/agent-policy";
+import { getDecisionLog, verifyDecision, getAgentStatus, getVolumeLog, AGENT_POLICY, hashPolicy, getOnChainDecisions, DECISION_REGISTRY_ADDRESS } from "@/lib/agent-policy";
 import type { AgentDecision } from "@/lib/agent-policy";
 
 export async function GET(request: Request) {
@@ -21,6 +21,9 @@ export async function GET(request: Request) {
     });
   }
 
+  // Fetch on-chain decisions
+  const onChainDecisions = await getOnChainDecisions();
+
   // Full audit log
   return Response.json({
     agentStatus: status,
@@ -42,11 +45,24 @@ export async function GET(request: Request) {
       targetRate: d.targetRate,
       momentum: d.momentum,
       urgency: d.urgency,
+      onChainTxHash: (d as unknown as Record<string, unknown>).onChainTxHash || null,
     })),
     totalDecisions: decisions.length,
+    onChain: {
+      registryAddress: DECISION_REGISTRY_ADDRESS,
+      celoscanUrl: `https://celoscan.io/address/${DECISION_REGISTRY_ADDRESS}#events`,
+      totalOnChainDecisions: onChainDecisions.length,
+      decisions: onChainDecisions.map((d) => ({
+        hash: d.hash,
+        action: d.action,
+        timestamp: d.timestamp.toString(),
+        celoscanLink: d.txHash ? `https://celoscan.io/tx/${d.txHash}` : null,
+      })),
+    },
     howToVerify: {
-      description: "Each decision hash = keccak256(abi.encodePacked(orderId, action, reasoning, timestamp)). Provide the full decision to /api/agent/decisions?verify=true to verify.",
+      description: "Each decision hash = keccak256(abi.encodePacked(orderId, action, reasoning, timestamp)). Decisions are committed on-chain as events on the Decision Registry contract.",
       endpoint: "GET /api/agent/decisions?hash=0x...",
+      onChainVerification: `View all DecisionCommitted events at https://celoscan.io/address/${DECISION_REGISTRY_ADDRESS}#events`,
     },
   });
 }

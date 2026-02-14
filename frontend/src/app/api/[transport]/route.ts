@@ -367,15 +367,76 @@ export async function GET(req: Request) {
   return handler(req);
 }
 
-// Wrap POST — handle initialize/tools/list directly for probes (8004scan sends
-// plain POST without Accept: text/event-stream which mcp-handler rejects).
-// Real MCP clients with proper headers go through the library.
+// Tool executor for non-SSE requests (8004scan health probes)
+async function executeToolCall(name: string, args: Record<string, string> = {}): Promise<{ content: Array<{ type: string; text: string }> }> {
+  switch (name) {
+    case "get_mento_rates": {
+      try {
+        const rates = await getMentoOnChainRates();
+        const analysis = rates.map((r) => ({
+          pair: r.pair, mentoRate: r.mentoRate, forexRate: r.forexRate,
+          spreadPct: r.spreadPct, direction: r.direction,
+          arbitrage: Math.abs(r.spreadPct) > 0.3 ? "actionable" : "monitoring",
+        }));
+        return { content: [{ type: "text", text: JSON.stringify({ pairs: analysis, source: "Mento Broker on-chain + Frankfurter forex API" }) }] };
+      } catch {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to fetch Mento rates" }) }] };
+      }
+    }
+    case "get_signals": {
+      const signals = getSignals();
+      const filtered = args.market ? signals.filter((s) => s.market === args.market) : signals;
+      return { content: [{ type: "text", text: JSON.stringify({ count: filtered.length, signals: filtered.slice(0, 10) }) }] };
+    }
+    case "get_trades": {
+      const trades = getTrades();
+      return { content: [{ type: "text", text: JSON.stringify({ total: trades.length, trades: trades.map((t) => ({ pair: t.pair, amountIn: t.amountIn, amountOut: t.amountOut, rate: t.rate, status: t.status, swapTxHash: t.swapTxHash })) }) }] };
+    }
+    case "get_performance": {
+      const trades = getTrades();
+      const confirmed = trades.filter((t) => t.status === "confirmed");
+      return { content: [{ type: "text", text: JSON.stringify({ totalTrades: confirmed.length, totalVolume: confirmed.reduce((s, t) => s + parseFloat(t.amountIn), 0) }) }] };
+    }
+    case "get_agent_info": {
+      const tee = await getAttestation();
+      return { content: [{ type: "text", text: JSON.stringify({ name: "CeloFX", agentId: 10, chain: "Celo", chainId: 42220, wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303", tee: { status: tee.status, verified: tee.verified } }) }] };
+    }
+    case "get_agent_policy":
+      return { content: [{ type: "text", text: JSON.stringify({ policy: AGENT_POLICY }) }] };
+    case "get_decision_log": {
+      const decisions = getDecisionLog();
+      return { content: [{ type: "text", text: JSON.stringify({ count: decisions.length, decisions: decisions.slice(-20).map(d => ({ orderId: d.orderId, action: d.action, hash: d.hash })) }) }] };
+    }
+    case "get_cross_venue_rates": {
+      try {
+        const { getCrossVenueRates } = await import("@/lib/uniswap-quotes");
+        const rates = await getCrossVenueRates();
+        return { content: [{ type: "text", text: JSON.stringify({ pairs: rates, venues: ["Mento Broker", "Uniswap V3"] }) }] };
+      } catch {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to fetch cross-venue rates" }) }] };
+      }
+    }
+    case "get_defi_yields": {
+      try {
+        const yields = await fetchCeloDefiYields();
+        return { content: [{ type: "text", text: JSON.stringify({ yields, source: "DeFiLlama" }) }] };
+      } catch {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Failed to fetch DeFi yields" }) }] };
+      }
+    }
+    default:
+      return { content: [{ type: "text", text: JSON.stringify({ error: `Unknown tool: ${name}` }) }] };
+  }
+}
+
+// Wrap POST — handle all JSON-RPC methods for non-SSE requests (8004scan probes).
+// Real MCP clients with proper SSE headers go through the library.
 export async function POST(req: Request) {
   const accept = req.headers.get("accept") || "";
   if (!accept.includes("text/event-stream")) {
     try {
       const body = await req.json();
-      const { jsonrpc, id, method } = body;
+      const { jsonrpc, id, method, params } = body;
       if (jsonrpc !== "2.0") {
         return Response.json({ jsonrpc: "2.0", id, error: { code: -32600, message: "Invalid JSON-RPC" } });
       }
@@ -393,8 +454,17 @@ export async function POST(req: Request) {
           return Response.json({ jsonrpc: "2.0", id, result: { tools: MCP_TOOLS } });
         case "notifications/initialized":
           return Response.json({ jsonrpc: "2.0", id, result: {} });
+        case "tools/call": {
+          const toolName = params?.name;
+          const toolArgs = params?.arguments || {};
+          if (!toolName) {
+            return Response.json({ jsonrpc: "2.0", id, error: { code: -32602, message: "Missing tool name" } });
+          }
+          const result = await executeToolCall(toolName, toolArgs);
+          return Response.json({ jsonrpc: "2.0", id, result });
+        }
         default:
-          return Response.json({ jsonrpc: "2.0", id, error: { code: -32601, message: `Use proper MCP client for tool calls. Method: ${method}` } });
+          return Response.json({ jsonrpc: "2.0", id, result: {} });
       }
     } catch {
       return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });

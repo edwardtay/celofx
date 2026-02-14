@@ -93,7 +93,7 @@ export async function GET() {
         },
         {
           name: "OASF",
-          endpoint: "https://github.com/agntcy/oasf/",
+          endpoint: `${base}/.well-known/oasf.json`,
           version: "0.8.0",
           skills: [
             "analytical_skills/mathematical_reasoning",
