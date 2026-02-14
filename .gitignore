@@ -45,3 +45,5 @@ private/
 
 # Misc
 *.tsbuildinfo
+.vercel
+.env*.local
