@@ -8,43 +8,13 @@ import { useState, useEffect } from "react";
 import {
   Shield,
   Lock,
-  FileCheck,
   Eye,
   Cpu,
-  Coins,
-  AlertTriangle,
-  CheckCircle2,
   ExternalLink,
-  Hash,
-  ScrollText,
-  Power,
-  BarChart3,
   Database,
 } from "lucide-react";
 
 const DECISION_REGISTRY = "0xF8faC012318671b6694732939bcB6EA8d2c91662";
-
-const POLICY = {
-  allowedTokens: ["cUSD", "cEUR", "cREAL"],
-  allowedProtocol: "Mento Broker (0x777A...)",
-  maxSwapPerTx: "100 cUSD",
-  maxDailyVolume: "500 cUSD",
-  minSpread: "0.1%",
-  model: "Claude Sonnet 4.5",
-};
-
-const DECISION_CHECKS = [
-  "Rate momentum (last 3 data points)",
-  "Volatility (standard deviation)",
-  "Urgency (time to deadline)",
-  "Forex signal (trend correlation)",
-  "Spread vs forex (Mento divergence)",
-];
-
-const NEVER_EXECUTE = [
-  "Rate < target AND gap > 2% AND not urgent",
-  "spreadVsForexPct < -1% (forex disagrees with Mento)",
-];
 
 export default function SecurityPage() {
   const [teeVerified, setTeeVerified] = useState(false);
@@ -98,98 +68,35 @@ export default function SecurityPage() {
           ))}
         </div>
 
-        {/* Agent Policy (Standing Intent) */}
         <Card>
           <CardContent className="p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <ScrollText className="h-5 w-5 text-blue-600" />
-              <h2 className="font-semibold">Agent Policy (Standing Intent)</h2>
-              <Badge variant="outline" className="ml-auto text-xs">keccak256 signed</Badge>
+              <Lock className="h-5 w-5 text-blue-600" />
+              <h2 className="font-semibold">Operational Controls</h2>
+              <Badge variant="outline" className="ml-auto text-xs">public summary</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              Cryptographically signed declaration of what the agent is authorized to do.
-              The agent cannot exceed these bounds — any violation is detectable.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium flex items-center gap-1.5">
-                  <Coins className="h-4 w-4" /> Spending Limits
-                </h3>
-                <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>Max per swap: <span className="text-foreground font-mono">{POLICY.maxSwapPerTx}</span></p>
-                  <p>Daily volume cap: <span className="text-foreground font-mono">{POLICY.maxDailyVolume}</span></p>
-                  <p>Min spread to execute: <span className="text-foreground font-mono">{POLICY.minSpread}</span></p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-medium flex items-center gap-1.5">
-                  <Lock className="h-4 w-4" /> Token & Protocol Whitelist
-                </h3>
-                <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>Allowed tokens: <span className="text-foreground font-mono">{POLICY.allowedTokens.join(", ")}</span></p>
-                  <p>Allowed protocol: <span className="text-foreground font-mono">{POLICY.allowedProtocol}</span></p>
-                  <p>AI model: <span className="text-foreground font-mono">{POLICY.model}</span></p>
-                </div>
-              </div>
-            </div>
-            <a
-              href="/api/agent/policy"
-              target="_blank"
-              className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
-            >
-              View full policy JSON with hash <ExternalLink className="h-3 w-3" />
-            </a>
-          </CardContent>
-        </Card>
-
-        {/* Policy Enforcement (NEW) */}
-        <Card>
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-orange-600" />
-              <h2 className="font-semibold">Policy Enforcement</h2>
-              <Badge variant="outline" className="ml-auto text-xs">enforced in code</Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Policy limits are not just declared — they are enforced at runtime.
-              Every swap is checked against hard limits before execution.
+              CeloFX runs with bounded permissions, automated risk controls, and externally verifiable outputs.
+              Sensitive implementation details are intentionally kept private.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="border rounded-lg p-3 space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <Coins className="h-4 w-4 text-orange-500" />
-                  <p className="text-sm font-medium">Volume Cap</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Rolling 24h window tracks all swaps. Rejects if total exceeds 500 cUSD.
+              <div className="border rounded-lg p-3">
+                <p className="text-sm font-medium">Bounded Execution</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Execution is constrained to approved assets and policy-checked actions.
                 </p>
-                <code className="text-[11px] text-muted-foreground font-mono block mt-1">
-                  checkVolumeLimit(amount) → allowed/denied
-                </code>
               </div>
-              <div className="border rounded-lg p-3 space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <Power className="h-4 w-4 text-red-500" />
-                  <p className="text-sm font-medium">Circuit Breaker</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Emergency kill switch. Set AGENT_PAUSED=true to halt all execution instantly.
+              <div className="border rounded-lg p-3">
+                <p className="text-sm font-medium">Runtime Safeguards</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Automated safeguards and pause controls protect against abnormal conditions.
                 </p>
-                <code className="text-[11px] text-muted-foreground font-mono block mt-1">
-                  isAgentPaused() → 503 Service Unavailable
-                </code>
               </div>
-              <div className="border rounded-lg p-3 space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <Hash className="h-4 w-4 text-purple-500" />
-                  <p className="text-sm font-medium">Decision Audit</p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Every execution decision is hashed before the swap tx is sent. Publicly queryable.
+              <div className="border rounded-lg p-3">
+                <p className="text-sm font-medium">Audit Trail</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Execution outcomes and identity records are independently auditable on-chain.
                 </p>
-                <a href="/api/agent/decisions" target="_blank" className="text-[11px] text-blue-600 hover:underline inline-flex items-center gap-1 mt-1">
-                  GET /api/agent/decisions <ExternalLink className="h-3 w-3" />
-                </a>
               </div>
             </div>
           </CardContent>
@@ -237,48 +144,6 @@ export default function SecurityPage() {
                 ) : (
                   <p className="text-sm font-mono text-muted-foreground">Pending</p>
                 )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Decision Framework */}
-        <Card>
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <FileCheck className="h-5 w-5 text-green-600" />
-              <h2 className="font-semibold">Decision Framework</h2>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Before every execution, Claude must evaluate all 5 conditions.
-              Each decision is hashed with keccak256 and committed for auditability.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" /> Required Checks (all 5)
-                </h3>
-                <ul className="space-y-1">
-                  {DECISION_CHECKS.map((check) => (
-                    <li key={check} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                      <Hash className="h-3.5 w-3.5 mt-0.5 text-green-500 shrink-0" />
-                      {check}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-                  <AlertTriangle className="h-4 w-4 text-red-500" /> Never Execute Conditions
-                </h3>
-                <ul className="space-y-1">
-                  {NEVER_EXECUTE.map((rule) => (
-                    <li key={rule} className="text-sm text-muted-foreground flex items-start gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-red-400 shrink-0" />
-                      {rule}
-                    </li>
-                  ))}
-                </ul>
               </div>
             </div>
           </CardContent>

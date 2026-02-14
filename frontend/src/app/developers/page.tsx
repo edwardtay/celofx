@@ -138,9 +138,12 @@ function QuickstartTab() {
           code={`const res = await fetch("${BASE_URL}/api/market-data/mento");
 const { pairs } = await res.json();
 
-const profitable = pairs.filter((p: any) => p.spreadPct > 0.3);
-console.log("Profitable spreads:", profitable);
-// → [{ pair: "cREAL/cUSD", mentoRate: 0.1932, forexRate: 0.1927, spreadPct: 0.23, direction: "Mento gives more" }]`}
+const watchlist = pairs.map((p: any) => ({
+  pair: p.pair,
+  spreadPct: p.spreadPct,
+  direction: p.direction
+}));
+console.log("Current spreads:", watchlist);`}
         />
       </div>
 
@@ -173,9 +176,6 @@ print(f"Trades: {record['performance']['totalTrades']}, P&L: {record['performanc
         <CodeBlock
           code={`# Mento on-chain rates vs real forex (the core data)
 curl ${BASE_URL}/api/market-data/mento | jq .
-
-# Agent policy + decision hashes (auditability)
-curl ${BASE_URL}/api/agent/policy | jq .
 
 # All executed trades with Celoscan links
 curl ${BASE_URL}/api/trades | jq .`}
@@ -346,7 +346,6 @@ function RestTab() {
             { method: "GET", path: "/api/signals", desc: "AI-generated trading signals" },
             { method: "GET", path: "/api/trades", desc: "Executed swaps with Celoscan tx hashes" },
             { method: "GET", path: "/api/agent/track-record", desc: "Verified performance metrics" },
-            { method: "GET", path: "/api/agent/policy", desc: "Agent policy + decision hashes" },
             { method: "GET", path: "/api/tee/attestation", desc: "TEE attestation (Intel TDX)" },
             { method: "GET", path: "/api/health", desc: "Health check" },
           ].map((ep) => (
@@ -373,11 +372,12 @@ function RestTab() {
 async function checkSpreads() {
   const res = await fetch("${BASE_URL}/api/market-data/mento");
   const { pairs } = await res.json();
+  const userThreshold = 0.2;
 
   for (const pair of pairs) {
-    if (pair.spreadPct > 0.3) {
-      console.log(\`Profitable: \${pair.pair} +\${pair.spreadPct}% (Mento > forex)\`);
-      // Execute your own swap, send notification, etc.
+    if (pair.spreadPct > userThreshold) {
+      console.log(\`Candidate: \${pair.pair} +\${pair.spreadPct}%\`);
+      // Send your own alert or trade instruction.
     }
   }
 }
@@ -387,19 +387,6 @@ setInterval(checkSpreads, 5 * 60 * 1000);`}
         />
       </div>
 
-      <div>
-        <p className="text-xs font-medium mb-2">Example: verify agent decisions</p>
-        <CodeBlock
-          code={`// Verify the agent's decision hashing (auditability)
-const policy = await fetch("${BASE_URL}/api/agent/policy").then(r => r.json());
-
-console.log("Policy hash:", policy.policyHash);
-console.log("Decisions:", policy.decisions.length);
-
-// Each decision has: { hash, orderId, action, timestamp, currentRate, targetRate }
-// Verify: keccak256(orderId + action + reasoning + timestamp) === hash`}
-        />
-      </div>
     </div>
   );
 }
@@ -522,7 +509,6 @@ export default function DevelopersPage() {
               {[
                 { label: "MCP Server", value: "/api/mcp", link: `${BASE_URL}/api/mcp` },
                 { label: "A2A Agent Card", value: "/.well-known/agent-card.json", link: `${BASE_URL}/.well-known/agent-card.json` },
-                { label: "Agent Policy", value: "/api/agent/policy", link: `${BASE_URL}/api/agent/policy` },
                 { label: "Track Record", value: "/api/agent/track-record", link: `${BASE_URL}/api/agent/track-record` },
                 { label: "TEE Attestation", value: "/api/tee/attestation", link: `${BASE_URL}/api/tee/attestation` },
                 { label: "Health Check", value: "/api/health", link: `${BASE_URL}/api/health` },
