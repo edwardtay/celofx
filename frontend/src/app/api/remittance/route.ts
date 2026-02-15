@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getOnChainQuote, type MentoToken } from "@/lib/mento-sdk";
+import { getOnChainQuote } from "@/lib/mento-sdk";
 
 const SYSTEM_PROMPT = `You parse remittance requests into structured data. You understand English, Spanish, Portuguese, and French.
 Reply with ONLY valid JSON: {"fromToken": "cUSD"|"cEUR"|"cREAL", "toToken": "cUSD"|"cEUR"|"cREAL", "amount": number, "corridor": "description", "recipientCountry": "country or null", "language": "en"|"es"|"pt"|"fr"}
@@ -39,6 +39,13 @@ const CORRIDOR_FEES: Record<string, { westernUnion: number; wise: number; remitl
 
 const DEFAULT_FEES = { westernUnion: 0.065, wise: 0.01, remitly: 0.015, moneygram: 0.05 };
 const CELOFX_FEE = 0.001; // 0.1%
+type RemittanceToken = "cUSD" | "cEUR" | "cREAL";
+
+const CURRENCY_BY_TOKEN: Record<RemittanceToken, "USD" | "EUR" | "BRL"> = {
+  cUSD: "USD",
+  cEUR: "EUR",
+  cREAL: "BRL",
+};
 
 // Last-mile currency mapping: corridor → local currency ISO code
 const CORRIDOR_LOCAL_CURRENCY: Record<string, { code: string; symbol: string; name: string }> = {
@@ -55,39 +62,157 @@ const CORRIDOR_LOCAL_CURRENCY: Record<string, { code: string; symbol: string; na
 let fxCache: { rates: Record<string, number>; timestamp: number } | null = null;
 const FX_CACHE_TTL = 5 * 60 * 1000; // 5 min
 
+const STATIC_FX_FALLBACKS: Record<string, number> = {
+  "USD-NGN": 1580,
+  "USD-KES": 129,
+  "USD-PHP": 56.2,
+  "USD-MXN": 20.5,
+  "USD-BRL": 5.7,
+  "EUR-XOF": 655.957,
+  "EUR-NGN": 1706,
+  "EUR-KES": 139,
+  "EUR-PHP": 60.7,
+  "EUR-MXN": 22.2,
+  "EUR-BRL": 6.16,
+  "BRL-EUR": 0.162,
+  "BRL-USD": 0.175,
+};
+
+const COUNTRY_FIAT_MAP: Record<string, { country: string; code: string }> = {
+  nigeria: { country: "Nigeria", code: "NGN" },
+  kenya: { country: "Kenya", code: "KES" },
+  philippines: { country: "Philippines", code: "PHP" },
+  mexico: { country: "Mexico", code: "MXN" },
+  colombia: { country: "Colombia", code: "COP" },
+  brasil: { country: "Brazil", code: "BRL" },
+  brazil: { country: "Brazil", code: "BRL" },
+  senegal: { country: "Senegal", code: "XOF" },
+  france: { country: "France", code: "EUR" },
+  germany: { country: "Germany", code: "EUR" },
+  spain: { country: "Spain", code: "EUR" },
+  italy: { country: "Italy", code: "EUR" },
+  portugal: { country: "Portugal", code: "EUR" },
+};
+
+function detectLanguage(input: string): "en" | "es" | "pt" | "fr" {
+  const text = input.toLowerCase();
+  if (/(enviar|dolares|méxico|mexico|ahorra)/.test(text)) return "es";
+  if (/(transferir|reais|você|chega|brasil)/.test(text)) return "pt";
+  if (/(envoyer|économisez|sénégal|franc)/.test(text)) return "fr";
+  return "en";
+}
+
+function parseAmount(input: string): number {
+  const cleaned = input.replace(/,/g, "");
+  const match = cleaned.match(/(\d+(?:\.\d{1,2})?)/);
+  if (!match) return 0;
+  return Number.parseFloat(match[1]);
+}
+
+interface ParsedIntent {
+  fromToken: RemittanceToken;
+  toToken: RemittanceToken;
+  amount: number;
+  corridor: string;
+  recipientCountry: string | null;
+  language: string;
+}
+
+function parseFallbackIntent(message: string): ParsedIntent | null {
+  const text = message.toLowerCase();
+  const amount = parseAmount(message);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const language = detectLanguage(message);
+
+  let fromToken: RemittanceToken = "cUSD";
+  if (/(€|eur|euro|euros)/.test(text)) fromToken = "cEUR";
+  if (/(brl|r\$|real|reais)/.test(text)) fromToken = "cREAL";
+
+  let recipientCountry: string | null = null;
+  let recipientFiat: string | null = null;
+  for (const [needle, data] of Object.entries(COUNTRY_FIAT_MAP)) {
+    if (text.includes(needle)) {
+      recipientCountry = data.country;
+      recipientFiat = data.code;
+      break;
+    }
+  }
+
+  let toToken: RemittanceToken = fromToken;
+  if (/(to|in|para|a|au)\s+(euros?|eur)\b/.test(text)) toToken = "cEUR";
+  if (/(to|in|para|a)\s+(reais?|brl)\b/.test(text)) toToken = "cREAL";
+  if (/(to|in|para|a)\s+(dollars?|usd)\b/.test(text)) toToken = "cUSD";
+
+  if (!recipientFiat) {
+    recipientFiat = CURRENCY_BY_TOKEN[toToken];
+  } else if (recipientFiat === "EUR") {
+    toToken = "cEUR";
+  } else if (recipientFiat === "BRL") {
+    toToken = "cREAL";
+  } else if (["NGN", "KES", "PHP", "MXN", "COP", "XOF"].includes(recipientFiat)) {
+    toToken = "cUSD";
+  }
+
+  const corridor = `${CURRENCY_BY_TOKEN[fromToken]} → ${recipientFiat}`;
+
+  return {
+    fromToken,
+    toToken,
+    amount,
+    corridor,
+    recipientCountry,
+    language,
+  };
+}
+
 async function getLocalCurrencyRate(baseCurrency: string, targetCode: string): Promise<number | null> {
+  const cacheKey = `${baseCurrency}-${targetCode}`;
+  const staticFallback = STATIC_FX_FALLBACKS[cacheKey] ?? null;
+
   try {
     // baseCurrency is "USD" or "EUR" derived from fromToken
     const base = baseCurrency === "BRL" ? "USD" : baseCurrency; // Frankfurter doesn't support BRL as base
-    const cacheKey = `${base}-${targetCode}`;
+    const normalizedCacheKey = `${base}-${targetCode}`;
 
-    if (fxCache && Date.now() - fxCache.timestamp < FX_CACHE_TTL && fxCache.rates[cacheKey]) {
-      return fxCache.rates[cacheKey];
+    if (fxCache && Date.now() - fxCache.timestamp < FX_CACHE_TTL && fxCache.rates[normalizedCacheKey]) {
+      return fxCache.rates[normalizedCacheKey];
     }
 
     // XOF is not on Frankfurter — use fixed EUR peg (1 EUR = 655.957 XOF)
     if (targetCode === "XOF") {
       const rate = base === "EUR" ? 655.957 : null;
-      if (rate && fxCache) fxCache.rates[cacheKey] = rate;
-      return rate;
+      if (rate) {
+        if (!fxCache) fxCache = { rates: {}, timestamp: Date.now() };
+        fxCache.rates[normalizedCacheKey] = rate;
+        fxCache.timestamp = Date.now();
+      }
+      return rate ?? staticFallback;
     }
 
     const res = await fetch(
       `https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${targetCode}`
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (fxCache?.rates[normalizedCacheKey]) return fxCache.rates[normalizedCacheKey];
+      return staticFallback;
+    }
+
     const data = await res.json();
     const rate = data.rates?.[targetCode] ?? null;
 
     if (rate) {
       if (!fxCache) fxCache = { rates: {}, timestamp: Date.now() };
-      fxCache.rates[cacheKey] = rate;
+      fxCache.rates[normalizedCacheKey] = rate;
       fxCache.timestamp = Date.now();
+      return rate;
     }
 
-    return rate;
+    if (fxCache?.rates[normalizedCacheKey]) return fxCache.rates[normalizedCacheKey];
+    return staticFallback;
   } catch {
-    return null;
+    if (fxCache?.rates[cacheKey]) return fxCache.rates[cacheKey];
+    return staticFallback;
   }
 }
 
@@ -108,23 +233,8 @@ const STRINGS: Record<string, { saving: string; via: string; instantly: string }
   fr: { saving: "Vous économisez", via: "via stablecoins Celo", instantly: "Arrive instantanément" },
 };
 
-interface ParsedIntent {
-  fromToken: MentoToken;
-  toToken: MentoToken;
-  amount: number;
-  corridor: string;
-  recipientCountry: string | null;
-  language: string;
-}
-
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "ANTHROPIC_API_KEY not configured" },
-      { status: 503 }
-    );
-  }
 
   let body: { message?: string };
   try {
@@ -144,69 +254,80 @@ export async function POST(request: Request) {
     );
   }
 
-  // Step 1: Parse intent with Claude Haiku (multi-language)
+  // Step 1: Parse intent (Claude when available, deterministic fallback otherwise)
   let parsed: ParsedIntent;
   try {
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 256,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: message.trim() }],
-    });
+    let raw: Record<string, unknown> | null = null;
 
-    const text =
-      response.content[0].type === "text" ? response.content[0].text : "";
+    if (apiKey) {
+      try {
+        const client = new Anthropic({ apiKey });
+        const response = await client.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 256,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: message.trim() }],
+        });
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json(
-        {
-          error:
-            "Could not understand your request. Try: 'Send $50 to my mom in the Philippines' or 'Enviar 100 dólares a Nigeria'",
-        },
-        { status: 400 }
-      );
+        const text =
+          response.content[0].type === "text" ? response.content[0].text : "";
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) raw = JSON.parse(jsonMatch[0]);
+      } catch {
+        raw = null;
+      }
     }
 
-    const raw = JSON.parse(jsonMatch[0]);
+    if (!raw) {
+      const fallback = parseFallbackIntent(message.trim());
+      if (!fallback) {
+        return NextResponse.json(
+          {
+            error:
+              "Could not understand your request. Try: 'Send $50 to my mom in the Philippines' or 'Enviar 100 dólares a Nigeria'",
+          },
+          { status: 400 }
+        );
+      }
+      parsed = fallback;
+    } else {
+      const validTokens = new Set(["cUSD", "cEUR", "cREAL"]);
+      if (!validTokens.has(String(raw.fromToken)) || !validTokens.has(String(raw.toToken))) {
+        return NextResponse.json(
+          { error: `Invalid token pair: ${String(raw.fromToken)} -> ${String(raw.toToken)}. Supported: cUSD, cEUR, cREAL` },
+          { status: 400 }
+        );
+      }
 
-    const validTokens = new Set(["cUSD", "cEUR", "cREAL"]);
-    if (!validTokens.has(raw.fromToken) || !validTokens.has(raw.toToken)) {
-      return NextResponse.json(
-        { error: `Invalid token pair: ${raw.fromToken} -> ${raw.toToken}. Supported: cUSD, cEUR, cREAL` },
-        { status: 400 }
-      );
+      if (raw.fromToken === raw.toToken && !raw.recipientCountry) {
+        return NextResponse.json(
+          { error: "Please specify a destination currency or country" },
+          { status: 400 }
+        );
+      }
+
+      if (!raw.amount || Number(raw.amount) <= 0) {
+        return NextResponse.json(
+          { error: "Amount must be greater than zero" },
+          { status: 400 }
+        );
+      }
+
+      parsed = {
+        fromToken: raw.fromToken as RemittanceToken,
+        toToken: raw.toToken as RemittanceToken,
+        amount: Number(raw.amount),
+        corridor: String(raw.corridor || `${String(raw.fromToken)} → ${String(raw.toToken)}`),
+        recipientCountry: (raw.recipientCountry as string) || null,
+        language: String(raw.language || "en"),
+      };
     }
-
-    if (raw.fromToken === raw.toToken && !raw.recipientCountry) {
-      return NextResponse.json(
-        { error: "Please specify a destination currency or country" },
-        { status: 400 }
-      );
-    }
-
-    if (!raw.amount || raw.amount <= 0) {
-      return NextResponse.json(
-        { error: "Amount must be greater than zero" },
-        { status: 400 }
-      );
-    }
-
-    parsed = {
-      fromToken: raw.fromToken as MentoToken,
-      toToken: raw.toToken as MentoToken,
-      amount: Number(raw.amount),
-      corridor: raw.corridor || `${raw.fromToken} → ${raw.toToken}`,
-      recipientCountry: raw.recipientCountry || null,
-      language: raw.language || "en",
-    };
   } catch (err) {
     return NextResponse.json(
       {
         error:
           err instanceof Error
-            ? `Parse failed: ${err.message}`
+            ? `Parse failed: ${err.message}. Please retry in a few seconds.`
             : "Failed to parse your request",
       },
       { status: 400 }
@@ -274,17 +395,7 @@ export async function POST(request: Request) {
     if (fxRate) {
       // The stablecoin amount after Mento swap (in toToken) converts to local currency
       const stableAmount = sameToken ? parsed.amount : amountOut;
-      // toToken fiat base: cUSD=USD, cEUR=EUR
-      const outFiat = parsed.toToken === "cEUR" ? "EUR" : parsed.toToken === "cREAL" ? "BRL" : "USD";
-      // If outFiat matches baseFiat of the FX rate, use directly
-      // Otherwise we need to convert through USD
-      let localAmount: number;
-      if (outFiat === baseFiat || outFiat === "USD") {
-        localAmount = stableAmount * fxRate;
-      } else {
-        // Fallback: use the rate as-is (approximate)
-        localAmount = stableAmount * fxRate;
-      }
+      const localAmount = stableAmount * fxRate;
       lastMile = {
         localCurrency: localCurrency.code,
         symbol: localCurrency.symbol,

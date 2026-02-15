@@ -220,7 +220,12 @@ export default function RemittancePage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || "Something went wrong");
+        const rawError = String(json.error || "Something went wrong");
+        if (rawError.includes("RATE_LIMITED")) {
+          setError("Upstream quote service is busy. Please retry in a few seconds.");
+        } else {
+          setError(rawError);
+        }
         return;
       }
 
