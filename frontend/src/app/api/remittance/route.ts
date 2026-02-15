@@ -58,7 +58,7 @@ const CORRIDOR_LOCAL_CURRENCY: Record<string, { code: string; symbol: string; na
   "EUR → XOF": { code: "XOF", symbol: "CFA", name: "West African CFA" },
 };
 
-// Frankfurter API cache for local currency rates
+// Reference FX cache for local-fiat estimate display (execution remains on-chain via Mento)
 let fxCache: { rates: Record<string, number>; timestamp: number } | null = null;
 const FX_CACHE_TTL = 5 * 60 * 1000; // 5 min
 
@@ -181,7 +181,7 @@ function parseFallbackIntent(message: string): ParsedIntent | null {
   };
 }
 
-async function getLocalCurrencyRate(baseCurrency: string, targetCode: string): Promise<number | null> {
+async function getLocalCurrencyRate(baseCurrency: string, targetCode: string): Promise<{ rate: number | null; source: "live_reference" | "cached_reference" | "static_reference" }> {
   const cacheKey = `${baseCurrency}-${targetCode}`;
   const staticFallback = STATIC_FX_FALLBACKS[cacheKey] ?? null;
 
@@ -191,7 +191,7 @@ async function getLocalCurrencyRate(baseCurrency: string, targetCode: string): P
     const normalizedCacheKey = `${base}-${targetCode}`;
 
     if (fxCache && Date.now() - fxCache.timestamp < FX_CACHE_TTL && fxCache.rates[normalizedCacheKey]) {
-      return fxCache.rates[normalizedCacheKey];
+      return { rate: fxCache.rates[normalizedCacheKey], source: "cached_reference" };
     }
 
     // XOF is not on Frankfurter — use fixed EUR peg (1 EUR = 655.957 XOF)
@@ -202,15 +202,18 @@ async function getLocalCurrencyRate(baseCurrency: string, targetCode: string): P
         fxCache.rates[normalizedCacheKey] = rate;
         fxCache.timestamp = Date.now();
       }
-      return rate ?? staticFallback;
+      if (rate) return { rate, source: "live_reference" };
+      if (staticFallback) return { rate: staticFallback, source: "static_reference" };
+      return { rate: null, source: "static_reference" };
     }
 
     const res = await fetch(
       `https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${targetCode}`
     );
     if (!res.ok) {
-      if (fxCache?.rates[normalizedCacheKey]) return fxCache.rates[normalizedCacheKey];
-      return staticFallback;
+      if (fxCache?.rates[normalizedCacheKey]) return { rate: fxCache.rates[normalizedCacheKey], source: "cached_reference" };
+      if (staticFallback) return { rate: staticFallback, source: "static_reference" };
+      return { rate: null, source: "static_reference" };
     }
 
     const data = await res.json();
@@ -220,14 +223,16 @@ async function getLocalCurrencyRate(baseCurrency: string, targetCode: string): P
       if (!fxCache) fxCache = { rates: {}, timestamp: Date.now() };
       fxCache.rates[normalizedCacheKey] = rate;
       fxCache.timestamp = Date.now();
-      return rate;
+      return { rate, source: "live_reference" };
     }
 
-    if (fxCache?.rates[normalizedCacheKey]) return fxCache.rates[normalizedCacheKey];
-    return staticFallback;
+    if (fxCache?.rates[normalizedCacheKey]) return { rate: fxCache.rates[normalizedCacheKey], source: "cached_reference" };
+    if (staticFallback) return { rate: staticFallback, source: "static_reference" };
+    return { rate: null, source: "static_reference" };
   } catch {
-    if (fxCache?.rates[cacheKey]) return fxCache.rates[cacheKey];
-    return staticFallback;
+    if (fxCache?.rates[cacheKey]) return { rate: fxCache.rates[cacheKey], source: "cached_reference" };
+    if (staticFallback) return { rate: staticFallback, source: "static_reference" };
+    return { rate: null, source: "static_reference" };
   }
 }
 
@@ -343,7 +348,7 @@ export async function POST(request: Request) {
       }
       parsed = fallback;
       quoteQuality = "fallback";
-      warnings.push("Using fallback route parsing. Quote remains executable.");
+      warnings.push("Parser fallback active. Mento execution path is unchanged.");
     } else {
       const validTokens = new Set(["cUSD", "cEUR", "cREAL"]);
       if (!validTokens.has(String(raw.fromToken)) || !validTokens.has(String(raw.toToken))) {
@@ -442,11 +447,14 @@ export async function POST(request: Request) {
   // Last-mile: convert stablecoin amount to local currency
   const localCurrency = CORRIDOR_LOCAL_CURRENCY[parsed.corridor] ?? null;
   let lastMile: { localCurrency: string; symbol: string; name: string; fxRate: number; localAmount: string; chain: string } | null = null;
+  let referenceFxSource: "live_reference" | "cached_reference" | "static_reference" | null = null;
 
   if (localCurrency) {
     // Determine the base fiat currency: cUSD=USD, cEUR=EUR, cREAL=BRL
     const baseFiat = parsed.fromToken === "cEUR" ? "EUR" : parsed.fromToken === "cREAL" ? "BRL" : "USD";
-    const fxRate = await getLocalCurrencyRate(baseFiat, localCurrency.code);
+    const fxRef = await getLocalCurrencyRate(baseFiat, localCurrency.code);
+    const fxRate = fxRef.rate;
+    referenceFxSource = fxRef.source;
     if (fxRate) {
       // The stablecoin amount after Mento swap (in toToken) converts to local currency
       const stableAmount = sameToken ? parsed.amount : amountOut;
@@ -460,6 +468,10 @@ export async function POST(request: Request) {
         chain: `${parsed.amount} ${parsed.fromToken} → ${amountOut.toFixed(2)} ${parsed.toToken} → ${localCurrency.symbol}${localAmount.toFixed(2)} ${localCurrency.code}`,
       };
     }
+  }
+
+  if (referenceFxSource === "static_reference") {
+    warnings.push("Local-fiat estimate uses static reference data. On-chain Mento settlement is unaffected.");
   }
 
   return NextResponse.json({
@@ -526,7 +538,11 @@ export async function POST(request: Request) {
     },
     strings,
     lastMile,
-    meta: { quoteQuality },
+    meta: {
+      quoteQuality,
+      executionSource: "mento_onchain",
+      referenceFxSource: referenceFxSource ?? "live_reference",
+    },
     warnings,
   });
 }

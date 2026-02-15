@@ -78,6 +78,8 @@ interface RemittanceResult {
   } | null;
   meta?: {
     quoteQuality?: "live" | "fallback";
+    executionSource?: "mento_onchain";
+    referenceFxSource?: "live_reference" | "cached_reference" | "static_reference";
   };
   warnings?: string[];
 }
@@ -189,7 +191,7 @@ export default function RemittancePage() {
       if (!res.ok) {
         const rawError = String((json as { error?: string }).error || "Something went wrong");
         if (rawError.includes("RATE_LIMITED")) {
-          setError("Quote service is busy. Please retry in a few seconds.");
+          setError("Reference quote service is busy. Retry in a few seconds; Mento settlement flow remains available.");
         } else {
           setError(rawError);
         }
@@ -411,6 +413,9 @@ export default function RemittancePage() {
               {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
               Get Quote
             </button>
+            <p className="text-center text-[11px] text-muted-foreground">
+              Native execution path: Mento swap (if needed) + Celo transfer.
+            </p>
           </CardContent>
         </Card>
 
@@ -436,10 +441,10 @@ export default function RemittancePage() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="border-amber-300 bg-amber-100 text-amber-800 text-[10px]">
-                    Estimate
+                    Reference Estimate
                   </Badge>
                   <p className="text-xs text-amber-800">
-                    Fallback quote used. You can still execute, but rate may update at execution time.
+                    Local-fiat/reference inputs degraded. Mento execution remains native; final rate is set at execution.
                   </p>
                 </div>
               </div>
@@ -450,6 +455,9 @@ export default function RemittancePage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Globe className="size-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Transfer route</span>
+                  <Badge variant="outline" className="border-violet-200 bg-violet-50 text-[10px] text-violet-700">
+                    Mento Native
+                  </Badge>
                   <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700">
                     {result.parsed.corridor}
                   </Badge>
@@ -493,6 +501,9 @@ export default function RemittancePage() {
                     </div>
                     <p className="text-sm text-blue-900">
                       About {result.lastMile.symbol}{result.lastMile.localAmount} {result.lastMile.localCurrency}
+                    </p>
+                    <p className="mt-1 text-[11px] text-blue-800">
+                      Settlement is on Celo ({result.parsed.toToken}); local-fiat figure is a reference estimate.
                     </p>
                   </div>
                 )}
