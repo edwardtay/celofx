@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { createPublicClient, createWalletClient, http, type Hex } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex, formatUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo, mainnet } from "viem/chains";
-import { buildSwapTx, buildTransferTx, type MentoToken } from "@/lib/mento-sdk";
+import { buildSwapTx, buildTransferTx, TOKENS, type MentoToken } from "@/lib/mento-sdk";
 import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 import { recoverMessageAddress } from "viem";
+import { deriveUserAgentWallet } from "@/lib/user-agent-wallet";
 
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
 const FORNO = "https://forno.celo.org";
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const MIN_GAS_BUFFER_CUSD = 0.005;
 
 type ExecuteBody = {
   fromToken: MentoToken;
@@ -21,6 +23,16 @@ type ExecuteBody = {
   signature?: string;
   timestamp?: number;
 };
+
+const erc20BalanceAbi = [
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+] as const;
 
 function isAddress(value: string): value is `0x${string}` {
   return /^0x[a-fA-F0-9]{40}$/.test(value);
@@ -118,15 +130,25 @@ export async function POST(request: Request) {
     }
   }
 
-  const pk = process.env.AGENT_PRIVATE_KEY as Hex | undefined;
-  if (!pk) {
-    return NextResponse.json(
-      { error: "AGENT_PRIVATE_KEY is not configured for agentic execution" },
-      { status: 503 }
-    );
-  }
-
   try {
+    let pk: Hex | undefined;
+    let executionWalletAddress: `0x${string}` | null = null;
+    if (authMode === "eoa_signed" && requester) {
+      const derived = deriveUserAgentWallet(requester);
+      pk = derived.privateKey;
+      executionWalletAddress = derived.address;
+    } else {
+      pk = process.env.AGENT_PRIVATE_KEY as Hex | undefined;
+      executionWalletAddress = null;
+    }
+
+    if (!pk) {
+      return NextResponse.json(
+        { error: "Execution wallet not configured" },
+        { status: 503 }
+      );
+    }
+
     const account = privateKeyToAccount(pk);
     const wallet = createWalletClient({
       account,
@@ -137,6 +159,51 @@ export async function POST(request: Request) {
       chain: celo,
       transport: http(FORNO),
     });
+
+    const walletAddress = executionWalletAddress ?? account.address;
+    const [fromBal, gasBal] = await Promise.all([
+      publicClient.readContract({
+        address: TOKENS[fromToken] as `0x${string}`,
+        abi: erc20BalanceAbi,
+        functionName: "balanceOf",
+        args: [walletAddress],
+      }),
+      publicClient.readContract({
+        address: CUSD,
+        abi: erc20BalanceAbi,
+        functionName: "balanceOf",
+        args: [walletAddress],
+      }),
+    ]);
+
+    const fromTokenBalance = Number(formatUnits(fromBal, 18));
+    const gasBuffer = Number(formatUnits(gasBal, 18));
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    }
+    if (fromTokenBalance < amountNum) {
+      return NextResponse.json(
+        {
+          error: `Insufficient ${fromToken} balance in execution wallet`,
+          executionWallet: walletAddress,
+          balance: fromTokenBalance.toFixed(6),
+          required: amountNum.toFixed(6),
+        },
+        { status: 400 }
+      );
+    }
+    if (gasBuffer < MIN_GAS_BUFFER_CUSD) {
+      return NextResponse.json(
+        {
+          error: "Insufficient cUSD gas buffer in execution wallet",
+          executionWallet: walletAddress,
+          cUSDBalance: gasBuffer.toFixed(6),
+          minRequired: MIN_GAS_BUFFER_CUSD.toFixed(3),
+        },
+        { status: 400 }
+      );
+    }
 
     let approvalTxHash: Hex | null = null;
     let swapTxHash: Hex | null = null;
@@ -175,6 +242,7 @@ export async function POST(request: Request) {
       mode: "agentic",
       authMode,
       requester,
+      executionWallet: walletAddress,
       corridor: corridor ?? `${fromToken} -> ${toToken}`,
       fromToken,
       toToken,

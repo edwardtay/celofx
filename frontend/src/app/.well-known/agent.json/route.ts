@@ -51,6 +51,8 @@ export async function GET() {
           name: "EOA signed access",
           auth: "wallet_signature",
           endpoint: `${base}/api/remittance/execute`,
+          walletProvisioning: `${base}/api/agent-wallet`,
+          walletProvider: "thirdweb_deterministic",
         },
         {
           id: "agent_api",

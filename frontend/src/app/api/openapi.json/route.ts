@@ -442,6 +442,34 @@ const SPEC = {
         responses: { "200": { description: "Access layer definitions and auth requirements" } },
       },
     },
+    "/api/agent-wallet": {
+      post: {
+        tags: ["Protocols"],
+        summary: "Get per-user agent wallet",
+        description: "Creates/returns deterministic thirdweb-backed execution wallet for a connected EOA user.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  requester: { type: "string", description: "EOA address" },
+                  signature: { type: "string", description: "Wallet signature over access message" },
+                  timestamp: { type: "number" },
+                },
+                required: ["requester", "signature", "timestamp"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Derived wallet + balances" },
+          "400": { description: "Invalid request" },
+          "401": { description: "Invalid signature" },
+        },
+      },
+    },
     "/.well-known/agent-card.json": {
       get: {
         tags: ["Protocols"],

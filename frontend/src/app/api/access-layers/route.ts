@@ -14,6 +14,8 @@ export async function GET() {
           audience: "wallet users",
           auth: "wallet_signature",
           endpoint: `${base}/api/remittance/execute`,
+          walletProvisioning: `${base}/api/agent-wallet`,
+          walletProvider: "thirdweb_deterministic",
           messageTemplate: "CeloFX Remittance Execute",
           notes: "User signs intent; agent executes swap + transfer on Celo.",
         },
