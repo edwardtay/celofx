@@ -48,7 +48,10 @@ function walletClient() {
 }
 
 async function main() {
-  loadEnv(path.resolve("frontend/.env.local"));
+  const rootEnv = path.resolve(".env.local");
+  const frontendEnv = path.resolve("frontend/.env.local");
+  if (fs.existsSync(rootEnv)) loadEnv(rootEnv);
+  if (fs.existsSync(frontendEnv)) loadEnv(frontendEnv);
   const [cmd, to, amountCusd] = process.argv.slice(2);
   if (cmd !== "transfer" || !to || !amountCusd) {
     console.log("Usage: node frontend/scripts/publisher-activity.mjs transfer <to> <amountCusd>");

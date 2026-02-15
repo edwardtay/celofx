@@ -84,7 +84,10 @@ async function sleep(ms) {
 }
 
 async function run(mode) {
-  loadEnv(path.resolve("frontend/.env.local"));
+  const rootEnv = path.resolve(".env.local");
+  const frontendEnv = path.resolve("frontend/.env.local");
+  if (fs.existsSync(rootEnv)) loadEnv(rootEnv);
+  if (fs.existsSync(frontendEnv)) loadEnv(frontendEnv);
 
   const to = parseArg("--to");
   const amount = parseArg("--amount", "0.25");
