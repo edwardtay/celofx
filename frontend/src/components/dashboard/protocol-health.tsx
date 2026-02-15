@@ -8,7 +8,6 @@ import {
   TrendingUp,
   TrendingDown,
   Globe,
-  ExternalLink,
 } from "lucide-react";
 
 interface ProtocolData {
@@ -17,7 +16,6 @@ interface ProtocolData {
     category: string;
     chains: string[];
     tvlChange7d: number;
-    url: string;
   };
   celo: {
     tvl: number;
@@ -63,14 +61,7 @@ export function ProtocolHealth() {
               DeFiLlama
             </Badge>
           </div>
-          <a
-            href="https://defillama.com/protocol/mento"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-          >
-            Source <ExternalLink className="size-2.5" />
-          </a>
+          <span className="text-xs text-muted-foreground">Source: DeFiLlama API</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

@@ -46,7 +46,6 @@ export async function GET() {
         category: mentoCategory,
         chains,
         tvlChange7d: parseFloat(tvlChange7d.toFixed(2)),
-        url: mentoRes.url ?? "https://mento.org",
       },
       celo: {
         tvl: celoTvl,

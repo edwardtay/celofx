@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createPublicClient, createWalletClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { celo } from "viem/chains";
+import { celo, mainnet } from "viem/chains";
 import { buildSwapTx, buildTransferTx, type MentoToken } from "@/lib/mento-sdk";
 
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
@@ -20,6 +20,23 @@ function isAddress(value: string): value is `0x${string}` {
   return /^0x[a-fA-F0-9]{40}$/.test(value);
 }
 
+async function resolveRecipientAddress(input: string): Promise<`0x${string}` | null> {
+  const raw = input.trim();
+  if (isAddress(raw)) return raw;
+  if (!raw.includes(".")) return null;
+
+  try {
+    const ensClient = createPublicClient({
+      chain: mainnet,
+      transport: http("https://cloudflare-eth.com"),
+    });
+    const resolved = await ensClient.getEnsAddress({ name: raw as `${string}.eth` });
+    return resolved ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: Request) {
   let body: ExecuteBody;
   try {
@@ -35,8 +52,9 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (!isAddress(recipientAddress)) {
-    return NextResponse.json({ error: "Invalid recipient address" }, { status: 400 });
+  const resolvedRecipient = await resolveRecipientAddress(recipientAddress);
+  if (!resolvedRecipient) {
+    return NextResponse.json({ error: "Invalid recipient. Use 0x address or resolvable ENS name." }, { status: 400 });
   }
 
   const pk = process.env.AGENT_PRIVATE_KEY as Hex | undefined;
@@ -83,7 +101,7 @@ export async function POST(request: Request) {
       deliveredAmount = swap.summary.expectedOut;
     }
 
-    const transferTx = buildTransferTx(toToken, recipientAddress, deliveredAmount);
+    const transferTx = buildTransferTx(toToken, resolvedRecipient, deliveredAmount);
     const transferTxHash = await wallet.sendTransaction({
       to: transferTx.to,
       data: transferTx.data as `0x${string}`,
@@ -99,7 +117,8 @@ export async function POST(request: Request) {
       toToken,
       amountIn: amount,
       amountDelivered: deliveredAmount,
-      recipientAddress,
+      recipientAddress: resolvedRecipient,
+      recipientInput: recipientAddress,
       approvalTxHash,
       swapTxHash,
       transferTxHash,
@@ -111,4 +130,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

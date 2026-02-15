@@ -130,7 +130,7 @@ function QuickstartTab() {
             <p className="text-xs font-medium">REST API</p>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Fetch live Mento spreads, market data, signals, and track record via HTTP.
+            Fetch CeloFX-native on-chain FX spreads, market data, signals, and track record via HTTP.
           </p>
         </div>
         <div className="border rounded-lg p-3 space-y-1">
@@ -181,7 +181,7 @@ function McpTab() {
         <p className="text-xs font-medium mb-2">Tools</p>
         <div className="space-y-2">
           {[
-            { name: "get_mento_rates", desc: "Live Mento on-chain rates vs real forex — spread analysis", returns: "pairs[]: { pair, mentoRate, forexRate, spreadPct, direction }" },
+            { name: "get_mento_rates", desc: "Live on-chain Celo stablecoin rates vs real forex — spread analysis", returns: "pairs[]: { pair, mentoRate, forexRate, spreadPct, direction }" },
             { name: "get_signals", desc: "AI-generated trading signals (filter by market)", returns: "signals[]: { asset, market, direction, confidence, summary, reasoning }" },
             { name: "get_trades", desc: "Executed on-chain swaps with Celoscan tx hashes", returns: "trades[]: { pair, amountIn, amountOut, rate, spreadPct, celoscanUrl }" },
             { name: "get_performance", desc: "Verified track record: volume, P&L, success rate", returns: "{ totalTrades, successRate, totalVolume, avgSpreadCaptured, cumulativePnlPct }" },
@@ -257,8 +257,8 @@ function A2aTab() {
         <p className="text-xs font-medium mb-2">3. Skills</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {[
-            { name: "FX Rate Analysis", desc: "Compare Mento on-chain rates with real forex", id: "fx_rate_analysis" },
-            { name: "Swap Execution", desc: "Execute Mento stablecoin swaps on Celo", id: "execute_swap" },
+            { name: "FX Rate Analysis", desc: "Compare on-chain Celo stablecoin rates with real forex", id: "fx_rate_analysis" },
+            { name: "Swap Execution", desc: "Execute native Celo stablecoin swaps", id: "execute_swap" },
             { name: "Portfolio Status", desc: "Agent wallet balances and trade history", id: "portfolio_status" },
             { name: "Performance", desc: "Verified track record with on-chain proof", id: "performance_tracking" },
           ].map((skill) => (
@@ -290,7 +290,7 @@ function RestTab() {
         <p className="text-xs font-medium mb-3">Endpoints</p>
         <div className="space-y-1">
           {[
-            { method: "GET", path: "/api/market-data/mento", desc: "Mento on-chain rates vs forex (core data)" },
+            { method: "GET", path: "/api/market-data/mento", desc: "Native on-chain stablecoin rates vs forex (core data)" },
             { method: "GET", path: "/api/market-data/forex", desc: "Real-world forex rates (EUR, GBP, JPY, CHF)" },
             { method: "GET", path: "/api/market-data/crypto", desc: "Crypto prices (BTC, ETH, SOL, CELO)" },
             { method: "GET", path: "/api/signals", desc: "AI-generated trading signals" },

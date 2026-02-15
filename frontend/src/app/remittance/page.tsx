@@ -529,7 +529,7 @@ export default function RemittancePage() {
                       {result.quote.rate.toFixed(4)} {result.parsed.toToken}
                     </span>
                     <span className="text-muted-foreground/50">|</span>
-                    <span>Mento Broker (on-chain)</span>
+                    <span>CeloFX native on-chain swap route</span>
                   </div>
                 )}
               </CardContent>
@@ -837,7 +837,7 @@ export default function RemittancePage() {
                       ) : execStep === "swapping" ? (
                         <>
                           <Loader2 className="size-4 animate-spin" />
-                          Swapping via Mento Broker...
+                          Swapping on Celo...
                         </>
                       ) : (
                         <>

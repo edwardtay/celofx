@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMentoData, useCrossVenueData, type CrossVenueRate } from "@/hooks/use-market-data";
 import { cn } from "@/lib/utils";
-import { ArrowRight, TrendingUp, TrendingDown, Minus, ExternalLink, Layers } from "lucide-react";
+import { ArrowRight, TrendingUp, TrendingDown, Minus, Layers } from "lucide-react";
 import type { MentoRate } from "@/lib/market-data";
 
 // ─── Cross-Venue Card (Mento vs Uniswap vs Forex) ───
@@ -217,16 +217,10 @@ export function MentoSpreads() {
                 {updatedAgo < 5 ? "just now" : updatedAgo < 60 ? `${updatedAgo}s ago` : `${Math.floor(updatedAgo / 60)}m ago`}
               </span>
             )}
-            <a
-              href="https://celoscan.io/address/0x777A8255cA72412f0d706dc03C9D1987306B4CaD"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-muted-foreground flex items-center gap-1.5 hover:text-foreground transition-colors"
-            >
+            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              On-chain
-              <ExternalLink className="size-2.5" />
-            </a>
+              Native on-chain execution
+            </div>
           </div>
         )}
       </div>
