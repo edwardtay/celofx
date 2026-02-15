@@ -6,6 +6,9 @@
   "active": true,
   "updatedAt": "2026-02-14T00:00:00.000Z",
   "agent_url": "https://celofx.vercel.app",
+  "version": "1.1.0",
+  "documentation": "https://celofx.vercel.app/developers",
+  "openapi": "https://celofx.vercel.app/api/openapi.json",
   "agent_type": "autonomous_agent",
   "owner_wallet": "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
   "mcp_server": "https://celofx.vercel.app/api/mcp",
@@ -53,8 +56,24 @@
     "a2a": "https://celofx.vercel.app/.well-known/agent-card.json",
     "mcp_manifest": "https://celofx.vercel.app/.well-known/mcp.json",
     "agent_discovery": "https://celofx.vercel.app/.well-known/agent.json",
-    "health": "https://celofx.vercel.app/api/health"
+    "health": "https://celofx.vercel.app/api/health",
+    "openapi": "https://celofx.vercel.app/api/openapi.json",
+    "access_layers": "https://celofx.vercel.app/api/access-layers"
   },
+  "access_layers": [
+    {
+      "id": "eoa_signed",
+      "auth": "wallet_signature",
+      "endpoint": "https://celofx.vercel.app/api/remittance/execute",
+      "audience": "wallet_users"
+    },
+    {
+      "id": "agent_api",
+      "auth": "hmac_or_bearer",
+      "endpoint": "https://celofx.vercel.app/api/remittance/execute",
+      "audience": "agents_apps"
+    }
+  ],
   "services": [
     {
       "name": "web",
@@ -256,6 +275,11 @@
       "agentRegistry": "eip155:42220:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
     }
   ],
+  "registry": {
+    "chainId": 42220,
+    "tokenId": "10",
+    "contract": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+  },
   "canonicalIdentity": {
     "canonicalAgentId": 10,
     "wallet": "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",

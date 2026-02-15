@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "scan:readiness": "bash ./scripts/scan-readiness.sh",
     "score:check": "node scripts/check-8004scan-score.mjs",
+    "score:publisher:dry": "node scripts/publisher-quick-lift.mjs dry-run --to 0x15ECEE3445E3C8cf28D4D93fAB50181de728b86d --amount 0.25",
     "metadata:update:dry": "node scripts/update-agent-metadata.mjs --dry-run",
     "metadata:update": "node scripts/update-agent-metadata.mjs"
   },

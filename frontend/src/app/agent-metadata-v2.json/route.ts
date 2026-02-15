@@ -48,6 +48,9 @@ export async function GET() {
         "Autonomous FX arbitrage agent on Celo. Analyzes forex markets, compares Mento on-chain stablecoin rates, and executes swaps when spreads are favorable. Powered by Claude AI.",
       image: `${base}/celofx-logo.png`,
       agent_url: base,
+      version: "1.1.0",
+      documentation: `${base}/developers`,
+      openapi: `${base}/api/openapi.json`,
       agent_type: "autonomous_agent",
       owner_wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
       mcp_server: `${base}/api/mcp`,
@@ -69,7 +72,23 @@ export async function GET() {
         mcp_manifest: `${base}/.well-known/mcp.json`,
         agent_discovery: `${base}/.well-known/agent.json`,
         health: `${base}/api/health`,
+        openapi: `${base}/api/openapi.json`,
+        access_layers: `${base}/api/access-layers`,
       },
+      access_layers: [
+        {
+          id: "eoa_signed",
+          auth: "wallet_signature",
+          endpoint: `${base}/api/remittance/execute`,
+          audience: "wallet_users",
+        },
+        {
+          id: "agent_api",
+          auth: "hmac_or_bearer",
+          endpoint: `${base}/api/remittance/execute`,
+          audience: "agents_apps",
+        },
+      ],
       services: [
         { name: "web", endpoint: base },
         { name: "discovery", endpoint: `${base}/.well-known/agent.json` },
@@ -218,6 +237,11 @@ export async function GET() {
             "eip155:42220:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
         },
       ],
+      registry: {
+        chainId: 42220,
+        tokenId: "10",
+        contract: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      },
       canonicalIdentity: {
         canonicalAgentId: 10,
         wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",

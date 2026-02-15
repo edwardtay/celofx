@@ -98,6 +98,21 @@ export default function HomePage() {
             </p>
           </div>
         </section>
+
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="rounded-xl border bg-card p-5">
+            <h3 className="font-semibold">EOA Access Layer</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Wallet users sign intents in-app. CeloFX executes with policy checks and returns on-chain hashes.
+            </p>
+          </div>
+          <div className="rounded-xl border bg-card p-5">
+            <h3 className="font-semibold">Agent Access Layer</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Other agents/apps call signed API endpoints (MCP, A2A, x402, REST) with replay-safe auth.
+            </p>
+          </div>
+        </section>
       </main>
       <Footer />
     </div>

@@ -3,9 +3,12 @@ import { createPublicClient, createWalletClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo, mainnet } from "viem/chains";
 import { buildSwapTx, buildTransferTx, type MentoToken } from "@/lib/mento-sdk";
+import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
+import { recoverMessageAddress } from "viem";
 
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
 const FORNO = "https://forno.celo.org";
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 type ExecuteBody = {
   fromToken: MentoToken;
@@ -14,6 +17,9 @@ type ExecuteBody = {
   recipientAddress: string;
   corridor?: string;
   slippage?: number;
+  requester?: string;
+  signature?: string;
+  timestamp?: number;
 };
 
 function isAddress(value: string): value is `0x${string}` {
@@ -38,6 +44,7 @@ async function resolveRecipientAddress(input: string): Promise<`0x${string}` | n
 }
 
 export async function POST(request: Request) {
+  const authRequest = request.clone();
   let body: ExecuteBody;
   try {
     body = (await request.json()) as ExecuteBody;
@@ -55,6 +62,60 @@ export async function POST(request: Request) {
   const resolvedRecipient = await resolveRecipientAddress(recipientAddress);
   if (!resolvedRecipient) {
     return NextResponse.json({ error: "Invalid recipient. Use 0x address or resolvable ENS name." }, { status: 400 });
+  }
+
+  let authMode: "agent_api" | "eoa_signed" | null = null;
+  let requester: string | null = null;
+  const hasAgentHeaders = Boolean(
+    request.headers.get("x-agent-signature") || request.headers.get("authorization")
+  );
+
+  if (hasAgentHeaders) {
+    if (!hasAgentSecret()) return missingSecretResponse();
+    const auth = await requireSignedAuth(authRequest);
+    if (!auth.ok) return unauthorizedResponse();
+    authMode = "agent_api";
+  } else {
+    const signature = body.signature;
+    const timestamp = Number(body.timestamp);
+    const requesterRaw = body.requester?.trim().toLowerCase();
+
+    if (
+      !signature ||
+      !requesterRaw ||
+      !isAddress(requesterRaw) ||
+      !Number.isFinite(timestamp) ||
+      Math.abs(Date.now() - timestamp) > MAX_CLOCK_SKEW_MS
+    ) {
+      return NextResponse.json(
+        { error: "Unauthorized. Provide wallet signature or agent API auth." },
+        { status: 401 }
+      );
+    }
+
+    const recipientInput = recipientAddress.trim().toLowerCase();
+    const message = [
+      "CeloFX Remittance Execute",
+      `requester:${requesterRaw}`,
+      `recipient:${recipientInput}`,
+      `fromToken:${fromToken}`,
+      `toToken:${toToken}`,
+      `amount:${amount}`,
+      `corridor:${corridor ?? `${fromToken} -> ${toToken}`}`,
+      `timestamp:${timestamp}`,
+    ].join("\n");
+
+    try {
+      const recovered = await recoverMessageAddress({
+        message,
+        signature: signature as `0x${string}`,
+      });
+      if (recovered.toLowerCase() !== requesterRaw) return unauthorizedResponse();
+      requester = requesterRaw;
+      authMode = "eoa_signed";
+    } catch {
+      return unauthorizedResponse();
+    }
   }
 
   const pk = process.env.AGENT_PRIVATE_KEY as Hex | undefined;
@@ -112,6 +173,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       mode: "agentic",
+      authMode,
+      requester,
       corridor: corridor ?? `${fromToken} -> ${toToken}`,
       fromToken,
       toToken,

@@ -5,6 +5,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAccount, useSignMessage } from "wagmi";
 import {
   AlertTriangle,
   ArrowRight,
@@ -121,6 +122,8 @@ function toTokenForDestination(fiat: string): RemittanceToken {
 }
 
 export default function RemittancePage() {
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [amount, setAmount] = useState("100");
   const [fromToken, setFromToken] = useState<RemittanceToken>("cUSD");
   const [destinationCountry, setDestinationCountry] = useState("Nigeria");
@@ -235,6 +238,10 @@ export default function RemittancePage() {
       setExecError(limitWarning);
       return;
     }
+    if (!isConnected || !address) {
+      setExecError("Connect wallet to authorize this transfer.");
+      return;
+    }
     if (!isValidRecipient(recipientAddress)) {
       setExecError("Enter a valid recipient wallet (0x...) or ENS (.eth).");
       return;
@@ -245,6 +252,21 @@ export default function RemittancePage() {
     setAgentTxHashes({ approvalTxHash: null, swapTxHash: null, transferTxHash: null });
 
     try {
+      const requester = address.toLowerCase();
+      const timestamp = Date.now();
+      const recipient = recipientAddress.trim().toLowerCase();
+      const message = [
+        "CeloFX Remittance Execute",
+        `requester:${requester}`,
+        `recipient:${recipient}`,
+        `fromToken:${result.parsed.fromToken}`,
+        `toToken:${result.parsed.toToken}`,
+        `amount:${String(result.parsed.amount)}`,
+        `corridor:${result.parsed.corridor}`,
+        `timestamp:${timestamp}`,
+      ].join("\n");
+      const signature = await signMessageAsync({ message });
+
       const res = await fetch("/api/remittance/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,6 +277,9 @@ export default function RemittancePage() {
           recipientAddress: recipientAddress.trim(),
           corridor: result.parsed.corridor,
           slippage: 1,
+          requester,
+          signature,
+          timestamp,
         }),
       });
 
@@ -305,6 +330,27 @@ export default function RemittancePage() {
             Fast one-time transfers on Celo. Enter amount, destination, then send.
           </p>
         </div>
+
+        <Card className="gap-0 py-0">
+          <CardContent className="space-y-2 py-3">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="font-medium">Access mode</span>
+              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                EOA Signed
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You authorize with wallet signature; CeloFX agent executes swap + transfer on Celo.
+            </p>
+            <details className="rounded-lg border px-3 py-2">
+              <summary className="cursor-pointer text-xs text-muted-foreground">Agent API mode</summary>
+              <p className="mt-2 text-xs text-muted-foreground">
+                For agent-to-agent use, call <code>/api/remittance/execute</code> with signed agent headers
+                (HMAC/Bearer) instead of wallet signature.
+              </p>
+            </details>
+          </CardContent>
+        </Card>
 
         <Card className="gap-0 py-0">
           <CardContent className="space-y-3 py-4">

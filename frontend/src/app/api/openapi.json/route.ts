@@ -434,6 +434,14 @@ const SPEC = {
         },
       },
     },
+    "/api/access-layers": {
+      get: {
+        tags: ["Protocols"],
+        summary: "Interaction access modes",
+        description: "Describes dual access: wallet-signed EOA flow and agent-to-agent signed API flow.",
+        responses: { "200": { description: "Access layer definitions and auth requirements" } },
+      },
+    },
     "/.well-known/agent-card.json": {
       get: {
         tags: ["Protocols"],

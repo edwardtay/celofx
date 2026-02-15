@@ -9,11 +9,15 @@ export async function GET() {
       description:
         "Autonomous FX arbitrage agent on Celo with MCP, A2A, OASF, and x402.",
       homepage: base,
+      version: "1.1.0",
+      documentation: `${base}/developers`,
       endpoints: {
         mcp: `${base}/api/mcp`,
         a2a: `${base}/.well-known/agent-card.json`,
         mcp_manifest: `${base}/.well-known/mcp.json`,
         health: `${base}/api/health`,
+        openapi: `${base}/api/openapi.json`,
+        access_layers: `${base}/api/access-layers`,
       },
       protocols: ["MCP", "A2A", "OASF", "x402"],
       mcp: {
@@ -37,8 +41,24 @@ export async function GET() {
       registry: {
         chainId: 42220,
         tokenId: "10",
+        agentId: "42220:0x8004a169fb4a3325136eb29fa0ceb6d2e539a432:10",
+        contract: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
         standard: "ERC-8004",
       },
+      accessLayers: [
+        {
+          id: "eoa_signed",
+          name: "EOA signed access",
+          auth: "wallet_signature",
+          endpoint: `${base}/api/remittance/execute`,
+        },
+        {
+          id: "agent_api",
+          name: "Agent API access",
+          auth: "hmac_or_bearer",
+          endpoint: `${base}/api/remittance/execute`,
+        },
+      ],
       canonicalIdentity: {
         canonicalAgentId: 10,
         wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
