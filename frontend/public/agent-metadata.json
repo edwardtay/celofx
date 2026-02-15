@@ -7,8 +7,6 @@
   "updatedAt": "2026-02-14T00:00:00.000Z",
   "agent_url": "https://celofx.vercel.app",
   "agent_type": "autonomous_agent",
-  "agent_wallet": "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
-  "agent_wallet_chain_id": 42220,
   "owner_wallet": "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
   "mcp_server": "https://celofx.vercel.app/api/mcp",
   "a2a_endpoint": "https://celofx.vercel.app/.well-known/agent-card.json",
@@ -61,10 +59,6 @@
     {
       "name": "web",
       "endpoint": "https://celofx.vercel.app"
-    },
-    {
-      "name": "agentWallet",
-      "endpoint": "eip155:42220:0x6652AcDc623b7CCd52E115161d84b949bAf3a303"
     },
     {
       "name": "discovery",

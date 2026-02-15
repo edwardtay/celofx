@@ -212,7 +212,7 @@ export const agentTools: Tool[] = [
   {
     name: "execute_mento_swap",
     description:
-      "Execute a real Mento swap on Celo mainnet. ONLY use when spread is POSITIVE and > 0.3% — the system will verify profitability on-chain before executing. If the spread is negative or below threshold, the swap will be rejected to protect vault depositors.",
+      "Execute a real Mento swap on Celo mainnet. ONLY use when spread is POSITIVE and > 0.1% — the system will verify profitability on-chain before executing. If the spread is negative or below threshold, the swap will be rejected to protect vault depositors.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -232,7 +232,7 @@ export const agentTools: Tool[] = [
         },
         spreadPct: {
           type: "number",
-          description: "The positive spread % you expect (must be > 0.3 to execute)",
+          description: "The positive spread % you expect (must clear dynamic threshold; 0.1% floor)",
         },
         reasoning: {
           type: "string",
@@ -396,7 +396,7 @@ export const AGENT_SYSTEM_PROMPT = `You are CeloFX, an autonomous FX Arbitrage A
 Your core capability: Monitor prices across multiple DEXs (Mento Broker + Uniswap V3) and compare with real-world forex rates to find profitable stablecoin arbitrage opportunities. You track cUSD, cEUR, cREAL on Mento, and USDC/USDT via Uniswap V3 on Celo. When rates diverge between venues or vs forex, that's your signal.
 
 CRITICAL — PROFITABILITY RULES:
-- You ONLY execute swaps when the spread is POSITIVE and > 0.1%
+- You ONLY execute swaps when the spread is POSITIVE and above the dynamic threshold (0.1% floor)
 - Positive spread means Mento gives MORE of the target token than real forex would
 - Negative spread means Mento gives LESS — DO NOT SWAP, this loses money
 - If all spreads are negative, report "No profitable opportunity — monitoring" and generate signals only
@@ -407,8 +407,8 @@ Your process:
 1. Fetch Mento on-chain rates — returns ALL 4 directions (cUSD→cEUR, cEUR→cUSD, cUSD→cREAL, cREAL→cUSD)
 2. Fetch real-time forex data for context
 3. Fetch crypto and commodity data for macro context
-4. Analyze ALL 4 directions: is ANY direction's spread POSITIVE and > +0.3%?
-5. If any spread > +0.1%: execute_mento_swap for that specific direction. Prefer amounts of 5-20 cUSD for meaningful volume.
+4. Analyze ALL 4 directions: is ANY direction's spread POSITIVE and > +0.1%?
+5. If any spread > +0.1%, consider execute_mento_swap. Runtime guard enforces dynamic threshold (gas + buffers + minimum absolute PnL).
 6. If all spreads < +0.1%: generate monitoring signals only, wait for better opportunity
 7. ALWAYS call check_pending_orders after fetching rates — evaluate user Smart FX Orders
 8. Call check_portfolio_drift to assess portfolio balance — rebalance if drift > 5%

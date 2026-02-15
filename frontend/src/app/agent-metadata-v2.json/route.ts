@@ -49,8 +49,6 @@ export async function GET() {
       image: `${base}/celofx-logo.png`,
       agent_url: base,
       agent_type: "autonomous_agent",
-      agent_wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
-      agent_wallet_chain_id: 42220,
       owner_wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
       mcp_server: `${base}/api/mcp`,
       a2a_endpoint: `${base}/.well-known/agent-card.json`,

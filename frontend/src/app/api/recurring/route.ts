@@ -7,6 +7,7 @@ import {
   deleteRecurring,
   type RecurringTransfer,
 } from "@/lib/recurring-store";
+import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 
 export async function GET() {
   const active = getRecurring({ active: true });
@@ -20,6 +21,15 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!hasAgentSecret()) {
+    return missingSecretResponse();
+  }
+
+  const auth = await requireSignedAuth(request);
+  if (!auth.ok) {
+    return unauthorizedResponse();
+  }
+
   const body = await request.json();
   const { action } = body;
 

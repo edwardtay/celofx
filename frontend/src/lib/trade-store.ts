@@ -1,11 +1,17 @@
 import type { Trade, TradeStatus } from "./types";
 import { seedTrades } from "./seed-trades";
+import { loadJsonSync, writeJson } from "./persist";
 
 const trades = new Map<string, Trade>();
 
-// Initialize with seed data
-for (const trade of seedTrades) {
+const persisted = loadJsonSync<Trade[]>("trades.json", []);
+const initialTrades = persisted.length > 0 ? persisted : seedTrades;
+for (const trade of initialTrades) {
   trades.set(trade.id, trade);
+}
+
+function persist() {
+  writeJson("trades.json", Array.from(trades.values()));
 }
 
 export function getTrades(status?: TradeStatus): Trade[] {
@@ -20,12 +26,14 @@ export function getTrades(status?: TradeStatus): Trade[] {
 
 export function addTrade(trade: Trade): void {
   trades.set(trade.id, trade);
+  persist();
 }
 
 export function updateTrade(id: string, update: Partial<Trade>): void {
   const existing = trades.get(id);
   if (existing) {
     trades.set(id, { ...existing, ...update });
+    persist();
   }
 }
 

@@ -25,7 +25,11 @@ function getThirdwebFacilitator() {
 }
 
 export async function GET(request: NextRequest) {
-  const paymentData = request.headers.get("x-payment");
+  const paymentData =
+    request.headers.get("x-payment") ||
+    request.headers.get("X-PAYMENT") ||
+    request.headers.get("payment-signature") ||
+    request.headers.get("PAYMENT-SIGNATURE");
   const thirdwebFacilitator = getThirdwebFacilitator();
 
   // Use thirdweb settlePayment if configured
@@ -56,9 +60,40 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // thirdweb may return `maxAmountRequired` in accepts; alias it to `amount`
+    // for x402 clients that expect `amount`.
+    const headers = { ...result.responseHeaders, ...getTeeHeaders() } as Record<string, string>;
+    const requiredHeader =
+      headers["PAYMENT-REQUIRED"] ??
+      headers["payment-required"] ??
+      headers["X-PAYMENT-REQUIRED"] ??
+      headers["x-payment-required"];
+    if (requiredHeader) {
+      try {
+        const decoded = JSON.parse(Buffer.from(requiredHeader, "base64").toString("utf8")) as {
+          accepts?: Array<Record<string, unknown>>;
+        };
+        if (Array.isArray(decoded.accepts)) {
+          decoded.accepts = decoded.accepts.map((acc) => {
+            if (!("amount" in acc) && "maxAmountRequired" in acc) {
+              return { ...acc, amount: acc.maxAmountRequired };
+            }
+            return acc;
+          });
+          const reencoded = Buffer.from(JSON.stringify(decoded), "utf8").toString("base64");
+          if ("PAYMENT-REQUIRED" in headers) headers["PAYMENT-REQUIRED"] = reencoded;
+          if ("payment-required" in headers) headers["payment-required"] = reencoded;
+          if ("X-PAYMENT-REQUIRED" in headers) headers["X-PAYMENT-REQUIRED"] = reencoded;
+          if ("x-payment-required" in headers) headers["x-payment-required"] = reencoded;
+        }
+      } catch {
+        // Preserve original headers if normalization fails.
+      }
+    }
+
     return new NextResponse(JSON.stringify(result.responseBody), {
       status: result.status,
-      headers: { ...result.responseHeaders, ...getTeeHeaders() },
+      headers,
     });
   }
 

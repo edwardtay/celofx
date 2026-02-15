@@ -256,6 +256,97 @@ export function getVolumeLog() {
 // ── Gas Threshold Check ──
 // Verify gas cost doesn't eat more than 50% of expected profit before swapping
 
+async function getGasCostEstimate(): Promise<{
+  gasPriceGwei: number;
+  estimatedGasCostUsd: number;
+}> {
+  const { createPublicClient, http, formatGwei } = await import("viem");
+  const { celo } = await import("viem/chains");
+  const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+
+  const gasPrice = await publicClient.getGasPrice();
+  const gasPriceGwei = parseFloat(formatGwei(gasPrice));
+
+  // Fetch real CELO price from CoinGecko
+  let celoPrice = 0.08; // fallback
+  try {
+    const priceRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=celo&vs_currencies=usd", { signal: AbortSignal.timeout(3000) });
+    if (priceRes.ok) {
+      const priceData = await priceRes.json();
+      celoPrice = priceData?.celo?.usd ?? 0.08;
+    }
+  } catch { /* use fallback */ }
+
+  const estimatedGas = BigInt(250_000);
+  const gasCostCelo = parseFloat(formatGwei(gasPrice * estimatedGas)) / 1e9;
+  const estimatedGasCostUsd = gasCostCelo * celoPrice;
+
+  return { gasPriceGwei, estimatedGasCostUsd };
+}
+
+export async function getDynamicSpreadThreshold(
+  amountUsd: number,
+  opts?: {
+    baseMinSpreadPct?: number;
+    slippageBufferPct?: number;
+    safetyMarginPct?: number;
+    minAbsoluteProfitUsd?: number;
+  }
+): Promise<{
+  requiredSpreadPct: number;
+  baseMinSpreadPct: number;
+  gasImpliedSpreadPct: number;
+  absoluteProfitSpreadPct: number;
+  slippageBufferPct: number;
+  safetyMarginPct: number;
+  minAbsoluteProfitUsd: number;
+  gasPriceGwei: number;
+  estimatedGasCostUsd: number;
+}> {
+  const baseMinSpreadPct = opts?.baseMinSpreadPct ?? 0.1;
+  const slippageBufferPct = opts?.slippageBufferPct ?? 0.02;
+  const safetyMarginPct = opts?.safetyMarginPct ?? 0.02;
+  const minAbsoluteProfitUsd = opts?.minAbsoluteProfitUsd ?? 0.03;
+  const notional = Number.isFinite(amountUsd) && amountUsd > 0 ? amountUsd : 1;
+
+  try {
+    const { gasPriceGwei, estimatedGasCostUsd } = await getGasCostEstimate();
+    const gasImpliedSpreadPct = (estimatedGasCostUsd / notional) * 100;
+    const absoluteProfitSpreadPct = (minAbsoluteProfitUsd / notional) * 100;
+    const requiredSpreadPct = Math.max(
+      baseMinSpreadPct,
+      gasImpliedSpreadPct + slippageBufferPct + safetyMarginPct,
+      absoluteProfitSpreadPct
+    );
+
+    return {
+      requiredSpreadPct: +requiredSpreadPct.toFixed(4),
+      baseMinSpreadPct,
+      gasImpliedSpreadPct: +gasImpliedSpreadPct.toFixed(4),
+      absoluteProfitSpreadPct: +absoluteProfitSpreadPct.toFixed(4),
+      slippageBufferPct,
+      safetyMarginPct,
+      minAbsoluteProfitUsd,
+      gasPriceGwei,
+      estimatedGasCostUsd: +estimatedGasCostUsd.toFixed(6),
+    };
+  } catch {
+    const absoluteProfitSpreadPct = (minAbsoluteProfitUsd / notional) * 100;
+    const requiredSpreadPct = Math.max(baseMinSpreadPct, absoluteProfitSpreadPct);
+    return {
+      requiredSpreadPct: +requiredSpreadPct.toFixed(4),
+      baseMinSpreadPct,
+      gasImpliedSpreadPct: 0,
+      absoluteProfitSpreadPct: +absoluteProfitSpreadPct.toFixed(4),
+      slippageBufferPct,
+      safetyMarginPct,
+      minAbsoluteProfitUsd,
+      gasPriceGwei: 0,
+      estimatedGasCostUsd: 0,
+    };
+  }
+}
+
 export async function checkGasThreshold(expectedProfitUsd: number): Promise<{
   safe: boolean;
   gasPriceGwei: number;
@@ -263,30 +354,12 @@ export async function checkGasThreshold(expectedProfitUsd: number): Promise<{
   profitAfterGas: number;
 }> {
   try {
-    const { createPublicClient, http, formatGwei } = await import("viem");
-    const { celo } = await import("viem/chains");
-    const publicClient = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
-
-    const gasPrice = await publicClient.getGasPrice();
-    const gasPriceGwei = parseFloat(formatGwei(gasPrice));
+    const { gasPriceGwei, estimatedGasCostUsd } = await getGasCostEstimate();
 
     // Hard limit: reject if gas > 50 gwei (Celo is usually <5 gwei)
     if (gasPriceGwei > 50) {
       return { safe: false, gasPriceGwei, estimatedGasCostUsd: 999, profitAfterGas: -999 };
     }
-
-    // Fetch real CELO price from CoinGecko
-    let celoPrice = 0.08; // fallback
-    try {
-      const priceRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=celo&vs_currencies=usd", { signal: AbortSignal.timeout(3000) });
-      if (priceRes.ok) {
-        const priceData = await priceRes.json();
-        celoPrice = priceData?.celo?.usd ?? 0.08;
-      }
-    } catch { /* use fallback */ }
-    const estimatedGas = BigInt(250_000);
-    const gasCostCelo = parseFloat(formatGwei(gasPrice * estimatedGas)) / 1e9;
-    const estimatedGasCostUsd = gasCostCelo * celoPrice;
 
     const profitAfterGas = expectedProfitUsd - estimatedGasCostUsd;
     const safe = estimatedGasCostUsd < expectedProfitUsd * 0.5; // gas < 50% of profit

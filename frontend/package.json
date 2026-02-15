@@ -2,10 +2,13 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
-    "build:ci": "rm -f .next/lock && next build",
+    "build": "next build --webpack",
+    "build:ci": "rm -f .next/lock && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "scan:readiness": "bash ./scripts/scan-readiness.sh",

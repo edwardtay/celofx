@@ -1,10 +1,17 @@
 import type { FxOrder, OrderStatus } from "./types";
 import { seedOrders } from "./seed-orders";
+import { loadJsonSync, writeJson } from "./persist";
 
 const orders = new Map<string, FxOrder>();
 
-for (const order of seedOrders) {
+const persisted = loadJsonSync<FxOrder[]>("orders.json", []);
+const initialOrders = persisted.length > 0 ? persisted : seedOrders;
+for (const order of initialOrders) {
   orders.set(order.id, order);
+}
+
+function persist() {
+  writeJson("orders.json", Array.from(orders.values()));
 }
 
 export function getOrders(opts?: {
@@ -31,12 +38,14 @@ export function getOrder(id: string): FxOrder | undefined {
 
 export function addOrder(order: FxOrder): void {
   orders.set(order.id, order);
+  persist();
 }
 
 export function updateOrder(id: string, update: Partial<FxOrder>): void {
   const existing = orders.get(id);
   if (existing) {
     orders.set(id, { ...existing, ...update });
+    persist();
   }
 }
 

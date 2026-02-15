@@ -7,8 +7,11 @@ import {
 } from "@/lib/order-store";
 import type { FxOrder, OrderStatus } from "@/lib/types";
 import { apiError } from "@/lib/api-errors";
+import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
+import { isAddress, recoverMessageAddress } from "viem";
 
 const VALID_TOKENS = ["cUSD", "cEUR", "cREAL", "USDC", "USDT"];
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -24,11 +27,20 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!hasAgentSecret()) {
+    return missingSecretResponse();
+  }
+
+  const auth = await requireSignedAuth(request);
+  if (!auth.ok) {
+    return unauthorizedResponse();
+  }
+
   const body = await request.json();
   const { action } = body;
 
   if (action === "create") {
-    const { creator, fromToken, toToken, amountIn, targetRate, deadlineHours, conditionType, pctChangeThreshold, pctChangeTimeframe } =
+    const { creator, fromToken, toToken, amountIn, targetRate, deadlineHours, conditionType, pctChangeThreshold, pctChangeTimeframe, signature, timestamp } =
       body;
 
     const cType = conditionType || "rate_reaches";
@@ -36,6 +48,25 @@ export async function POST(request: NextRequest) {
     if (!creator || !fromToken || !toToken || !amountIn) {
       return NextResponse.json(
         apiError("MISSING_FIELDS", "Missing required fields: creator, fromToken, toToken, amountIn"),
+        { status: 400 }
+      );
+    }
+    if (!isAddress(creator)) {
+      return NextResponse.json(
+        apiError("INVALID_CREATOR", "Creator must be a valid address", { creator }),
+        { status: 400 }
+      );
+    }
+    if (!signature || !timestamp) {
+      return NextResponse.json(
+        apiError("MISSING_FIELDS", "Missing signature or timestamp", { signature, timestamp }),
+        { status: 400 }
+      );
+    }
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > MAX_CLOCK_SKEW_MS) {
+      return NextResponse.json(
+        apiError("INVALID_TIMESTAMP", "Timestamp is invalid or too old", { timestamp }),
         { status: 400 }
       );
     }
@@ -63,9 +94,9 @@ export async function POST(request: NextRequest) {
     }
 
     const amount = parseFloat(amountIn);
-    if (isNaN(amount) || amount <= 0) {
+    if (isNaN(amount) || amount <= 0 || amount > 100) {
       return NextResponse.json(
-        apiError("INVALID_AMOUNT", "Amount must be a positive number", { amountIn }),
+        apiError("INVALID_AMOUNT", "Amount must be between 0 and 100", { amountIn }),
         { status: 400 }
       );
     }
@@ -80,6 +111,33 @@ export async function POST(request: NextRequest) {
 
     const hours = parseFloat(deadlineHours) || 24;
     const now = Date.now();
+
+    // Verify creator signature for order creation
+    const message = [
+      "CeloFX Order Create",
+      `creator:${creator.toLowerCase()}`,
+      `from:${fromToken}`,
+      `to:${toToken}`,
+      `amount:${amountIn}`,
+      `target:${targetRate}`,
+      `deadlineHours:${hours}`,
+      `condition:${cType}`,
+      `timestamp:${ts}`,
+    ].join("\n");
+    try {
+      const recovered = await recoverMessageAddress({ message, signature });
+      if (recovered.toLowerCase() !== creator.toLowerCase()) {
+        return NextResponse.json(
+          apiError("INVALID_SIGNATURE", "Signature does not match creator", { creator }),
+          { status: 403 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        apiError("INVALID_SIGNATURE", "Failed to verify signature", { creator }),
+        { status: 403 }
+      );
+    }
 
     const order: FxOrder = {
       id: `order-${now}-${Math.random().toString(36).slice(2, 8)}`,
@@ -114,11 +172,30 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "cancel") {
-    const { orderId, creator } = body;
+    const { orderId, creator, signature, timestamp } = body;
 
     if (!orderId || !creator) {
       return NextResponse.json(
         apiError("MISSING_FIELDS", "Missing orderId or creator"),
+        { status: 400 }
+      );
+    }
+    if (!isAddress(creator)) {
+      return NextResponse.json(
+        apiError("INVALID_CREATOR", "Creator must be a valid address", { creator }),
+        { status: 400 }
+      );
+    }
+    if (!signature || !timestamp) {
+      return NextResponse.json(
+        apiError("MISSING_FIELDS", "Missing signature or timestamp", { signature, timestamp }),
+        { status: 400 }
+      );
+    }
+    const ts = Number(timestamp);
+    if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > MAX_CLOCK_SKEW_MS) {
+      return NextResponse.json(
+        apiError("INVALID_TIMESTAMP", "Timestamp is invalid or too old", { timestamp }),
         { status: 400 }
       );
     }
@@ -134,6 +211,28 @@ export async function POST(request: NextRequest) {
     if (order.creator.toLowerCase() !== creator.toLowerCase()) {
       return NextResponse.json(
         apiError("ORDER_NOT_PENDING", "Only the order creator can cancel"),
+        { status: 403 }
+      );
+    }
+
+    // Verify creator signature for cancellation
+    const cancelMessage = [
+      "CeloFX Order Cancel",
+      `orderId:${orderId}`,
+      `creator:${creator.toLowerCase()}`,
+      `timestamp:${ts}`,
+    ].join("\n");
+    try {
+      const recovered = await recoverMessageAddress({ message: cancelMessage, signature });
+      if (recovered.toLowerCase() !== creator.toLowerCase()) {
+        return NextResponse.json(
+          apiError("INVALID_SIGNATURE", "Signature does not match creator", { creator }),
+          { status: 403 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        apiError("INVALID_SIGNATURE", "Failed to verify signature", { creator }),
         { status: 403 }
       );
     }

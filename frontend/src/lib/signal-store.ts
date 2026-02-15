@@ -1,11 +1,17 @@
 import type { Signal, SignalTier, MarketType } from "./types";
 import { seedSignals } from "./seed-signals";
+import { loadJsonSync, writeJson } from "./persist";
 
 const signals = new Map<string, Signal>();
 
-// Initialize with seed data
-for (const signal of seedSignals) {
+const persisted = loadJsonSync<Signal[]>("signals.json", []);
+const initialSignals = persisted.length > 0 ? persisted : seedSignals;
+for (const signal of initialSignals) {
   signals.set(signal.id, signal);
+}
+
+function persist() {
+  writeJson("signals.json", Array.from(signals.values()));
 }
 
 export function getSignals(opts?: {
@@ -47,6 +53,7 @@ export function getPremiumSignals(market?: MarketType): Signal[] {
 
 export function addSignal(signal: Signal): void {
   signals.set(signal.id, signal);
+  persist();
 }
 
 export function getSignalCount(): number {

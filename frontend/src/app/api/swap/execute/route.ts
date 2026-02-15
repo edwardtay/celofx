@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildSwapTx, TOKENS, type MentoToken, MIN_PROFITABLE_SPREAD_PCT } from "@/lib/mento-sdk";
+import { buildSwapTx, TOKENS, type MentoToken } from "@/lib/mento-sdk";
 import { addTrade, updateTrade } from "@/lib/trade-store";
 import type { Trade } from "@/lib/types";
 import { createPublicClient, createWalletClient, http, formatGwei } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
+import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
+import { getDynamicSpreadThreshold } from "@/lib/agent-policy";
 
 export const maxDuration = 60;
 
@@ -17,16 +19,14 @@ const MAX_GAS_PRICE_GWEI = BigInt(50); // Celo gas is usually <5 gwei, 50 = extr
 const SWAP_GAS_ESTIMATE = BigInt(250_000); // ~250K gas for approve + swap
 const GAS_PROFIT_MAX_RATIO = 0.5; // Gas must be <50% of profit
 
-function verifyAuth(request: NextRequest): boolean {
-  const secret = process.env.AGENT_API_SECRET;
-  if (!secret) return false;
-  const auth = request.headers.get("authorization");
-  return auth === `Bearer ${secret}`;
-}
-
 export async function POST(request: NextRequest) {
-  if (!verifyAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!hasAgentSecret()) {
+    return missingSecretResponse();
+  }
+
+  const auth = await requireSignedAuth(request);
+  if (!auth.ok) {
+    return unauthorizedResponse();
   }
 
   const teeAttestation = await getAttestation();
@@ -62,9 +62,10 @@ export async function POST(request: NextRequest) {
   const tradeId = `trade-${Date.now()}`;
 
   try {
-    // Profitability check: verify spread is positive before executing
+    // Profitability check: dynamic threshold based on gas + buffers + absolute PnL floor
     const { getOnChainQuote } = await import("@/lib/mento-sdk");
     const freshQuote = await getOnChainQuote(fromToken, toToken, "1");
+    const dynamicThreshold = await getDynamicSpreadThreshold(numAmount);
     const forexRes = await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,BRL", { signal: AbortSignal.timeout(5000) })
       .then(r => r.json())
       .catch(() => ({ rates: { EUR: 0.926, BRL: 5.7 } }));
@@ -80,10 +81,11 @@ export async function POST(request: NextRequest) {
     let realSpread = 0;
     if (expectedForex) {
       realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
-      if (realSpread < MIN_PROFITABLE_SPREAD_PCT) {
+      if (realSpread < dynamicThreshold.requiredSpreadPct) {
         return NextResponse.json({
-          error: `Swap rejected: spread ${realSpread.toFixed(2)}% is not profitable (need > +${MIN_PROFITABLE_SPREAD_PCT}%). Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}. Vault capital protected.`,
+          error: `Swap rejected: spread ${realSpread.toFixed(2)}% is below dynamic threshold +${dynamicThreshold.requiredSpreadPct}%. Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}.`,
           spread: realSpread,
+          thresholdDetails: dynamicThreshold,
         }, { status: 400 });
       }
     }

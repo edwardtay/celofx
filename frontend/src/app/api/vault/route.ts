@@ -14,6 +14,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { MENTO_TOKENS } from "@/config/contracts";
 import type { VaultDeposit } from "@/lib/types";
+import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 
 const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
 
@@ -67,6 +68,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!hasAgentSecret()) {
+    return missingSecretResponse();
+  }
+
+  const auth = await requireSignedAuth(request);
+  if (!auth.ok) {
+    return unauthorizedResponse();
+  }
+
   const body = await request.json();
   const { action } = body;
 

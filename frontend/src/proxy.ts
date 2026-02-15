@@ -13,7 +13,7 @@ const RATE_LIMIT_MAX = 2; // requests per window for write endpoints
 // Track request counts per IP (lightweight, resets on deploy)
 const ipRequests = new Map<string, { count: number; resetAt: number }>();
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Only apply to API routes
@@ -49,6 +49,26 @@ export function middleware(request: NextRequest) {
 
   // CORS for agent integrations
   response.headers.set("Access-Control-Expose-Headers", "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-RateLimit-Window");
+
+  const isWrite = request.method !== "GET" && request.method !== "HEAD";
+  if (isWrite && entry.count > RATE_LIMIT_MAX) {
+    const retryAfter = Math.max(0, entry.resetAt - now);
+    return new NextResponse(
+      JSON.stringify({ error: "RATE_LIMITED", message: "Rate limited — wait before retrying" }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(retryAfter),
+          "X-RateLimit-Limit": String(RATE_LIMIT_MAX),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(entry.resetAt),
+          "X-RateLimit-Window": `${RATE_LIMIT_WINDOW_S}s`,
+          "Access-Control-Expose-Headers": "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-RateLimit-Window, Retry-After",
+        },
+      }
+    );
+  }
 
   return response;
 }
