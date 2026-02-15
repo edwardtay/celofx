@@ -47,8 +47,23 @@ export async function GET() {
       description:
         "Autonomous FX arbitrage agent on Celo. Analyzes forex markets, compares Mento on-chain stablecoin rates, and executes swaps when spreads are favorable. Powered by Claude AI.",
       image: `${base}/celofx-logo.png`,
+      agent_url: base,
+      agent_type: "autonomous_agent",
       agent_wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
+      agent_wallet_chain_id: 42220,
       owner_wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
+      mcp_server: `${base}/api/mcp`,
+      a2a_endpoint: `${base}/.well-known/agent-card.json`,
+      tags: ["fx", "arbitrage", "celo", "stablecoins", "defi"],
+      categories: ["finance", "trading", "payments"],
+      capabilities: [
+        "mcp",
+        "a2a",
+        "x402",
+        "on_chain_execution",
+        "policy_checked_trading",
+        "cross_venue_rate_comparison",
+      ],
       endpoints: {
         web: base,
         mcp: `${base}/api/mcp`,
