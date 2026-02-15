@@ -3,7 +3,6 @@
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import {
   Terminal,
@@ -21,12 +20,12 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://celofx.vercel.app";
 
 type TabKey = "quickstart" | "mcp" | "a2a" | "rest" | "x402";
 
-const TABS: { key: TabKey; label: string; icon: typeof Terminal; desc: string }[] = [
-  { key: "quickstart", label: "Quickstart", icon: Rocket, desc: "Get started in 60 seconds" },
-  { key: "mcp", label: "MCP", icon: Plug, desc: "Model Context Protocol" },
-  { key: "a2a", label: "A2A", icon: Bot, desc: "Agent-to-Agent protocol" },
-  { key: "rest", label: "REST API", icon: Globe, desc: "Standard HTTP endpoints" },
-  { key: "x402", label: "x402", icon: CreditCard, desc: "Micropayment signals" },
+const TABS: { key: TabKey; label: string; icon: typeof Terminal }[] = [
+  { key: "quickstart", label: "Quickstart", icon: Rocket },
+  { key: "mcp", label: "MCP", icon: Plug },
+  { key: "a2a", label: "A2A", icon: Bot },
+  { key: "rest", label: "REST API", icon: Globe },
+  { key: "x402", label: "x402", icon: CreditCard },
 ];
 
 function CopyButton({ text }: { text: string }) {
@@ -101,47 +100,8 @@ function QuickstartTab() {
       <div>
         <h3 className="text-sm font-medium mb-1">Get CeloFX data in 60 seconds</h3>
         <p className="text-xs text-muted-foreground">
-          No API key, no SDK, no auth. Pick one integration path below and go live quickly.
+          No API key, no SDK, no auth. Pick a protocol tab above, then run the sample command.
         </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div className="border rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">Fastest</Badge>
-            <p className="text-xs font-medium">MCP</p>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Connect AI clients to CeloFX tools for rates, signals, and performance.
-          </p>
-        </div>
-        <div className="border rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">Inter-agent</Badge>
-            <p className="text-xs font-medium">A2A</p>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Discover capabilities via agent card and send tasks over JSON-RPC.
-          </p>
-        </div>
-        <div className="border rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">Simple</Badge>
-            <p className="text-xs font-medium">REST API</p>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Fetch CeloFX-native on-chain FX spreads, market data, signals, and track record via HTTP.
-          </p>
-        </div>
-        <div className="border rounded-lg p-3 space-y-1">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">Monetize</Badge>
-            <p className="text-xs font-medium">x402</p>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Gate premium signal responses behind pay-per-request micropayments.
-          </p>
-        </div>
       </div>
 
       <div className="space-y-2">
@@ -408,7 +368,6 @@ export default function DevelopersPage() {
             >
               <tab.icon className={`size-3.5 mb-1 ${activeTab === tab.key ? "text-foreground" : "text-muted-foreground"}`} />
               <p className="text-xs font-medium">{tab.label}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{tab.desc}</p>
             </button>
           ))}
         </div>
@@ -424,21 +383,6 @@ export default function DevelopersPage() {
           </CardContent>
         </Card>
 
-        {/* Standards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "MCP", version: "2025-06-18", status: "Live" },
-            { label: "A2A", version: "v0.3.0", status: "Live" },
-            { label: "x402", version: "EIP-712", status: "Live" },
-            { label: "ERC-8004", version: "Agent #10", status: "On-chain" },
-          ].map((s) => (
-            <div key={s.label} className="bg-muted/50 rounded-lg p-3 text-center">
-              <p className="text-sm font-medium">{s.label}</p>
-              <p className="text-[11px] text-muted-foreground">{s.version}</p>
-              <Badge variant="outline" className="mt-1.5 text-[10px]">{s.status}</Badge>
-            </div>
-          ))}
-        </div>
       </main>
       <Footer />
     </div>
