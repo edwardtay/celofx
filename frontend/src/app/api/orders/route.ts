@@ -7,7 +7,6 @@ import {
 } from "@/lib/order-store";
 import type { FxOrder, OrderStatus } from "@/lib/types";
 import { apiError } from "@/lib/api-errors";
-import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 import { isAddress, recoverMessageAddress } from "viem";
 
 const VALID_TOKENS = ["cUSD", "cEUR", "cREAL", "USDC", "USDT"];
@@ -27,15 +26,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!hasAgentSecret()) {
-    return missingSecretResponse();
-  }
-
-  const auth = await requireSignedAuth(request);
-  if (!auth.ok) {
-    return unauthorizedResponse();
-  }
-
   const body = await request.json();
   const { action } = body;
 
@@ -102,7 +92,8 @@ export async function POST(request: NextRequest) {
     }
 
     const rate = parseFloat(targetRate);
-    if (isNaN(rate) || rate <= 0) {
+    const requiresTargetRate = cType === "rate_reaches" || cType === "rate_crosses_above" || cType === "rate_crosses_below";
+    if (requiresTargetRate && (isNaN(rate) || rate <= 0)) {
       return NextResponse.json(
         apiError("INVALID_AMOUNT", "Target rate must be a positive number", { targetRate }),
         { status: 400 }
@@ -145,7 +136,7 @@ export async function POST(request: NextRequest) {
       fromToken,
       toToken,
       amountIn: amount.toString(),
-      targetRate: rate || 0,
+      targetRate: requiresTargetRate ? rate : 0,
       deadline: now + hours * 60 * 60 * 1000,
       status: "pending",
       createdAt: now,

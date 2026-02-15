@@ -6,7 +6,7 @@ import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatAddress, formatTimeAgo } from "@/lib/format";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { toast } from "sonner";
 import {
   Bell,
@@ -234,6 +234,7 @@ function conditionLabel(order: FxOrder): string {
 
 export default function TradingPage() {
   const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [orders, setOrders] = useState<FxOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -299,8 +300,25 @@ export default function TradingPage() {
   const handleCreate = async () => {
     if (!address || !amount) return;
     if (conditionType === "rate_reaches" && !targetRate) return;
+    if ((conditionType === "rate_crosses_above" || conditionType === "rate_crosses_below") && !targetRate) return;
     setCreating(true);
     try {
+      const timestamp = Date.now();
+      const effectiveTarget =
+        conditionType === "pct_change" ? "0" : targetRate;
+      const message = [
+        "CeloFX Order Create",
+        `creator:${address.toLowerCase()}`,
+        `from:${fromToken}`,
+        `to:${toToken}`,
+        `amount:${amount}`,
+        `target:${effectiveTarget}`,
+        `deadlineHours:${deadlineHours}`,
+        `condition:${conditionType}`,
+        `timestamp:${timestamp}`,
+      ].join("\n");
+      const signature = await signMessageAsync({ message });
+
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -310,20 +328,27 @@ export default function TradingPage() {
           fromToken,
           toToken,
           amountIn: amount,
-          targetRate: conditionType === "pct_change" ? 0 : targetRate,
+          targetRate: effectiveTarget,
           deadlineHours,
           conditionType,
           pctChangeThreshold: pctThreshold,
           pctChangeTimeframe: pctTimeframe,
+          signature,
+          timestamp,
         }),
       });
-      if (res.ok) {
-        setAmount("");
-        setTargetRate("");
-        setPctThreshold("5");
-        await fetchOrders();
-        toast("Alert created", { description: `Watching ${fromToken}/${toToken} — ${conditionType === "pct_change" ? `${pctThreshold}% move` : `rate ${targetRate}`}` });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json?.error?.message || json?.error || "Failed to create alert");
+        return;
       }
+      setAmount("");
+      setTargetRate("");
+      setPctThreshold("5");
+      await fetchOrders();
+      toast("Alert created", {
+        description: `Watching ${fromToken}/${toToken} — ${conditionType === "pct_change" ? `${pctThreshold}% move` : `rate ${targetRate}`}`,
+      });
     } catch {
       toast.error("Failed to create alert");
     } finally {
@@ -335,15 +360,35 @@ export default function TradingPage() {
     if (!address) return;
     setCancellingId(orderId);
     try {
-      await fetch("/api/orders", {
+      const timestamp = Date.now();
+      const message = [
+        "CeloFX Order Cancel",
+        `orderId:${orderId}`,
+        `creator:${address.toLowerCase()}`,
+        `timestamp:${timestamp}`,
+      ].join("\n");
+      const signature = await signMessageAsync({ message });
+
+      const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel", orderId, creator: address }),
+        body: JSON.stringify({
+          action: "cancel",
+          orderId,
+          creator: address,
+          signature,
+          timestamp,
+        }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json?.error?.message || json?.error || "Failed to cancel alert");
+        return;
+      }
       await fetchOrders();
       toast("Alert cancelled");
     } catch {
-      // ignore
+      toast.error("Failed to cancel alert");
     } finally {
       setCancellingId(null);
     }
