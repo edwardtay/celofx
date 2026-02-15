@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getTradeCount } from "@/lib/trade-store";
 import { getVaultMetrics } from "@/lib/vault-store";
 import { getTrades } from "@/lib/trade-store";
-import { getAgentStatus, getDailyVolume, getDecisionLog } from "@/lib/agent-policy";
+import { getAgentStatus, getDecisionLog } from "@/lib/agent-policy";
 import { getAttestation } from "@/lib/tee";
 
 export async function GET() {

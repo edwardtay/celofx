@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 import { agentTools, AGENT_SYSTEM_PROMPT } from "@/lib/agent-tools";
 import {
   fetchCryptoPrices,
@@ -7,7 +8,7 @@ import {
   fetchMentoRates,
   fetchCeloDefiYields,
 } from "@/lib/market-data";
-import { getMentoOnChainRates, buildSwapTx, type MentoToken, TOKENS, MIN_PROFITABLE_SPREAD_PCT } from "@/lib/mento-sdk";
+import { getMentoOnChainRates, buildSwapTx, type MentoToken, TOKENS } from "@/lib/mento-sdk";
 import { addSignal } from "@/lib/signal-store";
 import { addTrade, updateTrade } from "@/lib/trade-store";
 import type { Signal, Trade, MarketType, SignalDirection, SignalTier } from "@/lib/types";
@@ -15,57 +16,85 @@ import { createWalletClient, http, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
-import { commitDecision, isAgentPaused, checkVolumeLimit, recordVolume, getAgentStatus, checkGasThreshold } from "@/lib/agent-policy";
+import { commitDecision, isAgentPaused, checkVolumeLimit, recordVolume, getAgentStatus, checkGasThreshold, getDynamicSpreadThreshold } from "@/lib/agent-policy";
 import { apiError } from "@/lib/api-errors";
 
 export const maxDuration = 60;
+const ANALYZE_RATE_LIMIT_WINDOW_MS = 30_000;
+const analyzeRateLimitByIp = new Map<string, number>();
 
-// Rate limit: 1 request per 30 seconds per IP
-const ipCooldowns = new Map<string, number>();
-const COOLDOWN_MS = 30_000;
-
-function verifyAuth(request: Request): { ok: boolean; via: "bearer" | "ratelimit" | "denied" } {
-  // Bearer token — server-to-server / cron calls
-  const secret = process.env.AGENT_API_SECRET;
-  const auth = request.headers.get("authorization");
-  if (secret && auth === `Bearer ${secret}`) {
-    return { ok: true, via: "bearer" };
+function getClientIp(request: Request): string {
+  const xForwardedFor = request.headers.get("x-forwarded-for");
+  if (xForwardedFor) {
+    const firstIp = xForwardedFor.split(",")[0]?.trim();
+    if (firstIp) return firstIp;
   }
+  return request.headers.get("x-real-ip")?.trim() || "unknown";
+}
 
-  // Browser calls — rate-limited by IP
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const now = Date.now();
-  const last = ipCooldowns.get(ip) ?? 0;
-  if (now - last < COOLDOWN_MS) {
-    return { ok: false, via: "denied" };
-  }
-  ipCooldowns.set(ip, now);
-
-  // Cleanup old entries every ~50 requests
-  if (ipCooldowns.size > 50) {
-    for (const [k, v] of ipCooldowns) {
-      if (now - v > COOLDOWN_MS * 10) ipCooldowns.delete(k);
-    }
-  }
-
-  return { ok: true, via: "ratelimit" };
+function getRateLimitHeaders(remaining: string, resetUnixSeconds: number): Record<string, string> {
+  return {
+    "X-RateLimit-Limit": "1",
+    "X-RateLimit-Window": "30",
+    "X-RateLimit-Remaining": remaining,
+    "X-RateLimit-Reset": String(resetUnixSeconds),
+  };
 }
 
 export async function POST(request: Request) {
+  if (!hasAgentSecret()) {
+    return missingSecretResponse();
+  }
+
+  const auth = await requireSignedAuth(request);
+  if (!auth.ok) {
+    return unauthorizedResponse();
+  }
+
+  const now = Date.now();
+  const clientIp = getClientIp(request);
+  const isBearerBypass = auth.via === "bearer";
+
+  if (analyzeRateLimitByIp.size > 5000) {
+    const staleCutoff = now - ANALYZE_RATE_LIMIT_WINDOW_MS * 10;
+    for (const [ip, ts] of analyzeRateLimitByIp) {
+      if (ts < staleCutoff) analyzeRateLimitByIp.delete(ip);
+    }
+  }
+
+  let rateLimitHeaders: Record<string, string>;
+  if (isBearerBypass) {
+    rateLimitHeaders = getRateLimitHeaders("bypass", Math.floor((now + ANALYZE_RATE_LIMIT_WINDOW_MS) / 1000));
+  } else {
+    const lastRequestAt = analyzeRateLimitByIp.get(clientIp) || 0;
+    const nextAllowedAt = lastRequestAt + ANALYZE_RATE_LIMIT_WINDOW_MS;
+    if (nextAllowedAt > now) {
+      const retryAfterSeconds = Math.ceil((nextAllowedAt - now) / 1000);
+      return new Response(
+        JSON.stringify(apiError("RATE_LIMITED", "Rate limited: one analysis request every 30 seconds per IP.", {
+          retryAfterSeconds,
+          windowSeconds: 30,
+        })),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(retryAfterSeconds),
+            ...getRateLimitHeaders("0", Math.floor(nextAllowedAt / 1000)),
+          },
+        }
+      );
+    }
+    analyzeRateLimitByIp.set(clientIp, now);
+    rateLimitHeaders = getRateLimitHeaders("0", Math.floor((now + ANALYZE_RATE_LIMIT_WINDOW_MS) / 1000));
+  }
+
   // Circuit breaker — emergency pause
   if (isAgentPaused()) {
     const status = getAgentStatus();
     return new Response(
       JSON.stringify(apiError("AGENT_PAUSED", "Agent is paused (circuit breaker active)", status)),
-      { status: 503, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  const auth = verifyAuth(request);
-  if (!auth.ok) {
-    return new Response(
-      JSON.stringify(apiError("RATE_LIMITED", "Rate limited — wait 30 seconds", { retryAfterSeconds: 30 })),
-      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "30" } }
+      { status: 503, headers: { "Content-Type": "application/json", ...rateLimitHeaders } }
     );
   }
 
@@ -80,7 +109,7 @@ export async function POST(request: Request) {
   if (!apiKey) {
     return new Response(
       JSON.stringify({ error: "API key not configured. Set ANTHROPIC_API_KEY in environment." }),
-      { status: 503, headers: { "Content-Type": "application/json" } }
+      { status: 503, headers: { "Content-Type": "application/json", ...rateLimitHeaders } }
     );
   }
 
@@ -667,7 +696,7 @@ export async function POST(request: Request) {
                     }
                   }
 
-                  let recommendations: Array<{ action: string; fromToken: string; toToken: string; amount: string; reason: string; priority: number }> = [];
+                  const recommendations: Array<{ action: string; fromToken: string; toToken: string; amount: string; reason: string; priority: number }> = [];
 
                   if (composition.needsRebalance && composition.totalValueCusd > 5) {
                     // Sort by drift — generate recommendations for ALL drifted pairs
@@ -764,10 +793,10 @@ export async function POST(request: Request) {
                 const toToken = input.toToken as MentoToken;
                 const amount = input.amount as string;
                 const spreadPct = (input.spreadPct as number) || 0;
+                const amountUsd = parseFloat(amount);
 
                 // ── DAILY VOLUME LIMIT ──
-                const swapAmountUsd = parseFloat(amount);
-                const swapVolCheck = checkVolumeLimit(swapAmountUsd);
+                const swapVolCheck = checkVolumeLimit(amountUsd);
                 if (!swapVolCheck.allowed) {
                   const tcEntry = {
                     tool: "execute_mento_swap",
@@ -782,20 +811,28 @@ export async function POST(request: Request) {
                 // ── REBALANCE DETECTION ──
                 // spreadPct === 999 signals a portfolio rebalance trade — bypass profitability checks
                 const isRebalanceTrade = spreadPct === 999;
+                const dynamicThreshold = !isRebalanceTrade
+                  ? await getDynamicSpreadThreshold(amountUsd)
+                  : null;
 
                 // ── PROFITABILITY GUARD (skip for rebalance trades) ──
                 // Verify on-chain rate vs forex before executing. Protects vault depositors.
-                if (!isRebalanceTrade && spreadPct < MIN_PROFITABLE_SPREAD_PCT) {
+                if (!isRebalanceTrade && dynamicThreshold && spreadPct < dynamicThreshold.requiredSpreadPct) {
                   const tcEntry = {
                     tool: "execute_mento_swap",
-                    summary: `${fromToken}→${toToken} BLOCKED — spread ${spreadPct.toFixed(2)}% below +${MIN_PROFITABLE_SPREAD_PCT}% threshold`,
+                    summary: `${fromToken}→${toToken} BLOCKED — spread ${spreadPct.toFixed(2)}% below +${dynamicThreshold.requiredSpreadPct}% dynamic threshold`,
                   };
                   toolCallLog.push(tcEntry);
                   send("tool_call", tcEntry);
                   result = JSON.stringify(apiError(
                     spreadPct < 0 ? "SPREAD_NEGATIVE" : "SPREAD_TOO_LOW",
-                    `Swap rejected: spread ${spreadPct.toFixed(2)}% is below +${MIN_PROFITABLE_SPREAD_PCT}% threshold.`,
-                    { spreadPct, threshold: MIN_PROFITABLE_SPREAD_PCT, reason: spreadPct < 0 ? "negative_spread" : "below_threshold" }
+                    `Swap rejected: spread ${spreadPct.toFixed(2)}% is below +${dynamicThreshold.requiredSpreadPct}% dynamic threshold.`,
+                    {
+                      spreadPct,
+                      threshold: dynamicThreshold.requiredSpreadPct,
+                      thresholdDetails: dynamicThreshold,
+                      reason: spreadPct < 0 ? "negative_spread" : "below_dynamic_threshold",
+                    }
                   ));
                   break;
                 }
@@ -804,6 +841,7 @@ export async function POST(request: Request) {
                   // Double-check: fetch fresh on-chain rate to verify profitability (skip for rebalance trades)
                   const { getOnChainQuote } = await import("@/lib/mento-sdk");
                   const freshQuote = await getOnChainQuote(fromToken, toToken, "1");
+                  let verifiedSpreadPct = spreadPct;
 
                   if (!isRebalanceTrade) {
                   // Fetch forex for comparison
@@ -822,18 +860,20 @@ export async function POST(request: Request) {
 
                   if (expectedForex) {
                     const realSpread = ((freshQuote.rate - expectedForex) / expectedForex) * 100;
-                    if (realSpread < MIN_PROFITABLE_SPREAD_PCT) {
+                    verifiedSpreadPct = realSpread;
+                    if (dynamicThreshold && realSpread < dynamicThreshold.requiredSpreadPct) {
                       const tcEntry = {
                         tool: "execute_mento_swap",
-                        summary: `${fromToken}→${toToken} BLOCKED — verified spread ${realSpread.toFixed(2)}% (on-chain check)`,
+                        summary: `${fromToken}→${toToken} BLOCKED — verified spread ${realSpread.toFixed(2)}% below +${dynamicThreshold.requiredSpreadPct}% dynamic threshold`,
                       };
                       toolCallLog.push(tcEntry);
                       send("tool_call", tcEntry);
                       result = JSON.stringify({
-                        error: `Swap rejected after on-chain verification: real spread is ${realSpread.toFixed(2)}% (Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}). Need > +${MIN_PROFITABLE_SPREAD_PCT}% to be profitable. Vault capital protected.`,
+                        error: `Swap rejected after on-chain verification: real spread is ${realSpread.toFixed(2)}% (Mento: ${freshQuote.rate.toFixed(6)}, Forex: ${expectedForex.toFixed(6)}). Need > +${dynamicThreshold.requiredSpreadPct}% dynamic threshold.`,
                         verifiedSpread: realSpread,
                         mentoRate: freshQuote.rate,
                         forexRate: expectedForex,
+                        thresholdDetails: dynamicThreshold,
                       });
                       break;
                     }
@@ -842,7 +882,7 @@ export async function POST(request: Request) {
 
                   // ── GAS THRESHOLD CHECK ──
                   if (!isRebalanceTrade) {
-                    const expectedProfitUsd = (spreadPct / 100) * parseFloat(amount);
+                    const expectedProfitUsd = (verifiedSpreadPct / 100) * amountUsd;
                     const gasCheck = await checkGasThreshold(expectedProfitUsd);
                     if (!gasCheck.safe) {
                       const tcEntry = {
@@ -945,7 +985,7 @@ export async function POST(request: Request) {
                   }
 
                   if (txStatus !== "failed") {
-                    recordVolume(swapAmountUsd);
+                    recordVolume(amountUsd);
                     updateTrade(tradeId, {
                       status: txStatus,
                       approvalTxHash: approvalHash,
@@ -1064,8 +1104,8 @@ export async function POST(request: Request) {
                 }
 
                 try {
-                  const { buildUniswapSwapTx, UNI_TOKENS } = await import("@/lib/uniswap-quotes");
-                  type UniToken = keyof typeof UNI_TOKENS;
+                  const { buildUniswapSwapTx } = await import("@/lib/uniswap-quotes");
+                  type UniToken = import("@/lib/uniswap-quotes").UniToken;
 
                   const privateKey = process.env.AGENT_PRIVATE_KEY;
                   if (!privateKey) {
@@ -1235,8 +1275,8 @@ export async function POST(request: Request) {
                     buyTxHash = swHash;
                     buyAmountOut = buyResult.summary.expectedOut;
                   } else {
-                    const { buildUniswapSwapTx, UNI_TOKENS } = await import("@/lib/uniswap-quotes");
-                    type UniToken = keyof typeof UNI_TOKENS;
+                    const { buildUniswapSwapTx } = await import("@/lib/uniswap-quotes");
+                    type UniToken = import("@/lib/uniswap-quotes").UniToken;
                     const buyResult = await buildUniswapSwapTx(tokenA as UniToken, tokenB as UniToken, amount, account.address);
                     const appHash = await wallet.sendTransaction({ to: buyResult.approvalTx.to, data: buyResult.approvalTx.data as `0x${string}`, feeCurrency });
                     await publicClient.waitForTransactionReceipt({ hash: appHash });
@@ -1257,8 +1297,8 @@ export async function POST(request: Request) {
                     sellTxHash = swHash;
                     sellAmountOut = sellResult.summary.expectedOut;
                   } else {
-                    const { buildUniswapSwapTx, UNI_TOKENS } = await import("@/lib/uniswap-quotes");
-                    type UniToken = keyof typeof UNI_TOKENS;
+                    const { buildUniswapSwapTx } = await import("@/lib/uniswap-quotes");
+                    type UniToken = import("@/lib/uniswap-quotes").UniToken;
                     const sellResult = await buildUniswapSwapTx(tokenB as UniToken, tokenA as UniToken, buyAmountOut, account.address);
                     const appHash = await wallet.sendTransaction({ to: sellResult.approvalTx.to, data: sellResult.approvalTx.data as `0x${string}`, feeCurrency });
                     await publicClient.waitForTransactionReceipt({ hash: appHash });
@@ -1618,6 +1658,7 @@ export async function POST(request: Request) {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
+      ...rateLimitHeaders,
       ...getTeeHeaders(),
     },
   });

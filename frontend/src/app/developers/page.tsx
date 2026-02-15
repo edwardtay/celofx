@@ -10,7 +10,6 @@ import {
   Plug,
   Copy,
   Check,
-  ExternalLink,
   Play,
   Globe,
   Bot,

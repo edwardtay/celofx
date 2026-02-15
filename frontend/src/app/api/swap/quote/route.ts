@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getOnChainQuote, buildSwapTx, type MentoToken, TOKENS } from "@/lib/mento-sdk";
+import { getOnChainQuote, buildSwapTx, type MentoToken } from "@/lib/mento-sdk";
 import { getUniswapQuote, UNI_TOKENS, type UniToken } from "@/lib/uniswap-quotes";
 import { apiError } from "@/lib/api-errors";
 
 const MENTO_TOKENS = new Set(["cUSD", "cEUR", "cREAL", "CELO"]);
+const MAX_QUOTE_AMOUNT = 1000;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -56,11 +57,27 @@ export async function POST(request: Request) {
       );
     }
 
+    const amountNum = parseFloat(amount);
+    if (Number.isNaN(amountNum) || amountNum <= 0 || amountNum > MAX_QUOTE_AMOUNT) {
+      return NextResponse.json(
+        apiError("INVALID_AMOUNT", `Amount must be between 0 and ${MAX_QUOTE_AMOUNT}`, { amount }),
+        { status: 400 }
+      );
+    }
+
+    const slippageNum = slippage === undefined ? 1 : Number(slippage);
+    if (Number.isNaN(slippageNum) || slippageNum <= 0 || slippageNum > 5) {
+      return NextResponse.json(
+        apiError("INVALID_SLIPPAGE", "Slippage must be between 0 and 5", { slippage }),
+        { status: 400 }
+      );
+    }
+
     const txData = await buildSwapTx(
       fromToken as MentoToken,
       toToken as MentoToken,
       amount,
-      slippage || 1
+      slippageNum
     );
 
     return NextResponse.json({
