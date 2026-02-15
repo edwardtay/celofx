@@ -35,7 +35,7 @@ const DEADLINE_OPTIONS = [
 ];
 
 function CountdownTimer({ deadline }: { deadline: number }) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(deadline);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);

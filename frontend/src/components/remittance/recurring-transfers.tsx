@@ -61,7 +61,8 @@ export function RecurringTransfers({ pendingTransfer, refreshKey }: Props) {
   const [notifyMethod, setNotifyMethod] = useState<"sms" | "whatsapp" | "none">("none");
 
   useEffect(() => {
-    setTransfers(getRecurringTransfers());
+    const t = setTimeout(() => setTransfers(getRecurringTransfers()), 0);
+    return () => clearTimeout(t);
   }, [refreshKey]);
 
   const handleCreate = () => {

@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import fs from "node:fs";
 import { createWalletClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
@@ -54,7 +55,6 @@ export function getAttestationAnchorStatus() {
 
 export function isRunningInTee(): boolean {
   try {
-    const fs = require("fs");
     return (
       fs.existsSync("/var/run/dstack.sock") ||
       fs.existsSync("/var/run/tappd.sock")

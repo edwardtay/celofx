@@ -46,7 +46,10 @@ export function SignalCard({ signal }: { signal: Signal }) {
   const Icon = dir.icon;
 
   useEffect(() => {
-    setIsNew(Date.now() - signal.timestamp < 60 * 60 * 1000);
+    const t = setTimeout(() => {
+      setIsNew(Date.now() - signal.timestamp < 60 * 60 * 1000);
+    }, 0);
+    return () => clearTimeout(t);
   }, [signal.timestamp]);
 
   return (

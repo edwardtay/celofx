@@ -18,11 +18,12 @@ function PnlChart({ trades }: { trades: Trade[] }) {
   if (confirmed.length < 2) return null;
 
   // Build cumulative P&L series
-  let cumulative = 0;
-  const points = confirmed.map((t) => {
-    cumulative += t.pnl ?? 0;
-    return cumulative;
-  });
+  const points: number[] = [];
+  confirmed.reduce((running, t) => {
+    const next = running + (t.pnl ?? 0);
+    points.push(next);
+    return next;
+  }, 0);
 
   const min = Math.min(0, ...points);
   const max = Math.max(...points);
@@ -43,7 +44,8 @@ function PnlChart({ trades }: { trades: Trade[] }) {
   const zeroY = padding + (h - padding * 2) - ((0 - min) / range) * (h - padding * 2);
   const areaPath = `M${coords[0]} ${coords.slice(1).map((c) => `L${c}`).join(" ")} L${lastX},${zeroY} L${firstX},${zeroY} Z`;
 
-  const isPositive = cumulative >= 0;
+  const finalCumulative = points[points.length - 1] ?? 0;
+  const isPositive = finalCumulative >= 0;
 
   return (
     <div className="space-y-1">
@@ -84,7 +86,7 @@ function PnlChart({ trades }: { trades: Trade[] }) {
       <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
         <span>Trade 1</span>
         <span className={isPositive ? "text-emerald-600" : "text-red-600"}>
-          {isPositive ? "+" : ""}{cumulative.toFixed(2)}% cumulative
+                  {isPositive ? "+" : ""}{finalCumulative.toFixed(2)}% cumulative
         </span>
       </div>
     </div>

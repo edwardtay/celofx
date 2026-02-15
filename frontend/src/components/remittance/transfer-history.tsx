@@ -36,7 +36,8 @@ export function TransferHistory({ refreshKey, onViewReceipt }: Props) {
   const [history, setHistory] = useState<RemittanceTransaction[]>([]);
 
   useEffect(() => {
-    setHistory(getRemittanceHistory());
+    const t = setTimeout(() => setHistory(getRemittanceHistory()), 0);
+    return () => clearTimeout(t);
   }, [refreshKey]);
 
   if (history.length === 0) return null;

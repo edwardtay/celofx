@@ -60,13 +60,18 @@ export function VaultOverview() {
   }, []);
 
   useEffect(() => {
-    fetchVault();
-    updateLatestTrade();
+    const initial = setTimeout(() => {
+      fetchVault();
+      updateLatestTrade();
+    }, 0);
     const interval = setInterval(() => {
       fetchVault();
       updateLatestTrade();
     }, 15_000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+    };
   }, [fetchVault, updateLatestTrade]);
 
   // Listen for live trade events from AgentStatus

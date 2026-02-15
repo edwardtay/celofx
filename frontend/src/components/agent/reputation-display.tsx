@@ -48,7 +48,8 @@ export function ReputationDisplay() {
   // Client-only timestamp to avoid hydration mismatch
   const [now, setNow] = useState(0);
   useEffect(() => {
-    setNow(Date.now());
+    const t = setTimeout(() => setNow(Date.now()), 0);
+    return () => clearTimeout(t);
   }, []);
 
   const seedFeedback = seedFeedbackData.map((f) => ({

@@ -77,10 +77,13 @@ export function SpendingLimitsCard({ refreshKey }: Props) {
   const [draft, setDraft] = useState(limits);
 
   useEffect(() => {
-    setLimits(getSpendingLimits());
-    setDaily(getDailyUsage());
-    setWeekly(getWeeklyUsage());
-    setMonthly(getMonthlyUsage());
+    const t = setTimeout(() => {
+      setLimits(getSpendingLimits());
+      setDaily(getDailyUsage());
+      setWeekly(getWeeklyUsage());
+      setMonthly(getMonthlyUsage());
+    }, 0);
+    return () => clearTimeout(t);
   }, [refreshKey]);
 
   const handleSave = () => {

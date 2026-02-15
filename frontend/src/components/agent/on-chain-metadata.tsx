@@ -47,7 +47,10 @@ export function OnChainMetadata() {
 
   useEffect(() => {
     if (!tokenURI || metadata || isLoading) return;
-    parseTokenURI(tokenURI as string);
+    const t = setTimeout(() => {
+      void parseTokenURI(tokenURI as string);
+    }, 0);
+    return () => clearTimeout(t);
   }, [tokenURI, metadata, isLoading, parseTokenURI]);
 
   return (

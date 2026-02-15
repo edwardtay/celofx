@@ -187,14 +187,14 @@ function SpreadCard({ rate }: { rate: MentoRate }) {
 export function MentoSpreads() {
   const { data: rates, isLoading: mentoLoading, dataUpdatedAt } = useMentoData();
   const { data: crossVenue, isLoading: crossLoading } = useCrossVenueData();
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(t);
   }, []);
 
-  const updatedAgo = dataUpdatedAt ? Math.floor((now - dataUpdatedAt) / 1000) : null;
+  const updatedAgo = dataUpdatedAt && now > 0 ? Math.floor((now - dataUpdatedAt) / 1000) : null;
 
   // Cross-venue pairs shown first
   const crossVenuePairs = new Set(crossVenue?.rates?.map(r => r.pair) ?? []);
