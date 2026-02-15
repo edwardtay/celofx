@@ -17,7 +17,7 @@ type NavLink = {
 const primaryLinks: NavLink[] = [
   { href: "/arbitrage", label: "Arbitrage" },
   { href: "/trading", label: "Trading" },
-  { href: "/vault", label: "Hedging" },
+  { href: "/hedge", label: "Hedging" },
   { href: "/remittance", label: "Remittance" },
   { href: "/premium", label: "x402 Premium" },
   { href: "/developers", label: "Developers" },

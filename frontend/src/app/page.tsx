@@ -16,7 +16,7 @@ const modules = [
   },
   {
     title: "Hedging",
-    href: "/vault",
+    href: "/hedge",
     summary: "Portfolio allocation and rebalance controls across Celo stablecoins.",
   },
   {

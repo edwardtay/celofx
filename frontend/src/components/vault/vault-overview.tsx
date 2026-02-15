@@ -110,7 +110,7 @@ export function VaultOverview() {
             </Badge>
           </div>
           <Link
-            href="/vault"
+            href="/hedge"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
           >
             Deposit / Withdraw <ArrowRight className="size-3" />
