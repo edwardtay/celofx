@@ -7,6 +7,16 @@ interface SelfClawData {
   verified: boolean;
   agentName?: string;
   humanId?: string;
+  canonical?: {
+    agentId?: number;
+    wallet?: string;
+    chainId?: number;
+    registryUrl?: string;
+  };
+  deprecation?: {
+    deprecatedAgentIds?: number[];
+    message?: string;
+  };
   metadata?: {
     nationality?: string;
     verificationMethod?: string;
@@ -38,11 +48,12 @@ export function SelfClawBadge({ compact = false }: { compact?: boolean }) {
   }
 
   if (!data?.verified) return null;
+  const verifyUrl = data.canonical?.registryUrl || "https://www.8004scan.io/agents/celo/10";
 
   if (compact) {
     return (
       <a
-        href="https://selfclaw.ai"
+        href={verifyUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 border rounded-full px-3 py-1.5 text-xs hover:bg-accent/50 transition-colors"
@@ -66,7 +77,7 @@ export function SelfClawBadge({ compact = false }: { compact?: boolean }) {
           </span>
         </div>
         <a
-          href="https://selfclaw.ai"
+          href={verifyUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
@@ -89,6 +100,11 @@ export function SelfClawBadge({ compact = false }: { compact?: boolean }) {
           <span>Nationality: <span className="font-mono font-medium text-foreground">{data.metadata.nationality}</span></span>
         )}
       </div>
+      {data.deprecation?.deprecatedAgentIds?.length ? (
+        <p className="text-[11px] text-muted-foreground">
+          Canonical profile: #{data.canonical?.agentId ?? 10}. Deprecated duplicate(s): {data.deprecation.deprecatedAgentIds.join(", ")}.
+        </p>
+      ) : null}
     </div>
   );
 }

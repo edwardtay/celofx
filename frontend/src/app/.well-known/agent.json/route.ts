@@ -39,6 +39,12 @@ export async function GET() {
         tokenId: "10",
         standard: "ERC-8004",
       },
+      canonicalIdentity: {
+        canonicalAgentId: 10,
+        wallet: "0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
+        canonicalUrl: "https://www.8004scan.io/agents/celo/10",
+        deprecatedAgentIds: [26],
+      },
     },
     {
       headers: {
