@@ -7,16 +7,11 @@ const eslintConfig = defineConfig([
   ...nextTs,
   globalIgnores([
     ".next/**",
+    ".vercel/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
   ]),
-  {
-    rules: {
-      // Downgrade to warn — legitimate patterns: data fetching in effects, client-only hydration
-      "react-hooks/set-state-in-effect": "warn",
-    },
-  },
 ]);
 
 export default eslintConfig;

@@ -2,6 +2,7 @@
  * Check current 8004scan score and ranking for Agent #10.
  *
  * Usage:
+ *   node scripts/check-8004scan-score.mjs
  *   npx tsx scripts/check-8004scan-score.ts
  */
 
@@ -56,4 +57,3 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });
-

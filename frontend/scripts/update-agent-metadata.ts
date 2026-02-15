@@ -2,6 +2,10 @@
  * Update ERC-8004 off-chain metadata payload on-chain via setAgentURI.
  *
  * Usage:
+ *   node scripts/update-agent-metadata.mjs --dry-run
+ *   node scripts/update-agent-metadata.mjs
+ *
+ * Or via tsx:
  *   npx tsx scripts/update-agent-metadata.ts --dry-run
  *   npx tsx scripts/update-agent-metadata.ts
  *
@@ -93,4 +97,3 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });
-

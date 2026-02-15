@@ -2,6 +2,9 @@
  * Publisher activity helper for 8004scan.
  *
  * Usage:
+ *   node scripts/publisher-activity.mjs transfer <to> <amountCusd>
+ *
+ * Or via tsx:
  *   npx tsx scripts/publisher-activity.ts transfer <to> <amountCusd>
  *
  * Example:
@@ -74,4 +77,3 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 });
-

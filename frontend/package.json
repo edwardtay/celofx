@@ -5,9 +5,13 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:ci": "rm -f .next/lock && next build",
     "start": "next start",
-    "lint": "next lint .",
-    "scan:readiness": "bash ./scripts/scan-readiness.sh"
+    "lint": "eslint .",
+    "scan:readiness": "bash ./scripts/scan-readiness.sh",
+    "score:check": "node scripts/check-8004scan-score.mjs",
+    "metadata:update:dry": "node scripts/update-agent-metadata.mjs --dry-run",
+    "metadata:update": "node scripts/update-agent-metadata.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
