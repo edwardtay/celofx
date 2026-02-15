@@ -90,7 +90,10 @@ type ExecStep =
   | "building"
   | "approving"
   | "swapping"
+  | "transferring"
   | "done";
+
+type ExecutionMode = "agent" | "wallet";
 
 const QUICK_ACTIONS = [
   { label: "\u{1F1F3}\u{1F1EC} Nigeria", message: "Send $100 to Lagos, Nigeria" },
@@ -100,6 +103,10 @@ const QUICK_ACTIONS = [
   { label: "\u{1F1E7}\u{1F1F7} Brasil", message: "Transferir 500 reais para euros" },
   { label: "\u{1F1F2}\u{1F1FD} M\u00e9xico", message: "Enviar 100 d\u00f3lares a M\u00e9xico" },
 ];
+
+function isAddress(value: string): value is `0x${string}` {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim());
+}
 
 export default function RemittancePage() {
   const { isConnected } = useAccount();
@@ -112,6 +119,13 @@ export default function RemittancePage() {
   const [execStep, setExecStep] = useState<ExecStep>("idle");
   const [execError, setExecError] = useState<string | null>(null);
   const [txData, setTxData] = useState<SwapTxData | null>(null);
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>("agent");
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [agentTxHashes, setAgentTxHashes] = useState<{
+    approvalTxHash: string | null;
+    swapTxHash: string | null;
+    transferTxHash: string | null;
+  }>({ approvalTxHash: null, swapTxHash: null, transferTxHash: null });
 
   // Spending limit warning
   const [limitWarning, setLimitWarning] = useState<string | null>(null);
@@ -189,6 +203,7 @@ export default function RemittancePage() {
     setExecStep("idle");
     setExecError(null);
     setTxData(null);
+    setAgentTxHashes({ approvalTxHash: null, swapTxHash: null, transferTxHash: null });
     setLimitWarning(null);
     setReceiptTx(null);
     setCurrentTxId(null);
@@ -248,18 +263,64 @@ export default function RemittancePage() {
   };
 
   const handleExecute = async () => {
-    if (!result || result.quote.sameToken) return;
+    if (!result) return;
 
     // Block if spending limit exceeded
     if (limitWarning) {
       setExecError(limitWarning);
       return;
     }
+    if (!isAddress(recipientAddress)) {
+      setExecError("Enter a valid recipient wallet address (0x...)");
+      return;
+    }
 
     setExecStep("building");
     setExecError(null);
+    setAgentTxHashes({ approvalTxHash: null, swapTxHash: null, transferTxHash: null });
 
     try {
+      if (executionMode === "agent") {
+        const res = await fetch("/api/remittance/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fromToken: result.parsed.fromToken,
+            toToken: result.parsed.toToken,
+            amount: String(result.parsed.amount),
+            recipientAddress: recipientAddress.trim(),
+            corridor: result.parsed.corridor,
+            slippage: 1,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Agentic execution failed");
+
+        setAgentTxHashes({
+          approvalTxHash: json.approvalTxHash ?? null,
+          swapTxHash: json.swapTxHash ?? null,
+          transferTxHash: json.transferTxHash ?? null,
+        });
+        setExecStep("done");
+
+        if (currentTxId) {
+          updateRemittanceTransaction(currentTxId, {
+            status: "executed",
+            txHash: json.transferTxHash ?? null,
+            approvalHash: json.approvalTxHash ?? null,
+          });
+          setRefreshKey((k) => k + 1);
+        }
+        return;
+      }
+
+      if (result.quote.sameToken) {
+        setExecError("Wallet mode currently supports swap routes only. Use Agentic mode for direct transfer.");
+        setExecStep("idle");
+        return;
+      }
+
       const res = await fetch("/api/swap/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -309,6 +370,7 @@ export default function RemittancePage() {
     setError(null);
     setExecStep("idle");
     setExecError(null);
+    setAgentTxHashes({ approvalTxHash: null, swapTxHash: null, transferTxHash: null });
     setLimitWarning(null);
     setReceiptTx(null);
   };
@@ -317,7 +379,14 @@ export default function RemittancePage() {
     setReceiptTx(tx);
   }, []);
 
-  const isExecuting = execStep === "building" || execStep === "approving" || execStep === "swapping";
+  const isExecuting =
+    execStep === "building" ||
+    execStep === "approving" ||
+    execStep === "swapping" ||
+    execStep === "transferring";
+  const finalTxHash = agentTxHashes.transferTxHash || swapHash || null;
+  const approvalTxHash = agentTxHashes.approvalTxHash || approveHash || null;
+  const intermediateSwapHash = agentTxHashes.swapTxHash || null;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -596,7 +665,44 @@ export default function RemittancePage() {
             {/* Execute */}
             <Card className="gap-0 py-0">
               <CardContent className="py-4 space-y-3">
-                {execStep === "done" && swapHash ? (
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">
+                    Recipient wallet (Celo EVM address)
+                  </label>
+                  <input
+                    type="text"
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
+                    placeholder="0x..."
+                    className="w-full px-3 py-2.5 text-sm border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExecutionMode("agent")}
+                      className={`px-2.5 py-1.5 text-xs rounded-full border ${
+                        executionMode === "agent"
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      Agentic (swap + transfer)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExecutionMode("wallet")}
+                      className={`px-2.5 py-1.5 text-xs rounded-full border ${
+                        executionMode === "wallet"
+                          ? "bg-blue-50 border-blue-200 text-blue-700"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      Wallet (swap only)
+                    </button>
+                  </div>
+                </div>
+
+                {execStep === "done" && finalTxHash ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-center gap-2 py-2 text-emerald-700">
                       <CheckCircle2 className="size-5" />
@@ -605,26 +711,39 @@ export default function RemittancePage() {
                       </span>
                     </div>
                     <a
-                      href={`https://celoscan.io/tx/${swapHash}`}
+                      href={`https://celoscan.io/tx/${finalTxHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
                     >
                       <span className="font-mono text-xs">
-                        {swapHash.slice(0, 10)}...{swapHash.slice(-8)}
+                        {finalTxHash.slice(0, 10)}...{finalTxHash.slice(-8)}
                       </span>
                       <ExternalLink className="size-3.5" />
                     </a>
-                    {approveHash && (
+                    {approvalTxHash && (
                       <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                         <span>Approval:</span>
                         <a
-                          href={`https://celoscan.io/tx/${approveHash}`}
+                          href={`https://celoscan.io/tx/${approvalTxHash}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-mono hover:text-foreground transition-colors"
                         >
-                          {approveHash.slice(0, 10)}...{approveHash.slice(-8)}
+                          {approvalTxHash.slice(0, 10)}...{approvalTxHash.slice(-8)}
+                        </a>
+                      </div>
+                    )}
+                    {intermediateSwapHash && (
+                      <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                        <span>Swap:</span>
+                        <a
+                          href={`https://celoscan.io/tx/${intermediateSwapHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono hover:text-foreground transition-colors"
+                        >
+                          {intermediateSwapHash.slice(0, 10)}...{intermediateSwapHash.slice(-8)}
                         </a>
                       </div>
                     )}
@@ -643,8 +762,8 @@ export default function RemittancePage() {
                             rate: result.quote.rate,
                             recipientCountry: result.parsed.recipientCountry,
                             language: result.parsed.language,
-                            txHash: swapHash,
-                            approvalHash: approveHash || null,
+                            txHash: finalTxHash,
+                            approvalHash: approvalTxHash,
                             status: "executed" as const,
                             fee: result.providers[0]?.fee || "0",
                             savingsVs: result.savings.vs,
@@ -657,6 +776,34 @@ export default function RemittancePage() {
                     >
                       View receipt
                     </button>
+                  </div>
+                ) : executionMode === "agent" ? (
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleExecute}
+                      disabled={isExecuting || !!limitWarning}
+                      className="w-full px-4 py-3 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {limitWarning ? (
+                        <>
+                          <AlertTriangle className="size-4" />
+                          Limit exceeded
+                        </>
+                      ) : execStep === "building" ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Agent executing transfer...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="size-4" />
+                          Execute Agentic Remittance
+                        </>
+                      )}
+                    </button>
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Agent mode executes swap (if needed) then transfer to recipient.
+                    </p>
                   </div>
                 ) : result.quote.sameToken ? (
                   <div className="text-center py-2">
@@ -695,7 +842,7 @@ export default function RemittancePage() {
                       ) : (
                         <>
                           <Send className="size-4" />
-                          Execute Transfer via Mento
+                          Execute Wallet Swap
                         </>
                       )}
                     </button>
