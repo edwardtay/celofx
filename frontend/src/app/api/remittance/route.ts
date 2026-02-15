@@ -118,6 +118,21 @@ interface ParsedIntent {
   language: string;
 }
 
+function resolveCountryCode(recipientCountry: string | null): string | null {
+  if (!recipientCountry) return null;
+  const found = Object.values(COUNTRY_FIAT_MAP).find(
+    (v) => v.country.toLowerCase() === recipientCountry.toLowerCase()
+  );
+  return found?.code ?? null;
+}
+
+function deriveToTokenFromFiat(code: string | null, fallbackToken: RemittanceToken): RemittanceToken {
+  if (!code) return fallbackToken;
+  if (code === "EUR") return "cEUR";
+  if (code === "BRL") return "cREAL";
+  return "cUSD"; // non-Mento local currencies settle as cUSD on Celo
+}
+
 function parseFallbackIntent(message: string): ParsedIntent | null {
   const text = message.toLowerCase();
   const amount = parseAmount(message);
@@ -236,7 +251,17 @@ const STRINGS: Record<string, { saving: string; via: string; instantly: string }
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
-  let body: { message?: string };
+  let body: {
+    message?: string;
+    intent?: {
+      amount?: number;
+      fromToken?: RemittanceToken;
+      toToken?: RemittanceToken;
+      recipientCountry?: string | null;
+      corridor?: string;
+      language?: string;
+    };
+  };
   try {
     body = await request.json();
   } catch {
@@ -246,17 +271,44 @@ export async function POST(request: Request) {
     );
   }
 
-  const { message } = body;
-  if (!message || typeof message !== "string" || message.trim().length === 0) {
-    return NextResponse.json(
-      { error: "Missing or empty 'message' field" },
-      { status: 400 }
-    );
-  }
-
   // Step 1: Parse intent (Claude when available, deterministic fallback otherwise)
   let parsed: ParsedIntent;
+  let quoteQuality: "live" | "fallback" = "live";
+  const warnings: string[] = [];
   try {
+    if (body.intent) {
+      const amount = Number(body.intent.amount);
+      const fromToken = body.intent.fromToken;
+      if (!fromToken || !["cUSD", "cEUR", "cREAL"].includes(fromToken)) {
+        return NextResponse.json({ error: "Invalid fromToken" }, { status: 400 });
+      }
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return NextResponse.json({ error: "Amount must be greater than zero" }, { status: 400 });
+      }
+      const countryCode = resolveCountryCode(body.intent.recipientCountry ?? null);
+      const toToken = body.intent.toToken && ["cUSD", "cEUR", "cREAL"].includes(body.intent.toToken)
+        ? body.intent.toToken
+        : deriveToTokenFromFiat(countryCode, fromToken);
+      const corridor = body.intent.corridor || `${CURRENCY_BY_TOKEN[fromToken]} → ${countryCode ?? CURRENCY_BY_TOKEN[toToken]}`;
+
+      parsed = {
+        fromToken,
+        toToken,
+        amount,
+        corridor,
+        recipientCountry: body.intent.recipientCountry ?? null,
+        language: body.intent.language || "en",
+      };
+      quoteQuality = "live";
+    } else {
+      const { message } = body;
+      if (!message || typeof message !== "string" || message.trim().length === 0) {
+        return NextResponse.json(
+          { error: "Missing remittance input" },
+          { status: 400 }
+        );
+      }
+
     let raw: Record<string, unknown> | null = null;
 
     if (apiKey) {
@@ -290,6 +342,8 @@ export async function POST(request: Request) {
         );
       }
       parsed = fallback;
+      quoteQuality = "fallback";
+      warnings.push("Using fallback route parsing. Quote remains executable.");
     } else {
       const validTokens = new Set(["cUSD", "cEUR", "cREAL"]);
       if (!validTokens.has(String(raw.fromToken)) || !validTokens.has(String(raw.toToken))) {
@@ -321,6 +375,7 @@ export async function POST(request: Request) {
         recipientCountry: (raw.recipientCountry as string) || null,
         language: String(raw.language || "en"),
       };
+    }
     }
   } catch (err) {
     return NextResponse.json(
@@ -471,5 +526,7 @@ export async function POST(request: Request) {
     },
     strings,
     lastMile,
+    meta: { quoteQuality },
+    warnings,
   });
 }
