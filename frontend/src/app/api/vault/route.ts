@@ -15,8 +15,10 @@ import { celo } from "viem/chains";
 import { MENTO_TOKENS } from "@/config/contracts";
 import type { VaultDeposit } from "@/lib/types";
 import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
+import { isAddress, recoverMessageAddress } from "viem";
 
 const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 const erc20TransferAbi = [
   {
@@ -68,17 +70,62 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!hasAgentSecret()) {
-    return missingSecretResponse();
-  }
-
-  const auth = await requireSignedAuth(request);
-  if (!auth.ok) {
-    return unauthorizedResponse();
-  }
-
+  const authRequest = request.clone();
   const body = await request.json();
   const { action } = body;
+
+  const isUserAction = action === "deposit" || action === "withdraw";
+  let authorized = false;
+
+  if (hasAgentSecret()) {
+    const auth = await requireSignedAuth(authRequest);
+    if (auth.ok) authorized = true;
+  }
+
+  if (!authorized && isUserAction) {
+    const signature = body.signature as string | undefined;
+    const timestamp = Number(body.timestamp);
+    if (signature && Number.isFinite(timestamp) && Math.abs(Date.now() - timestamp) <= MAX_CLOCK_SKEW_MS) {
+      try {
+        if (action === "deposit") {
+          const depositor = (body.depositor as string | undefined)?.toLowerCase();
+          const amount = body.amount as number | undefined;
+          const txHash = body.txHash as string | undefined;
+          if (depositor && isAddress(depositor) && amount && txHash) {
+            const message = [
+              "CeloFX Vault Deposit",
+              `depositor:${depositor}`,
+              `amount:${amount}`,
+              `txHash:${txHash}`,
+              `timestamp:${timestamp}`,
+            ].join("\n");
+            const recovered = await recoverMessageAddress({ message, signature: signature as `0x${string}` });
+            authorized = recovered.toLowerCase() === depositor;
+          }
+        } else if (action === "withdraw") {
+          const depositor = (body.depositor as string | undefined)?.toLowerCase();
+          const depositId = body.depositId as string | undefined;
+          if (depositor && isAddress(depositor) && depositId) {
+            const message = [
+              "CeloFX Vault Withdraw",
+              `depositor:${depositor}`,
+              `depositId:${depositId}`,
+              `timestamp:${timestamp}`,
+            ].join("\n");
+            const recovered = await recoverMessageAddress({ message, signature: signature as `0x${string}` });
+            authorized = recovered.toLowerCase() === depositor;
+          }
+        }
+      } catch {
+        authorized = false;
+      }
+    }
+  }
+
+  if (!authorized) {
+    if (!hasAgentSecret() && !isUserAction) return missingSecretResponse();
+    return unauthorizedResponse();
+  }
 
   if (action === "deposit") {
     const { depositor, amount, txHash } = body as {
@@ -93,6 +140,19 @@ export async function POST(request: NextRequest) {
         { error: "Missing depositor, amount, or txHash" },
         { status: 400 }
       );
+    }
+
+    const existing = getDeposits().find(
+      (d) =>
+        d.txHash.toLowerCase() === txHash.toLowerCase() &&
+        d.depositor.toLowerCase() === depositor.toLowerCase()
+    );
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        deposit: existing,
+        idempotent: true,
+      });
     }
 
     const trades = getTrades();

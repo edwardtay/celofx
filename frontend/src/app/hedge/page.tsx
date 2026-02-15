@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   useAccount,
   useReadContract,
+  useSignMessage,
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
@@ -44,10 +45,12 @@ interface VaultData {
 
 export default function HedgePage() {
   const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const [data, setData] = useState<VaultData | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioCompositionView | null>(null);
   const [depositAmount, setDepositAmount] = useState("100");
   const [step, setStep] = useState<"idle" | "confirm" | "approving" | "transferring" | "recording" | "done">("idle");
+  const [lastTransferAmount, setLastTransferAmount] = useState<number | null>(null);
   const [depositError, setDepositError] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
@@ -97,6 +100,39 @@ export default function HedgePage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  const recordDeposit = useCallback(
+    async (txHash: string, amountNum: number) => {
+      if (!address) throw new Error("Wallet not connected");
+      const timestamp = Date.now();
+      const message = [
+        "CeloFX Vault Deposit",
+        `depositor:${address.toLowerCase()}`,
+        `amount:${amountNum}`,
+        `txHash:${txHash}`,
+        `timestamp:${timestamp}`,
+      ].join("\n");
+      const signature = await signMessageAsync({ message });
+
+      const res = await fetch("/api/vault", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "deposit",
+          depositor: address,
+          amount: amountNum,
+          txHash,
+          signature,
+          timestamp,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Recording failed" }));
+        throw new Error(err.error || "Recording failed");
+      }
+    },
+    [address, signMessageAsync]
+  );
+
   useEffect(() => {
     if (approveConfirmed && step === "approving" && depositAmount) {
       setStep("transferring");
@@ -114,21 +150,10 @@ export default function HedgePage() {
     if (transferConfirmed && step === "transferring" && address && transferHash) {
       setStep("recording");
       setDepositError(null);
-      fetch("/api/vault", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "deposit",
-          depositor: address,
-          amount: parseFloat(depositAmount),
-          txHash: transferHash,
-        }),
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: "Recording failed" }));
-            throw new Error(err.error || "Recording failed");
-          }
+      const amountNum = parseFloat(depositAmount);
+      setLastTransferAmount(amountNum);
+      recordDeposit(transferHash, amountNum)
+        .then(() => {
           setStep("done");
           setDepositAmount("100");
           fetchData();
@@ -143,7 +168,7 @@ export default function HedgePage() {
           setStep("idle");
         });
     }
-  }, [transferConfirmed, step, address, transferHash, depositAmount, fetchData, resetApprove, resetTransfer]);
+  }, [transferConfirmed, step, address, transferHash, depositAmount, fetchData, resetApprove, resetTransfer, recordDeposit]);
 
   const handleDepositClick = () => {
     if (!depositAmount || parseFloat(depositAmount) <= 0) return;
@@ -167,10 +192,19 @@ export default function HedgePage() {
     setWithdrawingId(depositId);
     setWithdrawError(null);
     try {
+      const timestamp = Date.now();
+      const message = [
+        "CeloFX Vault Withdraw",
+        `depositor:${address.toLowerCase()}`,
+        `depositId:${depositId}`,
+        `timestamp:${timestamp}`,
+      ].join("\n");
+      const signature = await signMessageAsync({ message });
+
       const res = await fetch("/api/vault", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "withdraw", depositId, depositor: address }),
+        body: JSON.stringify({ action: "withdraw", depositId, depositor: address, signature, timestamp }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -262,7 +296,30 @@ export default function HedgePage() {
                 {step === "done" && (
                   <div className="inline-flex items-center gap-1 text-sm text-emerald-700"><CheckCircle2 className="size-4" />Deposit recorded</div>
                 )}
-                {depositError && <p className="text-sm text-red-600">{depositError}</p>}
+                {depositError && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-red-600">{depositError}</p>
+                    {transferHash && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            setStep("recording");
+                            await recordDeposit(transferHash, lastTransferAmount ?? parseFloat(depositAmount));
+                            setStep("done");
+                            fetchData();
+                            setDepositError(null);
+                          } catch (err) {
+                            setDepositError(err instanceof Error ? err.message : "Retry failed");
+                            setStep("idle");
+                          }
+                        }}
+                        className="rounded border px-3 py-1.5 text-xs hover:bg-accent/50"
+                      >
+                        Retry recording deposit
+                      </button>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </CardContent>
