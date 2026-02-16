@@ -11,6 +11,7 @@ import { getDynamicSpreadThreshold } from "@/lib/agent-policy";
 import { recoverMessageAddress, isAddress } from "viem";
 import { consumeEoaNonce } from "@/lib/eoa-nonce";
 import { deriveUserAgentWallet } from "@/lib/user-agent-wallet";
+import { notifyOps } from "@/lib/notify";
 
 export const maxDuration = 60;
 
@@ -344,6 +345,15 @@ export async function POST(request: NextRequest) {
     if (idempotencyKey) {
       rememberResult(idempotencyKey, responsePayload);
     }
+    void notifyOps("arbitrage_swap_executed", {
+      tradeId,
+      pair: `${fromToken}/${toToken}`,
+      amountIn: amount,
+      authMode,
+      requester,
+      executionWallet: executionWalletAddress ?? account.address,
+      swapTxHash: swapHash,
+    });
     return NextResponse.json(responsePayload, { headers: getTeeHeaders() });
   } catch (err) {
     updateTrade(tradeId, {

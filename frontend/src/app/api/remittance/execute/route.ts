@@ -7,6 +7,7 @@ import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretR
 import { recoverMessageAddress } from "viem";
 import { deriveUserAgentWallet } from "@/lib/user-agent-wallet";
 import { consumeEoaNonce } from "@/lib/eoa-nonce";
+import { notifyOps, notifyRecipient } from "@/lib/notify";
 
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
@@ -44,6 +45,8 @@ type ExecuteBody = {
   signature?: string;
   timestamp?: number;
   nonce?: string;
+  notifyMethod?: "sms" | "whatsapp" | "none";
+  notifyPhone?: string;
 };
 
 function cleanupRecentExecutions(now: number) {
@@ -341,6 +344,42 @@ export async function POST(request: Request) {
       approvalTxHash,
       swapTxHash,
       transferTxHash,
+    };
+    const recipientMessage = `CeloFX transfer sent: ${amount} ${fromToken} (${corridor ?? `${fromToken} -> ${toToken}`}). Tx ${transferTxHash}`;
+    const notificationPromises: Array<Promise<unknown>> = [
+      notifyOps("remittance_executed", {
+        requester,
+        authMode,
+        corridor: corridor ?? `${fromToken} -> ${toToken}`,
+        amountIn: amount,
+        amountDelivered: deliveredAmount,
+        transferTxHash,
+      }),
+    ];
+    if (
+      body.notifyMethod &&
+      body.notifyMethod !== "none" &&
+      body.notifyPhone &&
+      body.notifyPhone.trim().length >= 8
+    ) {
+      notificationPromises.push(
+        notifyRecipient({
+          method: body.notifyMethod,
+          phone: body.notifyPhone.trim(),
+          message: recipientMessage,
+        })
+      );
+    }
+    const [opsResult, recipientResult] = await Promise.allSettled(notificationPromises);
+    responsePayload.notifications = {
+      ops:
+        opsResult.status === "fulfilled"
+          ? opsResult.value
+          : { delivered: false, channels: [], errors: ["ops_notify_failed"] },
+      recipient:
+        recipientResult && recipientResult.status === "fulfilled"
+          ? recipientResult.value
+          : null,
     };
     if (idempotencyKey) {
       rememberExecution(idempotencyKey, responsePayload);

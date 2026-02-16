@@ -23,6 +23,9 @@ function getWriteRateConfig(pathname: string): { bucket: string; max: number } {
   if (pathname.startsWith("/api/swap/execute")) {
     return { bucket: "swap-exec", max: 6 };
   }
+  if (pathname.startsWith("/api/arb/execute")) {
+    return { bucket: "arb-exec", max: 6 };
+  }
   if (pathname.startsWith("/api/vault")) {
     return { bucket: "vault", max: 6 };
   }

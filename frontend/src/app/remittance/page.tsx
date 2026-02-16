@@ -82,6 +82,20 @@ interface RemittanceResult {
     executionSource?: "mento_onchain";
     referenceFxSource?: "live_reference" | "cached_reference" | "static_reference";
   };
+  routing?: {
+    recommended?: {
+      provider: string;
+      reason: string;
+    };
+    options?: Array<{
+      provider: string;
+      estimatedFee: string;
+      estimatedReceive: string;
+      etaHours: number;
+      onchainSettlement: boolean;
+      score: number;
+    }>;
+  };
   warnings?: string[];
 }
 
@@ -144,6 +158,8 @@ export default function RemittancePage() {
   const [execStep, setExecStep] = useState<ExecStep>("idle");
   const [execError, setExecError] = useState<string | null>(null);
   const [recipientAddress, setRecipientAddress] = useState("");
+  const [notifyMethod, setNotifyMethod] = useState<"none" | "sms" | "whatsapp">("none");
+  const [notifyPhone, setNotifyPhone] = useState("");
   const [agentTxHashes, setAgentTxHashes] = useState<{
     approvalTxHash: string | null;
     swapTxHash: string | null;
@@ -296,6 +312,8 @@ export default function RemittancePage() {
           signature,
           nonce,
           timestamp,
+          notifyMethod,
+          notifyPhone,
         }),
       });
 
@@ -556,6 +574,11 @@ export default function RemittancePage() {
                       {result.parsed.recipientCountry}
                     </Badge>
                   )}
+                  {result.routing?.recommended && (
+                    <Badge variant="outline" className="border-amber-200 bg-amber-50 text-[10px] text-amber-700">
+                      Best route: {result.routing.recommended.provider}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-center gap-4 py-2">
@@ -620,6 +643,16 @@ export default function RemittancePage() {
                     </div>
                   ))}
                 </div>
+                {result.routing?.recommended && (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-xs text-blue-900">
+                      Route optimization: <span className="font-semibold">{result.routing.recommended.provider}</span> selected.
+                    </p>
+                    <p className="mt-1 text-[11px] text-blue-800">
+                      {result.routing.recommended.reason}
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
                   <TrendingDown className="size-4 shrink-0 text-emerald-600" />
@@ -640,6 +673,25 @@ export default function RemittancePage() {
                   placeholder="0x... or vitalik.eth"
                   className="w-full rounded-lg border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <select
+                    value={notifyMethod}
+                    onChange={(e) => setNotifyMethod(e.target.value as "none" | "sms" | "whatsapp")}
+                    className="rounded-lg border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="none">No recipient notification</option>
+                    <option value="sms">Send SMS notification</option>
+                    <option value="whatsapp">Send WhatsApp notification</option>
+                  </select>
+                  <input
+                    type="tel"
+                    value={notifyPhone}
+                    onChange={(e) => setNotifyPhone(e.target.value)}
+                    placeholder="+1234567890"
+                    disabled={notifyMethod === "none"}
+                    className="sm:col-span-2 rounded-lg border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                  />
+                </div>
 
                 {execStep === "done" && finalTxHash ? (
                   <div className="space-y-3">

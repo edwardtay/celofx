@@ -11,11 +11,13 @@ import { useAccount, useSignMessage } from "wagmi";
 // ─── Cross-Venue Card (Mento vs Uniswap vs Forex) ───
 function CrossVenueCard({
   rate,
-  onExecute,
+  onExecuteMento,
+  onExecuteCrossDex,
   executingPair,
 }: {
   rate: CrossVenueRate;
-  onExecute: (pair: string) => void;
+  onExecuteMento: (pair: string) => void;
+  onExecuteCrossDex: (pair: string, venueSpread: number | null) => void;
   executingPair: string | null;
 }) {
   const [from, to] = rate.pair.split("/");
@@ -27,6 +29,11 @@ function CrossVenueCard({
   const isNegative = bestSpread < -0.3;
   const hasVenueArb = rate.venueSpread !== null && Math.abs(rate.venueSpread) > 0.1;
   const canQuickExecute = rate.bestVenue === "mento" && (rate.mentoVsForex ?? -999) > 0.3;
+  const canCrossDexExecute =
+    rate.mentoRate !== null &&
+    rate.uniswapRate !== null &&
+    rate.venueSpread !== null &&
+    Math.abs(rate.venueSpread) > 0.3;
 
   return (
     <Card
@@ -119,11 +126,20 @@ function CrossVenueCard({
         )}
         {canQuickExecute && (
           <button
-            onClick={() => onExecute(rate.pair)}
+            onClick={() => onExecuteMento(rate.pair)}
             disabled={executingPair === rate.pair}
             className="w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
           >
             {executingPair === rate.pair ? "Executing..." : "Quick execute on Mento"}
+          </button>
+        )}
+        {canCrossDexExecute && (
+          <button
+            onClick={() => onExecuteCrossDex(rate.pair, rate.venueSpread)}
+            disabled={executingPair === `${rate.pair}:cross`}
+            className="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+          >
+            {executingPair === `${rate.pair}:cross` ? "Executing..." : "Execute cross-venue arb"}
           </button>
         )}
       </CardContent>
@@ -293,6 +309,56 @@ export function MentoSpreads() {
     }
   }
 
+  async function handleCrossDexExecute(pair: string, venueSpread: number | null) {
+    if (!isConnected || !address) {
+      setExecMessage("Connect wallet to execute.");
+      return;
+    }
+    setExecutingPair(`${pair}:cross`);
+    setExecMessage(null);
+    try {
+      const amount = "5";
+      const requester = address.toLowerCase();
+      const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
+      const message = [
+        "CeloFX Cross-DEX Execute",
+        `requester:${requester}`,
+        `pair:${pair}`,
+        `amount:${amount}`,
+        `nonce:${nonce}`,
+        `timestamp:${timestamp}`,
+      ].join("\n");
+      const signature = await signMessageAsync({ message });
+
+      const res = await fetch("/api/arb/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pair,
+          amount,
+          requester,
+          signature,
+          nonce,
+          timestamp,
+          idempotencyKey: nonce,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setExecMessage(json?.error || "Cross-DEX execution failed");
+        return;
+      }
+      setExecMessage(
+        `Cross-DEX arb executed (${venueSpread?.toFixed(2) ?? "n/a"}% spread). Tx: ${json?.sellSwapTxHash?.slice(0, 10) || "submitted"}`
+      );
+    } catch {
+      setExecMessage("Cross-DEX execution failed. Try again.");
+    } finally {
+      setExecutingPair(null);
+    }
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -327,7 +393,13 @@ export function MentoSpreads() {
           <>
             {/* Cross-venue pairs (Mento vs Uniswap vs Forex) */}
             {crossVenue?.rates?.map((rate) => (
-              <CrossVenueCard key={rate.pair} rate={rate} onExecute={handleQuickExecute} executingPair={executingPair} />
+              <CrossVenueCard
+                key={rate.pair}
+                rate={rate}
+                onExecuteMento={handleQuickExecute}
+                onExecuteCrossDex={handleCrossDexExecute}
+                executingPair={executingPair}
+              />
             ))}
             {/* Mento-only pairs */}
             {mentoOnly.map((rate) => (
