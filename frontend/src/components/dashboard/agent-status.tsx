@@ -70,6 +70,7 @@ export function AgentStatus() {
   const [iterations, setIterations] = useState<number | null>(null);
   const [persistedScanTime, setPersistedScanTime] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [scanMode, setScanMode] = useState<"enabled" | "read_only" | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -223,6 +224,8 @@ export function AgentStatus() {
 
             if (eventType === "tool_call") {
               setToolCalls((prev) => [...prev, { tool: parsed.tool, summary: parsed.summary }]);
+            } else if (eventType === "mode") {
+              setScanMode(parsed.execution === "enabled" ? "enabled" : "read_only");
             } else if (eventType === "signal") {
               setGeneratedSignals((prev) => [
                 ...prev,
@@ -409,13 +412,18 @@ export function AgentStatus() {
                   </>
                 )}
               </Button>
-              {!analyzing && !lastAnalysis && (
-                <span className="text-[10px] text-muted-foreground">
-                  Fetches live data + AI analysis (~30s)
-                </span>
-              )}
-            </div>
+            {!analyzing && !lastAnalysis && (
+              <span className="text-[10px] text-muted-foreground">
+                Fetches live data + AI analysis (~30s)
+              </span>
+            )}
+            {scanMode === "read_only" && (
+              <span className="text-[10px] text-amber-700">
+                Read-only scan mode: execution calls are blocked.
+              </span>
+            )}
           </div>
+        </div>
         </div>
 
         {/* Live analysis panel */}

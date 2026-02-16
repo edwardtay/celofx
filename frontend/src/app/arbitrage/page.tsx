@@ -18,7 +18,7 @@ export default function ArbitragePage() {
         <section className="rounded-xl border bg-card p-5">
           <h1 className="text-2xl font-display tracking-tight">Arbitrage</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Check live spreads, then execute in Trading.
+            Monitor live spreads and execute directly when opportunities are profitable.
           </p>
           <div className="mt-3">
             <LiveStats />
@@ -35,6 +35,23 @@ export default function ArbitragePage() {
               className="inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-2.5 text-sm hover:bg-accent/50"
             >
               View Trades <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
+        </section>
+
+        <section className="rounded-xl border bg-card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium">Delegate Capital</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Deposit into the hedge vault for proportional exposure to agent-managed returns.
+              </p>
+            </div>
+            <Link
+              href="/hedge"
+              className="inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-2 text-xs hover:bg-accent/50"
+            >
+              Open Hedge <ArrowRight className="size-3.5" />
             </Link>
           </div>
         </section>

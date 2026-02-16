@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
+import { hasAgentSecret, requireSignedAuth } from "@/lib/auth";
 import { agentTools, AGENT_SYSTEM_PROMPT } from "@/lib/agent-tools";
 import {
   fetchCryptoPrices,
@@ -42,18 +42,14 @@ function getRateLimitHeaders(remaining: string, resetUnixSeconds: number): Recor
 }
 
 export async function POST(request: Request) {
-  if (!hasAgentSecret()) {
-    return missingSecretResponse();
-  }
-
-  const auth = await requireSignedAuth(request);
-  if (!auth.ok) {
-    return unauthorizedResponse();
-  }
+  const auth = hasAgentSecret()
+    ? await requireSignedAuth(request)
+    : ({ ok: false } as const);
+  const canExecute = auth.ok;
 
   const now = Date.now();
   const clientIp = getClientIp(request);
-  const isBearerBypass = auth.via === "bearer";
+  const isBearerBypass = auth.ok && auth.via === "bearer";
 
   if (analyzeRateLimitByIp.size > 5000) {
     const staleCutoff = now - ANALYZE_RATE_LIMIT_WINDOW_MS * 10;
@@ -124,6 +120,9 @@ export async function POST(request: Request) {
       }
 
       const teeAttestation = await getAttestation();
+      send("mode", {
+        execution: canExecute ? "enabled" : "read_only",
+      });
       send("tee_status", {
         status: teeAttestation.status,
         verified: teeAttestation.verified,
@@ -173,6 +172,26 @@ export async function POST(request: Request) {
 
           for (const toolUse of toolUseBlocks) {
             let result: string;
+
+            if (
+              !canExecute &&
+              ["execute_order", "execute_mento_swap", "execute_uniswap_swap", "execute_cross_dex_arb"].includes(toolUse.name)
+            ) {
+              const tcEntry = { tool: toolUse.name, summary: "Blocked in read-only scan mode" };
+              toolCallLog.push(tcEntry);
+              send("tool_call", tcEntry);
+              result = JSON.stringify({
+                error: "Read-only scan mode. Connect authenticated agent runtime to execute trades.",
+                readOnly: true,
+                blockedTool: toolUse.name,
+              });
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: toolUse.id,
+                content: result,
+              });
+              continue;
+            }
 
             switch (toolUse.name) {
               case "fetch_crypto": {

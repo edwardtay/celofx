@@ -6,9 +6,18 @@ import { useMentoData, useCrossVenueData, type CrossVenueRate } from "@/hooks/us
 import { cn } from "@/lib/utils";
 import { ArrowRight, TrendingUp, TrendingDown, Minus, Layers } from "lucide-react";
 import type { MentoRate } from "@/lib/market-data";
+import { useAccount, useSignMessage } from "wagmi";
 
 // ─── Cross-Venue Card (Mento vs Uniswap vs Forex) ───
-function CrossVenueCard({ rate }: { rate: CrossVenueRate }) {
+function CrossVenueCard({
+  rate,
+  onExecute,
+  executingPair,
+}: {
+  rate: CrossVenueRate;
+  onExecute: (pair: string) => void;
+  executingPair: string | null;
+}) {
   const [from, to] = rate.pair.split("/");
   const bestSpread = Math.max(
     rate.mentoVsForex ?? -Infinity,
@@ -17,6 +26,7 @@ function CrossVenueCard({ rate }: { rate: CrossVenueRate }) {
   const isPositive = bestSpread > 0.3;
   const isNegative = bestSpread < -0.3;
   const hasVenueArb = rate.venueSpread !== null && Math.abs(rate.venueSpread) > 0.1;
+  const canQuickExecute = rate.bestVenue === "mento" && (rate.mentoVsForex ?? -999) > 0.3;
 
   return (
     <Card
@@ -107,13 +117,30 @@ function CrossVenueCard({ rate }: { rate: CrossVenueRate }) {
             {Math.abs(rate.venueSpread!).toFixed(2)}% spread between Mento and Uniswap — cross-venue arbitrage opportunity
           </p>
         )}
+        {canQuickExecute && (
+          <button
+            onClick={() => onExecute(rate.pair)}
+            disabled={executingPair === rate.pair}
+            className="w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+          >
+            {executingPair === rate.pair ? "Executing..." : "Quick execute on Mento"}
+          </button>
+        )}
       </CardContent>
     </Card>
   );
 }
 
 // ─── Single-venue Mento card (for pairs without Uniswap pool) ───
-function SpreadCard({ rate }: { rate: MentoRate }) {
+function SpreadCard({
+  rate,
+  onExecute,
+  executingPair,
+}: {
+  rate: MentoRate;
+  onExecute: (pair: string) => void;
+  executingPair: string | null;
+}) {
   const isPositive = rate.spreadPct > 0.3;
   const isStrongNegative = rate.spreadPct < -0.3;
   const isNeutral = !isPositive && !isStrongNegative;
@@ -179,6 +206,15 @@ function SpreadCard({ rate }: { rate: MentoRate }) {
             {rate.spreadPct > 0 ? "+" : ""}{rate.spreadPct.toFixed(2)}% — monitoring
           </p>
         )}
+        {isPositive && (
+          <button
+            onClick={() => onExecute(rate.pair)}
+            disabled={executingPair === rate.pair}
+            className="w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+          >
+            {executingPair === rate.pair ? "Executing..." : "Quick execute"}
+          </button>
+        )}
       </CardContent>
     </Card>
   );
@@ -188,6 +224,10 @@ export function MentoSpreads() {
   const { data: rates, isLoading: mentoLoading, dataUpdatedAt } = useMentoData();
   const { data: crossVenue, isLoading: crossLoading } = useCrossVenueData();
   const [now, setNow] = useState(0);
+  const [executingPair, setExecutingPair] = useState<string | null>(null);
+  const [execMessage, setExecMessage] = useState<string | null>(null);
+  const { address, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 5000);
@@ -200,6 +240,58 @@ export function MentoSpreads() {
   const crossVenuePairs = new Set(crossVenue?.rates?.map(r => r.pair) ?? []);
   // Mento-only pairs (not covered by cross-venue)
   const mentoOnly = (rates ?? []).filter(r => !crossVenuePairs.has(r.pair));
+
+  async function handleQuickExecute(pair: string) {
+    if (!isConnected || !address) {
+      setExecMessage("Connect wallet to execute.");
+      return;
+    }
+    const [fromToken, toToken] = pair.split("/") as [string, string];
+    if (!fromToken || !toToken) return;
+    setExecutingPair(pair);
+    setExecMessage(null);
+    try {
+      const amount = "5";
+      const requester = address.toLowerCase();
+      const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
+      const message = [
+        "CeloFX Arbitrage Execute",
+        `requester:${requester}`,
+        `fromToken:${fromToken}`,
+        `toToken:${toToken}`,
+        `amount:${amount}`,
+        `nonce:${nonce}`,
+        `timestamp:${timestamp}`,
+      ].join("\n");
+      const signature = await signMessageAsync({ message });
+
+      const res = await fetch("/api/swap/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromToken,
+          toToken,
+          amount,
+          requester,
+          signature,
+          nonce,
+          timestamp,
+          idempotencyKey: nonce,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setExecMessage(json?.error || "Execution failed");
+        return;
+      }
+      setExecMessage(`Executed ${fromToken}→${toToken}. Tx: ${json?.swapTxHash?.slice(0, 10) || "submitted"}`);
+    } catch {
+      setExecMessage("Execution failed. Try again.");
+    } finally {
+      setExecutingPair(null);
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -235,11 +327,11 @@ export function MentoSpreads() {
           <>
             {/* Cross-venue pairs (Mento vs Uniswap vs Forex) */}
             {crossVenue?.rates?.map((rate) => (
-              <CrossVenueCard key={rate.pair} rate={rate} />
+              <CrossVenueCard key={rate.pair} rate={rate} onExecute={handleQuickExecute} executingPair={executingPair} />
             ))}
             {/* Mento-only pairs */}
             {mentoOnly.map((rate) => (
-              <SpreadCard key={rate.pair} rate={rate} />
+              <SpreadCard key={rate.pair} rate={rate} onExecute={handleQuickExecute} executingPair={executingPair} />
             ))}
             {!crossVenue?.rates?.length && !rates?.length && (
               <div className="col-span-2 text-center py-6 text-muted-foreground">
@@ -250,6 +342,9 @@ export function MentoSpreads() {
           </>
         )}
       </div>
+      {execMessage && (
+        <p className="text-xs text-muted-foreground">{execMessage}</p>
+      )}
     </div>
   );
 }

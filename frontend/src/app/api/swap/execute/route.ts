@@ -8,6 +8,9 @@ import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
 import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 import { getDynamicSpreadThreshold } from "@/lib/agent-policy";
+import { recoverMessageAddress, isAddress } from "viem";
+import { consumeEoaNonce } from "@/lib/eoa-nonce";
+import { deriveUserAgentWallet } from "@/lib/user-agent-wallet";
 
 export const maxDuration = 60;
 
@@ -15,6 +18,7 @@ const MAX_AMOUNT = 50; // Max notional per swap (USD equivalent)
 const ALLOWED_TOKENS = new Set(["cUSD", "cEUR", "cREAL", "USDC", "USDT"]);
 const MAX_RATE_DRIFT_BPS = 40; // 0.40% maximum deterioration allowed before send
 const RESULT_TTL_MS = 15 * 60 * 1000;
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 // Gas thresholds: reject if gas cost eats >50% of expected profit
 const MAX_GAS_PRICE_GWEI = BigInt(50); // Celo gas is usually <5 gwei, 50 = extreme
@@ -77,14 +81,7 @@ function rateDriftBps(initialRate: number, freshRate: number): number {
 }
 
 export async function POST(request: NextRequest) {
-  if (!hasAgentSecret()) {
-    return missingSecretResponse();
-  }
-
-  const auth = await requireSignedAuth(request);
-  if (!auth.ok) {
-    return unauthorizedResponse();
-  }
+  const authRequest = request.clone();
 
   const teeAttestation = await getAttestation();
   const body = await request.json();
@@ -93,6 +90,10 @@ export async function POST(request: NextRequest) {
     toToken: MentoToken;
     amount: string;
     idempotencyKey?: string;
+    requester?: string;
+    signature?: string;
+    timestamp?: number;
+    nonce?: string;
   };
   const rawIdempotencyKey =
     request.headers.get("x-idempotency-key") ||
@@ -124,9 +125,76 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Amount must be between 0 and ${MAX_AMOUNT}` }, { status: 400 });
   }
 
-  const privateKey = process.env.AGENT_PRIVATE_KEY;
+  const hasAgentHeaders = Boolean(
+    request.headers.get("x-agent-signature") || request.headers.get("authorization")
+  );
+
+  let requester: string | null = null;
+  let authMode: "agent_api" | "eoa_signed" = "agent_api";
+  let executionWalletAddress: `0x${string}` | null = null;
+  let privateKey: `0x${string}` | undefined;
+
+  if (hasAgentHeaders) {
+    if (!hasAgentSecret()) return missingSecretResponse();
+    const auth = await requireSignedAuth(authRequest);
+    if (!auth.ok) return unauthorizedResponse();
+    const raw = process.env.AGENT_PRIVATE_KEY;
+    if (!raw) {
+      return NextResponse.json({ error: "AGENT_PRIVATE_KEY not configured" }, { status: 503 });
+    }
+    privateKey = (raw.startsWith("0x") ? raw : `0x${raw}`) as `0x${string}`;
+  } else {
+    const signature = body.signature;
+    const timestamp = Number(body.timestamp);
+    const nonce = body.nonce?.trim();
+    const requesterRaw = body.requester?.trim().toLowerCase();
+    if (
+      !signature ||
+      !nonce ||
+      !requesterRaw ||
+      !isAddress(requesterRaw) ||
+      !Number.isFinite(timestamp) ||
+      Math.abs(Date.now() - timestamp) > MAX_CLOCK_SKEW_MS
+    ) {
+      return NextResponse.json(
+        { error: "Unauthorized. Provide wallet signature or agent API auth." },
+        { status: 401 }
+      );
+    }
+    if (!(await consumeEoaNonce({ scope: "swap-execute", signer: requesterRaw, nonce, timestamp }))) {
+      return NextResponse.json(
+        { error: "Expired or replayed signature nonce", retryable: false, nextStep: "Create a fresh signature and retry." },
+        { status: 401 }
+      );
+    }
+
+    const message = [
+      "CeloFX Arbitrage Execute",
+      `requester:${requesterRaw}`,
+      `fromToken:${fromToken}`,
+      `toToken:${toToken}`,
+      `amount:${amount}`,
+      `nonce:${nonce}`,
+      `timestamp:${timestamp}`,
+    ].join("\n");
+
+    try {
+      const recovered = await recoverMessageAddress({
+        message,
+        signature: signature as `0x${string}`,
+      });
+      if (recovered.toLowerCase() !== requesterRaw) return unauthorizedResponse();
+      const derived = deriveUserAgentWallet(requesterRaw);
+      privateKey = derived.privateKey;
+      executionWalletAddress = derived.address;
+      requester = requesterRaw;
+      authMode = "eoa_signed";
+    } catch {
+      return unauthorizedResponse();
+    }
+  }
   if (!privateKey) {
-    return NextResponse.json({ error: "AGENT_PRIVATE_KEY not configured" }, { status: 503 });
+    return NextResponse.json({ error: "Execution wallet not configured" }, { status: 503 });
   }
 
   const tradeId = `trade-${Date.now()}`;
@@ -206,8 +274,7 @@ export async function POST(request: NextRequest) {
     addTrade(trade);
 
     // Execute on-chain
-    const normalizedKey = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as `0x${string}`;
-    const account = privateKeyToAccount(normalizedKey);
+    const account = privateKeyToAccount(privateKey);
     const wallet = createCeloWalletClient(account);
     const publicClient = createCeloPublicClient();
 
@@ -262,6 +329,9 @@ export async function POST(request: NextRequest) {
     const responsePayload: Record<string, unknown> = {
       success: true,
       tradeId,
+      authMode,
+      requester,
+      executionWallet: executionWalletAddress ?? account.address,
       approvalTxHash: approvalHash,
       swapTxHash: swapHash,
       rate: preSendQuote.rate,
