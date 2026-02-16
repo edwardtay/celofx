@@ -78,6 +78,15 @@ const STATIC_FX_FALLBACKS: Record<string, number> = {
   "BRL-USD": 0.175,
 };
 
+const TOKEN_PAIR_RATE_FALLBACKS: Record<string, number> = {
+  "cUSD-cEUR": 0.93,
+  "cEUR-cUSD": 1.075,
+  "cUSD-cREAL": 5.7,
+  "cREAL-cUSD": 0.175,
+  "cEUR-cREAL": 6.1,
+  "cREAL-cEUR": 0.164,
+};
+
 const COUNTRY_FIAT_MAP: Record<string, { country: string; code: string }> = {
   nigeria: { country: "Nigeria", code: "NGN" },
   kenya: { country: "Kenya", code: "KES" },
@@ -411,14 +420,25 @@ export async function POST(request: Request) {
       amountOut = parseFloat(quote.amountOut);
       exchangeId = quote.exchangeId;
     } catch (err) {
-      return NextResponse.json(
-        {
-          error:
-            err instanceof Error
-              ? `Quote failed: ${err.message}`
-              : "Failed to get on-chain quote",
-        },
-        { status: 500 }
+      const fallbackRate =
+        TOKEN_PAIR_RATE_FALLBACKS[`${parsed.fromToken}-${parsed.toToken}`] ?? null;
+      if (!fallbackRate) {
+        return NextResponse.json(
+          {
+            error:
+              err instanceof Error
+                ? `Quote failed: ${err.message}`
+                : "Failed to get on-chain quote",
+          },
+          { status: 500 }
+        );
+      }
+      rate = fallbackRate;
+      amountOut = parsed.amount * fallbackRate;
+      exchangeId = "reference_fallback";
+      quoteQuality = "fallback";
+      warnings.push(
+        "On-chain quote temporarily unavailable. Showing reference estimate; final execution will fetch live on-chain rate."
       );
     }
   }

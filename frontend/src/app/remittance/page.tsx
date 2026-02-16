@@ -300,7 +300,14 @@ export default function RemittancePage() {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Transfer failed");
+      if (!res.ok) {
+        const parts = [json?.error || "Transfer failed"];
+        if (json?.nextStep) parts.push(String(json.nextStep));
+        if (json?.executionWallet) {
+          parts.push(`Execution wallet: ${String(json.executionWallet)}`);
+        }
+        throw new Error(parts.join(" "));
+      }
 
       setAgentTxHashes({
         approvalTxHash: json.approvalTxHash ?? null,

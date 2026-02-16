@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createPublicClient, createWalletClient, http, type Hex, formatUnits } from "viem";
+import { createPublicClient, createWalletClient, http, type Hex, formatUnits, fallback } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo, mainnet } from "viem/chains";
 import { buildSwapTx, buildTransferTx, TOKENS, type MentoToken } from "@/lib/mento-sdk";
@@ -9,9 +9,29 @@ import { deriveUserAgentWallet } from "@/lib/user-agent-wallet";
 import { consumeEoaNonce } from "@/lib/eoa-nonce";
 
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
-const FORNO = "https://forno.celo.org";
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const MIN_GAS_BUFFER_CUSD = 0.005;
+const EXECUTION_RESULT_TTL_MS = 15 * 60 * 1000;
+
+const ENS_RPC_URLS = [
+  "https://cloudflare-eth.com",
+  "https://ethereum-rpc.publicnode.com",
+];
+
+const CELO_RPC_URLS = Array.from(
+  new Set(
+    [
+      process.env.CELO_RPC_URL,
+      "https://forno.celo.org",
+      "https://rpc.ankr.com/celo",
+    ].filter(Boolean)
+  )
+) as string[];
+
+const recentExecutions = new Map<
+  string,
+  { timestamp: number; payload: Record<string, unknown> }
+>();
 
 type ExecuteBody = {
   fromToken: MentoToken;
@@ -25,6 +45,51 @@ type ExecuteBody = {
   timestamp?: number;
   nonce?: string;
 };
+
+function cleanupRecentExecutions(now: number) {
+  if (recentExecutions.size < 200) return;
+  for (const [key, entry] of recentExecutions) {
+    if (now - entry.timestamp > EXECUTION_RESULT_TTL_MS) {
+      recentExecutions.delete(key);
+    }
+  }
+}
+
+function rememberExecution(key: string, payload: Record<string, unknown>) {
+  cleanupRecentExecutions(Date.now());
+  recentExecutions.set(key, { timestamp: Date.now(), payload });
+}
+
+function getRememberedExecution(key: string): Record<string, unknown> | null {
+  const existing = recentExecutions.get(key);
+  if (!existing) return null;
+  if (Date.now() - existing.timestamp > EXECUTION_RESULT_TTL_MS) {
+    recentExecutions.delete(key);
+    return null;
+  }
+  return existing.payload;
+}
+
+function createCeloPublicClient() {
+  return createPublicClient({
+    chain: celo,
+    transport: fallback(
+      CELO_RPC_URLS.map((url) => http(url, { timeout: 10_000, retryCount: 1 })),
+      { rank: false }
+    ),
+  });
+}
+
+function createCeloWalletClient(account: ReturnType<typeof privateKeyToAccount>) {
+  return createWalletClient({
+    account,
+    chain: celo,
+    transport: fallback(
+      CELO_RPC_URLS.map((url) => http(url, { timeout: 10_000, retryCount: 1 })),
+      { rank: false }
+    ),
+  });
+}
 
 const erc20BalanceAbi = [
   {
@@ -45,16 +110,19 @@ async function resolveRecipientAddress(input: string): Promise<`0x${string}` | n
   if (isAddress(raw)) return raw;
   if (!raw.includes(".")) return null;
 
-  try {
-    const ensClient = createPublicClient({
-      chain: mainnet,
-      transport: http("https://cloudflare-eth.com"),
-    });
-    const resolved = await ensClient.getEnsAddress({ name: raw as `${string}.eth` });
-    return resolved ?? null;
-  } catch {
-    return null;
+  for (const url of ENS_RPC_URLS) {
+    try {
+      const ensClient = createPublicClient({
+        chain: mainnet,
+        transport: http(url, { timeout: 7000, retryCount: 1 }),
+      });
+      const resolved = await ensClient.getEnsAddress({ name: raw as `${string}.eth` });
+      if (resolved) return resolved;
+    } catch {
+      // try next resolver
+    }
   }
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -84,6 +152,7 @@ export async function POST(request: Request) {
     request.headers.get("x-agent-signature") || request.headers.get("authorization")
   );
 
+  let idempotencyKey: string | null = null;
   if (hasAgentHeaders) {
     if (!hasAgentSecret()) return missingSecretResponse();
     const auth = await requireSignedAuth(authRequest);
@@ -108,8 +177,20 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+    idempotencyKey = `eoa:${requesterRaw}:${nonce}`;
+    const remembered = getRememberedExecution(idempotencyKey);
+    if (remembered) {
+      return NextResponse.json({ ...remembered, idempotent: true });
+    }
     if (!(await consumeEoaNonce({ scope: "remittance-execute", signer: requesterRaw, nonce, timestamp }))) {
-      return NextResponse.json({ error: "Expired or replayed signature nonce" }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: "Expired or replayed signature nonce",
+          retryable: false,
+          nextStep: "Create a fresh signature and retry.",
+        },
+        { status: 401 }
+      );
     }
 
     const recipientInput = recipientAddress.trim().toLowerCase();
@@ -158,15 +239,8 @@ export async function POST(request: Request) {
     }
 
     const account = privateKeyToAccount(pk);
-    const wallet = createWalletClient({
-      account,
-      chain: celo,
-      transport: http(FORNO),
-    });
-    const publicClient = createPublicClient({
-      chain: celo,
-      transport: http(FORNO),
-    });
+    const wallet = createCeloWalletClient(account);
+    const publicClient = createCeloPublicClient();
 
     const walletAddress = executionWalletAddress ?? account.address;
     const [fromBal, gasBal] = await Promise.all([
@@ -194,6 +268,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: `Insufficient ${fromToken} balance in execution wallet`,
+          retryable: false,
+          code: "INSUFFICIENT_BALANCE",
+          nextStep: `Fund ${walletAddress} with at least ${amountNum.toFixed(6)} ${fromToken}.`,
           executionWallet: walletAddress,
           balance: fromTokenBalance.toFixed(6),
           required: amountNum.toFixed(6),
@@ -205,6 +282,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: "Insufficient cUSD gas buffer in execution wallet",
+          retryable: false,
+          code: "INSUFFICIENT_GAS_BUFFER",
+          nextStep: `Fund ${walletAddress} with at least ${MIN_GAS_BUFFER_CUSD.toFixed(3)} cUSD for gas.`,
           executionWallet: walletAddress,
           cUSDBalance: gasBuffer.toFixed(6),
           minRequired: MIN_GAS_BUFFER_CUSD.toFixed(3),
@@ -245,7 +325,7 @@ export async function POST(request: Request) {
     });
     await publicClient.waitForTransactionReceipt({ hash: transferTxHash });
 
-    return NextResponse.json({
+    const responsePayload: Record<string, unknown> = {
       success: true,
       mode: "agentic",
       authMode,
@@ -261,10 +341,23 @@ export async function POST(request: Request) {
       approvalTxHash,
       swapTxHash,
       transferTxHash,
-    });
+    };
+    if (idempotencyKey) {
+      rememberExecution(idempotencyKey, responsePayload);
+    }
+    return NextResponse.json(responsePayload);
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Execution failed";
+    const retryable =
+      /timeout|network|fetch failed|503|502|gateway|temporarily|rpc/i.test(message);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Execution failed" },
+      {
+        error: message,
+        retryable,
+        nextStep: retryable
+          ? "Retry in a few seconds. If it persists, check RPC/network health."
+          : "Review wallet balance, recipient, and quote, then retry with a fresh signature.",
+      },
       { status: 500 }
     );
   }
