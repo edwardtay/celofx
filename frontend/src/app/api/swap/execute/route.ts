@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildSwapTx, TOKENS, type MentoToken } from "@/lib/mento-sdk";
 import { addTrade, updateTrade } from "@/lib/trade-store";
 import type { Trade } from "@/lib/types";
-import { createPublicClient, createWalletClient, http, formatGwei } from "viem";
+import { createPublicClient, createWalletClient, fallback, http, formatGwei } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
@@ -13,11 +13,68 @@ export const maxDuration = 60;
 
 const MAX_AMOUNT = 50; // Max notional per swap (USD equivalent)
 const ALLOWED_TOKENS = new Set(["cUSD", "cEUR", "cREAL", "USDC", "USDT"]);
+const MAX_RATE_DRIFT_BPS = 40; // 0.40% maximum deterioration allowed before send
+const RESULT_TTL_MS = 15 * 60 * 1000;
 
 // Gas thresholds: reject if gas cost eats >50% of expected profit
 const MAX_GAS_PRICE_GWEI = BigInt(50); // Celo gas is usually <5 gwei, 50 = extreme
 const SWAP_GAS_ESTIMATE = BigInt(250_000); // ~250K gas for approve + swap
 const GAS_PROFIT_MAX_RATIO = 0.5; // Gas must be <50% of profit
+
+const CELO_RPC_URLS = Array.from(
+  new Set(
+    [
+      process.env.CELO_RPC_URL,
+      "https://forno.celo.org",
+      "https://rpc.ankr.com/celo",
+    ].filter(Boolean)
+  )
+) as string[];
+
+const recentResults = new Map<string, { timestamp: number; payload: Record<string, unknown> }>();
+
+function cleanupResults(now: number) {
+  if (recentResults.size < 300) return;
+  for (const [k, v] of recentResults) {
+    if (now - v.timestamp > RESULT_TTL_MS) recentResults.delete(k);
+  }
+}
+
+function rememberResult(key: string, payload: Record<string, unknown>) {
+  cleanupResults(Date.now());
+  recentResults.set(key, { timestamp: Date.now(), payload });
+}
+
+function getRememberedResult(key: string): Record<string, unknown> | null {
+  const v = recentResults.get(key);
+  if (!v) return null;
+  if (Date.now() - v.timestamp > RESULT_TTL_MS) {
+    recentResults.delete(key);
+    return null;
+  }
+  return v.payload;
+}
+
+function createCeloPublicClient() {
+  return createPublicClient({
+    chain: celo,
+    transport: fallback(CELO_RPC_URLS.map((u) => http(u, { timeout: 10_000, retryCount: 1 })), { rank: false }),
+  });
+}
+
+function createCeloWalletClient(account: ReturnType<typeof privateKeyToAccount>) {
+  return createWalletClient({
+    account,
+    chain: celo,
+    transport: fallback(CELO_RPC_URLS.map((u) => http(u, { timeout: 10_000, retryCount: 1 })), { rank: false }),
+  });
+}
+
+function rateDriftBps(initialRate: number, freshRate: number): number {
+  if (!Number.isFinite(initialRate) || initialRate <= 0) return 0;
+  const driftPct = ((initialRate - freshRate) / initialRate) * 100;
+  return Math.round(driftPct * 100);
+}
 
 export async function POST(request: NextRequest) {
   if (!hasAgentSecret()) {
@@ -35,7 +92,20 @@ export async function POST(request: NextRequest) {
     fromToken: MentoToken;
     toToken: MentoToken;
     amount: string;
+    idempotencyKey?: string;
   };
+  const rawIdempotencyKey =
+    request.headers.get("x-idempotency-key") ||
+    (typeof body.idempotencyKey === "string" ? body.idempotencyKey : null);
+  const idempotencyKey = rawIdempotencyKey
+    ? `swap-exec:${rawIdempotencyKey.trim().slice(0, 128)}`
+    : null;
+  if (idempotencyKey) {
+    const cached = getRememberedResult(idempotencyKey);
+    if (cached) {
+      return NextResponse.json({ ...cached, idempotent: true }, { headers: getTeeHeaders() });
+    }
+  }
 
   if (!fromToken || !toToken || !amount) {
     return NextResponse.json({ error: "Missing fromToken, toToken, or amount" }, { status: 400 });
@@ -91,10 +161,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Gas price check: reject if gas is abnormally high
-    const publicClientForGas = createPublicClient({
-      chain: celo,
-      transport: http("https://forno.celo.org"),
-    });
+    const publicClientForGas = createCeloPublicClient();
     const gasPrice = await publicClientForGas.getGasPrice();
     const gasPriceGwei = gasPrice / BigInt(1_000_000_000);
 
@@ -141,18 +208,34 @@ export async function POST(request: NextRequest) {
     // Execute on-chain
     const normalizedKey = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as `0x${string}`;
     const account = privateKeyToAccount(normalizedKey);
-    const wallet = createWalletClient({
-      account,
-      chain: celo,
-      transport: http("https://forno.celo.org"),
-    });
-    const publicClient = createPublicClient({
-      chain: celo,
-      transport: http("https://forno.celo.org"),
-    });
+    const wallet = createCeloWalletClient(account);
+    const publicClient = createCeloPublicClient();
 
     // Fee abstraction: pay gas in cUSD instead of CELO (CIP-64)
     const feeCurrency = TOKENS.cUSD as `0x${string}`;
+
+    // Revalidate immediately before sending txs; prevents stale-quote execution.
+    const preSendQuote = await getOnChainQuote(fromToken, toToken, amount);
+    const driftBps = rateDriftBps(swapResult.summary.rate, preSendQuote.rate);
+    if (driftBps > MAX_RATE_DRIFT_BPS) {
+      updateTrade(tradeId, {
+        status: "failed",
+        error: `Rate moved unfavorably by ${driftBps}bps before execution`,
+      });
+      return NextResponse.json(
+        {
+          error: `Rate moved by ${driftBps}bps before send; execution aborted.`,
+          code: "RATE_MOVED",
+          retryable: true,
+          nextStep: "Re-quote and retry with fresh market data.",
+          expectedRate: swapResult.summary.rate,
+          preSendRate: preSendQuote.rate,
+          maxAllowedDriftBps: MAX_RATE_DRIFT_BPS,
+          tradeId,
+        },
+        { status: 409, headers: getTeeHeaders() }
+      );
+    }
 
     // Approval tx
     const approvalHash = await wallet.sendTransaction({
@@ -176,28 +259,39 @@ export async function POST(request: NextRequest) {
       swapTxHash: swapHash,
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        tradeId,
-        approvalTxHash: approvalHash,
-        swapTxHash: swapHash,
-        rate: swapResult.summary.rate,
-        amountOut: swapResult.summary.expectedOut,
-        celoscanUrl: `https://celoscan.io/tx/${swapHash}`,
-        gasPriceGwei: formatGwei(gasPrice),
-        gasCostUsd: +gasCostUsd.toFixed(6),
-        teeAttestation,
-      },
-      { headers: getTeeHeaders() }
-    );
+    const responsePayload: Record<string, unknown> = {
+      success: true,
+      tradeId,
+      approvalTxHash: approvalHash,
+      swapTxHash: swapHash,
+      rate: preSendQuote.rate,
+      amountOut: swapResult.summary.expectedOut,
+      celoscanUrl: `https://celoscan.io/tx/${swapHash}`,
+      gasPriceGwei: formatGwei(gasPrice),
+      gasCostUsd: +gasCostUsd.toFixed(6),
+      teeAttestation,
+    };
+    if (idempotencyKey) {
+      rememberResult(idempotencyKey, responsePayload);
+    }
+    return NextResponse.json(responsePayload, { headers: getTeeHeaders() });
   } catch (err) {
     updateTrade(tradeId, {
       status: "failed",
       error: err instanceof Error ? err.message : "unknown error",
     });
+    const message = err instanceof Error ? err.message : "Swap failed";
+    const retryable = /timeout|network|rpc|gateway|temporarily/i.test(message);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Swap failed", tradeId, teeAttestation },
+      {
+        error: message,
+        tradeId,
+        teeAttestation,
+        retryable,
+        nextStep: retryable
+          ? "Retry with a fresh quote in a few seconds."
+          : "Check spread, gas, and wallet funding before retrying.",
+      },
       { status: 500, headers: getTeeHeaders() }
     );
   }
