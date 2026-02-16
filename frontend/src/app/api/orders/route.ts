@@ -8,9 +8,32 @@ import {
 import type { FxOrder, OrderStatus } from "@/lib/types";
 import { apiError } from "@/lib/api-errors";
 import { isAddress, recoverMessageAddress } from "viem";
+import { consumeEoaNonce } from "@/lib/eoa-nonce";
 
 const VALID_TOKENS = ["cUSD", "cEUR", "cREAL", "USDC", "USDT"];
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const IDEMPOTENCY_TTL_MS = 30 * 60 * 1000;
+const idempotencyCache = new Map<string, { timestamp: number; payload: unknown }>();
+
+function cacheIdempotentResult(key: string, payload: unknown): void {
+  const now = Date.now();
+  if (idempotencyCache.size > 2000) {
+    for (const [k, v] of idempotencyCache) {
+      if (now - v.timestamp > IDEMPOTENCY_TTL_MS) idempotencyCache.delete(k);
+    }
+  }
+  idempotencyCache.set(key, { timestamp: now, payload });
+}
+
+function readIdempotentResult(key: string): unknown | null {
+  const existing = idempotencyCache.get(key);
+  if (!existing) return null;
+  if (Date.now() - existing.timestamp > IDEMPOTENCY_TTL_MS) {
+    idempotencyCache.delete(key);
+    return null;
+  }
+  return existing.payload;
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -30,7 +53,7 @@ export async function POST(request: NextRequest) {
   const { action } = body;
 
   if (action === "create") {
-    const { creator, fromToken, toToken, amountIn, targetRate, deadlineHours, conditionType, pctChangeThreshold, pctChangeTimeframe, signature, timestamp } =
+    const { creator, fromToken, toToken, amountIn, targetRate, deadlineHours, conditionType, pctChangeThreshold, pctChangeTimeframe, signature, timestamp, nonce } =
       body;
 
     const cType = conditionType || "rate_reaches";
@@ -47,9 +70,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!signature || !timestamp) {
+    if (!signature || !timestamp || !nonce) {
       return NextResponse.json(
-        apiError("MISSING_FIELDS", "Missing signature or timestamp", { signature, timestamp }),
+        apiError("MISSING_FIELDS", "Missing signature, timestamp, or nonce", { signature, timestamp, nonce }),
         { status: 400 }
       );
     }
@@ -113,6 +136,7 @@ export async function POST(request: NextRequest) {
       `target:${targetRate}`,
       `deadlineHours:${hours}`,
       `condition:${cType}`,
+      `nonce:${nonce}`,
       `timestamp:${ts}`,
     ].join("\n");
     try {
@@ -127,6 +151,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         apiError("INVALID_SIGNATURE", "Failed to verify signature", { creator }),
         { status: 403 }
+      );
+    }
+    const idempotencyKey = `order-create:${creator.toLowerCase()}:${String(nonce)}`;
+    const cached = readIdempotentResult(idempotencyKey);
+    if (cached) {
+      return NextResponse.json({ ...(cached as Record<string, unknown>), idempotent: true }, { status: 200 });
+    }
+    if (!(await consumeEoaNonce({ scope: "order-create", signer: creator.toLowerCase(), nonce: String(nonce), timestamp: ts }))) {
+      return NextResponse.json(
+        apiError("INVALID_SIGNATURE", "Expired or replayed signature nonce", { nonce }),
+        { status: 401 }
       );
     }
 
@@ -159,11 +194,13 @@ export async function POST(request: NextRequest) {
 
     addOrder(order);
 
-    return NextResponse.json({ order }, { status: 201 });
+    const payload = { order };
+    cacheIdempotentResult(idempotencyKey, payload);
+    return NextResponse.json(payload, { status: 201 });
   }
 
   if (action === "cancel") {
-    const { orderId, creator, signature, timestamp } = body;
+    const { orderId, creator, signature, timestamp, nonce } = body;
 
     if (!orderId || !creator) {
       return NextResponse.json(
@@ -177,9 +214,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!signature || !timestamp) {
+    if (!signature || !timestamp || !nonce) {
       return NextResponse.json(
-        apiError("MISSING_FIELDS", "Missing signature or timestamp", { signature, timestamp }),
+        apiError("MISSING_FIELDS", "Missing signature, timestamp, or nonce", { signature, timestamp, nonce }),
         { status: 400 }
       );
     }
@@ -211,6 +248,7 @@ export async function POST(request: NextRequest) {
       "CeloFX Order Cancel",
       `orderId:${orderId}`,
       `creator:${creator.toLowerCase()}`,
+      `nonce:${nonce}`,
       `timestamp:${ts}`,
     ].join("\n");
     try {
@@ -227,8 +265,24 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
+    const cancelKey = `order-cancel:${creator.toLowerCase()}:${String(nonce)}`;
+    const cancelCached = readIdempotentResult(cancelKey);
+    if (cancelCached) {
+      return NextResponse.json({ ...(cancelCached as Record<string, unknown>), idempotent: true }, { status: 200 });
+    }
+    if (!(await consumeEoaNonce({ scope: "order-cancel", signer: creator.toLowerCase(), nonce: String(nonce), timestamp: ts }))) {
+      return NextResponse.json(
+        apiError("INVALID_SIGNATURE", "Expired or replayed signature nonce", { nonce }),
+        { status: 401 }
+      );
+    }
 
     if (order.status !== "pending") {
+      if (order.status === "cancelled") {
+        const payload = { order: { ...order, status: "cancelled" }, idempotent: true };
+        cacheIdempotentResult(cancelKey, payload);
+        return NextResponse.json(payload, { status: 200 });
+      }
       return NextResponse.json(
         apiError("ORDER_NOT_PENDING", `Cannot cancel order with status: ${order.status}`, { status: order.status }),
         { status: 400 }
@@ -237,9 +291,11 @@ export async function POST(request: NextRequest) {
 
     updateOrder(orderId, { status: "cancelled" });
 
-    return NextResponse.json({
+    const payload = {
       order: { ...order, status: "cancelled" },
-    });
+    };
+    cacheIdempotentResult(cancelKey, payload);
+    return NextResponse.json(payload);
   }
 
   return NextResponse.json(

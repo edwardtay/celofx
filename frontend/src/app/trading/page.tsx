@@ -117,6 +117,7 @@ export default function TradingPage() {
 
     try {
       const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
       const message = [
         "CeloFX Order Create",
         `creator:${address.toLowerCase()}`,
@@ -126,6 +127,7 @@ export default function TradingPage() {
         `target:${targetRate}`,
         `deadlineHours:${deadlineHours}`,
         "condition:rate_reaches",
+        `nonce:${nonce}`,
         `timestamp:${timestamp}`,
       ].join("\n");
 
@@ -144,13 +146,23 @@ export default function TradingPage() {
           deadlineHours,
           conditionType: "rate_reaches",
           signature,
+          nonce,
           timestamp,
         }),
       });
 
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json?.error?.message || json?.error || "Failed to create alert");
+        const errMsg = json?.error?.message || json?.error || "Failed to create alert";
+        const extra = json?.error?.details?.nonce ? ` (${json.error.details.nonce})` : "";
+        toast.error(`${errMsg}${extra}`);
+        return;
+      }
+      if (json?.idempotent) {
+        toast("Alert already created", {
+          description: "Duplicate submit detected. Existing alert kept.",
+        });
+        await fetchOrders();
         return;
       }
 
@@ -171,10 +183,12 @@ export default function TradingPage() {
 
     try {
       const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
       const message = [
         "CeloFX Order Cancel",
         `orderId:${orderId}`,
         `creator:${address.toLowerCase()}`,
+        `nonce:${nonce}`,
         `timestamp:${timestamp}`,
       ].join("\n");
 
@@ -188,18 +202,19 @@ export default function TradingPage() {
           orderId,
           creator: address,
           signature,
+          nonce,
           timestamp,
         }),
       });
+      const json = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
         toast.error(json?.error?.message || json?.error || "Failed to cancel alert");
         return;
       }
 
       await fetchOrders();
-      toast("Alert cancelled");
+      toast(json?.idempotent ? "Alert already cancelled" : "Alert cancelled");
     } catch {
       toast.error("Failed to cancel alert");
     } finally {
