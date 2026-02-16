@@ -9,7 +9,7 @@ import {
 } from "@/lib/vault-store";
 import { getTrades } from "@/lib/trade-store";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
-import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, encodeFunctionData, decodeEventLog } from "viem";
+import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, encodeFunctionData, decodeEventLog, fallback } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { MENTO_TOKENS } from "@/config/contracts";
@@ -22,6 +22,21 @@ const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
 const CUSD_ADDRESS = MENTO_TOKENS.cUSD as `0x${string}`;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const VAULT_CUSTODY_KEY_ENV = "VAULT_CUSTODY_PRIVATE_KEY";
+const MIN_DEPOSIT_AMOUNT = 1;
+const MAX_DEPOSIT_AMOUNT = 10_000;
+const WITHDRAW_RESULT_TTL_MS = 15 * 60 * 1000;
+
+const CELO_RPC_URLS = Array.from(
+  new Set(
+    [
+      process.env.CELO_RPC_URL,
+      "https://forno.celo.org",
+      "https://rpc.ankr.com/celo",
+    ].filter(Boolean)
+  )
+) as string[];
+
+const recentWithdrawResults = new Map<string, { timestamp: number; payload: Record<string, unknown> }>();
 
 const erc20TransferAbi = [
   {
@@ -47,6 +62,43 @@ const erc20TransferEventAbi = [
     ],
   },
 ] as const;
+
+function createCeloPublicClient() {
+  return createPublicClient({
+    chain: celo,
+    transport: fallback(CELO_RPC_URLS.map((u) => http(u, { timeout: 10_000, retryCount: 1 })), { rank: false }),
+  });
+}
+
+function createCeloWalletClient(account: ReturnType<typeof privateKeyToAccount>) {
+  return createWalletClient({
+    account,
+    chain: celo,
+    transport: fallback(CELO_RPC_URLS.map((u) => http(u, { timeout: 10_000, retryCount: 1 })), { rank: false }),
+  });
+}
+
+function cleanupWithdrawResults(now: number) {
+  if (recentWithdrawResults.size < 300) return;
+  for (const [k, v] of recentWithdrawResults) {
+    if (now - v.timestamp > WITHDRAW_RESULT_TTL_MS) recentWithdrawResults.delete(k);
+  }
+}
+
+function rememberWithdrawResult(key: string, payload: Record<string, unknown>) {
+  cleanupWithdrawResults(Date.now());
+  recentWithdrawResults.set(key, { timestamp: Date.now(), payload });
+}
+
+function getRememberedWithdrawResult(key: string): Record<string, unknown> | null {
+  const v = recentWithdrawResults.get(key);
+  if (!v) return null;
+  if (Date.now() - v.timestamp > WITHDRAW_RESULT_TTL_MS) {
+    recentWithdrawResults.delete(key);
+    return null;
+  }
+  return v.payload;
+}
 
 function normalizeAmountInput(value: unknown): string | null {
   if (typeof value === "string") {
@@ -77,15 +129,24 @@ async function verifyCusdDepositTx(params: {
     return { ok: false, error: "Invalid deposit amount" };
   }
 
-  const client = createPublicClient({
-    chain: celo,
-    transport: http("https://forno.celo.org"),
-  });
-
-  const [receipt, tx] = await Promise.all([
-    client.getTransactionReceipt({ hash: params.txHash }),
-    client.getTransaction({ hash: params.txHash }),
-  ]);
+  const client = createCeloPublicClient();
+  let receipt;
+  let tx;
+  try {
+    [receipt, tx] = await Promise.all([
+      client.getTransactionReceipt({ hash: params.txHash }),
+      client.getTransaction({ hash: params.txHash }),
+    ]);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unable to read transaction";
+    if (/not found|unknown|timeout|network|rpc|gateway/i.test(message)) {
+      return {
+        ok: false,
+        error: "Deposit transaction is not yet indexable. Please retry in a few seconds.",
+      };
+    }
+    return { ok: false, error: "Unable to verify deposit transaction right now" };
+  }
 
   if (receipt.status !== "success") {
     return { ok: false, error: "Deposit transaction is not confirmed" };
@@ -276,6 +337,18 @@ export async function POST(request: NextRequest) {
     const trades = getTrades();
     const metrics = getVaultMetrics(trades);
     const amount = verified.amountFloat;
+    if (amount < MIN_DEPOSIT_AMOUNT) {
+      return NextResponse.json(
+        { error: `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} cUSD` },
+        { status: 400 }
+      );
+    }
+    if (amount > MAX_DEPOSIT_AMOUNT) {
+      return NextResponse.json(
+        { error: `Maximum single deposit is ${MAX_DEPOSIT_AMOUNT} cUSD` },
+        { status: 400 }
+      );
+    }
     const sharesIssued = amount / metrics.sharePrice;
 
     const deposit: VaultDeposit = {
@@ -314,6 +387,16 @@ export async function POST(request: NextRequest) {
 
     const trades = getTrades();
     const metrics = getVaultMetrics(trades);
+    const rawIdempotencyKey =
+      request.headers.get("x-idempotency-key") ||
+      (typeof body.idempotencyKey === "string" ? body.idempotencyKey : null);
+    const idempotencyKey = rawIdempotencyKey
+      ? `vault-withdraw:${rawIdempotencyKey.trim().slice(0, 128)}`
+      : `vault-withdraw:${depositor.toLowerCase()}:${depositId}`;
+    const cached = getRememberedWithdrawResult(idempotencyKey);
+    if (cached) {
+      return NextResponse.json({ ...cached, idempotent: true });
+    }
 
     // Find the deposit to calculate withdrawal amount
     const allDeposits = getDeposits();
@@ -357,15 +440,8 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
-      const wallet = createWalletClient({
-        account,
-        chain: celo,
-        transport: http("https://forno.celo.org"),
-      });
-      const publicClient = createPublicClient({
-        chain: celo,
-        transport: http("https://forno.celo.org"),
-      });
+      const wallet = createCeloWalletClient(account);
+      const publicClient = createCeloPublicClient();
 
       // Verify agent wallet has sufficient cUSD balance
       const agentBalance = await publicClient.readContract({
@@ -407,17 +483,26 @@ export async function POST(request: NextRequest) {
       await publicClient.waitForTransactionReceipt({ hash: txHash });
 
       const updated = processWithdrawal(depositId, txHash);
-
-      return NextResponse.json({
+      const responsePayload: Record<string, unknown> = {
         success: true,
         withdrawalAmount: parseFloat(withdrawalAmount.toFixed(4)),
         txHash,
         celoscanUrl: `https://celoscan.io/tx/${txHash}`,
         deposit: updated,
-      });
+      };
+      rememberWithdrawResult(idempotencyKey, responsePayload);
+      return NextResponse.json(responsePayload);
     } catch (err) {
+      const message = err instanceof Error ? err.message : "Withdrawal failed";
+      const retryable = /timeout|network|rpc|gateway|temporarily/i.test(message);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Withdrawal failed" },
+        {
+          error: message,
+          retryable,
+          nextStep: retryable
+            ? "Retry withdrawal in a few seconds."
+            : "Check wallet balance, gas conditions, and custody key configuration.",
+        },
         { status: 500 }
       );
     }

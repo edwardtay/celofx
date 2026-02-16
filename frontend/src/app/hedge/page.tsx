@@ -49,7 +49,7 @@ export default function HedgePage() {
   const [data, setData] = useState<VaultData | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioCompositionView | null>(null);
   const [depositAmount, setDepositAmount] = useState("100");
-  const [step, setStep] = useState<"idle" | "confirm" | "approving" | "transferring" | "recording" | "done">("idle");
+  const [step, setStep] = useState<"idle" | "confirm" | "transferring" | "recording" | "done">("idle");
   const [lastTransferAmount, setLastTransferAmount] = useState<string | null>(null);
   const [depositError, setDepositError] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
@@ -65,17 +65,10 @@ export default function HedgePage() {
   const cusdBalance = rawBalance ? parseFloat(formatUnits(rawBalance, 18)) : 0;
 
   const {
-    writeContract: writeApprove,
-    data: approveHash,
-    reset: resetApprove,
-  } = useWriteContract();
-
-  const { isSuccess: approveConfirmed } = useWaitForTransactionReceipt({ hash: approveHash });
-
-  const {
     writeContract: writeTransfer,
     data: transferHash,
     reset: resetTransfer,
+    error: transferError,
   } = useWriteContract();
 
   const { isSuccess: transferConfirmed } = useWaitForTransactionReceipt({ hash: transferHash });
@@ -138,19 +131,6 @@ export default function HedgePage() {
   );
 
   useEffect(() => {
-    if (approveConfirmed && step === "approving" && depositAmount) {
-      setStep("transferring");
-      const amount = parseUnits(depositAmount, 18);
-      writeTransfer({
-        address: CUSD_ADDRESS as `0x${string}`,
-        abi: erc20Abi,
-        functionName: "transfer",
-        args: [AGENT_ADDRESS as `0x${string}`, amount],
-      });
-    }
-  }, [approveConfirmed, step, depositAmount, writeTransfer]);
-
-  useEffect(() => {
     if (transferConfirmed && step === "transferring" && address && transferHash) {
       setStep("recording");
       setDepositError(null);
@@ -163,7 +143,6 @@ export default function HedgePage() {
           fetchData();
           setTimeout(() => {
             setStep("idle");
-            resetApprove();
             resetTransfer();
           }, 2500);
         })
@@ -172,21 +151,37 @@ export default function HedgePage() {
           setStep("idle");
         });
     }
-  }, [transferConfirmed, step, address, transferHash, depositAmount, fetchData, resetApprove, resetTransfer, recordDeposit]);
+  }, [transferConfirmed, step, address, transferHash, depositAmount, fetchData, resetTransfer, recordDeposit]);
+
+  useEffect(() => {
+    if (transferError) {
+      const message = transferError.message || "Transfer failed";
+      setDepositError(message.includes("User rejected") ? "Transaction cancelled in wallet." : message);
+      setStep("idle");
+    }
+  }, [transferError]);
 
   const handleDepositClick = () => {
-    if (!depositAmount || parseFloat(depositAmount) <= 0) return;
+    const amount = parseFloat(depositAmount);
+    if (!depositAmount || !Number.isFinite(amount) || amount <= 0) {
+      setDepositError("Enter a valid cUSD amount.");
+      return;
+    }
+    if (amount > cusdBalance) {
+      setDepositError("Amount exceeds your cUSD balance.");
+      return;
+    }
     setDepositError(null);
     setStep("confirm");
   };
 
   const handleConfirm = () => {
-    setStep("approving");
+    setStep("transferring");
     const amount = parseUnits(depositAmount, 18);
-    writeApprove({
+    writeTransfer({
       address: CUSD_ADDRESS as `0x${string}`,
       abi: erc20Abi,
-      functionName: "approve",
+      functionName: "transfer",
       args: [AGENT_ADDRESS as `0x${string}`, amount],
     });
   };
@@ -227,7 +222,7 @@ export default function HedgePage() {
 
   const metrics = data?.metrics;
   const position = data?.position;
-  const pending = step === "approving" || step === "transferring" || step === "recording";
+  const pending = step === "transferring" || step === "recording";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -284,7 +279,7 @@ export default function HedgePage() {
                 {step === "confirm" ? (
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={handleConfirm} className="inline-flex items-center justify-center gap-1 rounded-lg bg-foreground px-3 py-2.5 text-sm text-background hover:bg-foreground/90">
-                      <ArrowDownToLine className="size-4" /> Confirm
+                      <ArrowDownToLine className="size-4" /> Send transfer
                     </button>
                     <button onClick={() => setStep("idle")} className="rounded-lg border px-3 py-2.5 text-sm hover:bg-accent/50">Cancel</button>
                   </div>
@@ -352,7 +347,7 @@ export default function HedgePage() {
                   <div className="rounded-lg border p-2.5">
                     <p className="text-muted-foreground">P&L</p>
                     <p className={`font-mono font-semibold ${position.pnl >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      {position.pnl >= 0 ? "+" : ""}{position.pnl.toFixed(2)}%
+                      {position.pnl >= 0 ? "+" : ""}${position.pnl.toFixed(2)}
                     </p>
                   </div>
                 </div>
