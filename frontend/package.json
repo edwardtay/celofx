@@ -11,6 +11,7 @@
     "build:ci": "rm -f .next/lock && next build --webpack",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "scan:readiness": "bash ./scripts/scan-readiness.sh",
     "score:check": "node scripts/check-8004scan-score.mjs",
     "score:publisher:dry": "node scripts/publisher-quick-lift.mjs dry-run --to 0x15ECEE3445E3C8cf28D4D93fAB50181de728b86d --amount 0.25",

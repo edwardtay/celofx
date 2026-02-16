@@ -456,9 +456,10 @@ const SPEC = {
                 properties: {
                   requester: { type: "string", description: "EOA address" },
                   signature: { type: "string", description: "Wallet signature over access message" },
+                  nonce: { type: "string", description: "Unique one-time nonce to prevent replay" },
                   timestamp: { type: "number" },
                 },
-                required: ["requester", "signature", "timestamp"],
+                required: ["requester", "signature", "nonce", "timestamp"],
               },
             },
           },

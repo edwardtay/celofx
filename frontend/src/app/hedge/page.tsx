@@ -50,7 +50,7 @@ export default function HedgePage() {
   const [portfolio, setPortfolio] = useState<PortfolioCompositionView | null>(null);
   const [depositAmount, setDepositAmount] = useState("100");
   const [step, setStep] = useState<"idle" | "confirm" | "approving" | "transferring" | "recording" | "done">("idle");
-  const [lastTransferAmount, setLastTransferAmount] = useState<number | null>(null);
+  const [lastTransferAmount, setLastTransferAmount] = useState<string | null>(null);
   const [depositError, setDepositError] = useState<string | null>(null);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
@@ -101,14 +101,17 @@ export default function HedgePage() {
   }, [fetchData]);
 
   const recordDeposit = useCallback(
-    async (txHash: string, amountNum: number) => {
+    async (txHash: string, amountText: string) => {
       if (!address) throw new Error("Wallet not connected");
       const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
+      const normalizedAmount = amountText.trim();
       const message = [
         "CeloFX Vault Deposit",
         `depositor:${address.toLowerCase()}`,
-        `amount:${amountNum}`,
+        `amount:${normalizedAmount}`,
         `txHash:${txHash}`,
+        `nonce:${nonce}`,
         `timestamp:${timestamp}`,
       ].join("\n");
       const signature = await signMessageAsync({ message });
@@ -119,9 +122,10 @@ export default function HedgePage() {
         body: JSON.stringify({
           action: "deposit",
           depositor: address,
-          amount: amountNum,
+          amount: normalizedAmount,
           txHash,
           signature,
+          nonce,
           timestamp,
         }),
       });
@@ -150,9 +154,9 @@ export default function HedgePage() {
     if (transferConfirmed && step === "transferring" && address && transferHash) {
       setStep("recording");
       setDepositError(null);
-      const amountNum = parseFloat(depositAmount);
-      setLastTransferAmount(amountNum);
-      recordDeposit(transferHash, amountNum)
+      const amountText = depositAmount.trim();
+      setLastTransferAmount(amountText);
+      recordDeposit(transferHash, amountText)
         .then(() => {
           setStep("done");
           setDepositAmount("100");
@@ -193,10 +197,12 @@ export default function HedgePage() {
     setWithdrawError(null);
     try {
       const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
       const message = [
         "CeloFX Vault Withdraw",
         `depositor:${address.toLowerCase()}`,
         `depositId:${depositId}`,
+        `nonce:${nonce}`,
         `timestamp:${timestamp}`,
       ].join("\n");
       const signature = await signMessageAsync({ message });
@@ -204,7 +210,7 @@ export default function HedgePage() {
       const res = await fetch("/api/vault", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "withdraw", depositId, depositor: address, signature, timestamp }),
+        body: JSON.stringify({ action: "withdraw", depositId, depositor: address, signature, nonce, timestamp }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -304,7 +310,7 @@ export default function HedgePage() {
                         onClick={async () => {
                           try {
                             setStep("recording");
-                            await recordDeposit(transferHash, lastTransferAmount ?? parseFloat(depositAmount));
+                            await recordDeposit(transferHash, lastTransferAmount ?? depositAmount);
                             setStep("done");
                             fetchData();
                             setDepositError(null);

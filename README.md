@@ -12,6 +12,24 @@ AI-powered FX arbitrage agent that compares real forex rates with Mento on-chain
 Detailed demo scripts, execution logic, and internal scoring strategy are intentionally kept private.
 This public README only covers high-level architecture and integration surface.
 
+## Current Product Surface
+
+- **Homepage (`/`)**: overview and capability entry point
+- **Arbitrage (`/arbitrage`)**: Mento/FX spread monitoring and execution signals
+- **Trading (`/trading`)**: user alerts and execution intents
+- **Hedge (`/hedge`)**: vault-style cUSD deposit/withdraw UX (legacy `/vault` redirects here)
+- **Remittance (`/remittance`)**: form-first swap + transfer flow (agentic execution)
+- **Developers (`/developers`)**: integration docs for REST/MCP/A2A/x402
+
+### Access Modes (both live)
+
+1. **EOA-signed mode** (`/api/remittance/execute`)
+   - User signs intent with wallet signature + nonce
+   - Server executes using deterministic per-user agent wallet
+2. **Agent API mode** (`/api/remittance/execute`)
+   - HMAC/Bearer auth via agent headers
+   - Replay protection via timestamp + nonce
+
 ---
 
 ## Architecture
@@ -130,13 +148,17 @@ User creates order: "Swap 50 cUSD → cEUR when rate hits 0.845, deadline 48h"
 
 | Route | Description |
 |-------|-------------|
-| `/` | Dashboard: agent wallet, Mento spreads, top signals, markets, activity feed |
+| `/` | Overview + product entry point |
+| `/arbitrage` | Arbitrage monitoring and execution context |
+| `/trading` | Price alerts and user trading intents |
+| `/hedge` | Hedge/vault deposits and withdrawals |
+| `/vault` | Redirects to `/hedge` |
+| `/remittance` | Agentic remittance (swap + transfer) |
 | `/orders` | Smart FX Orders with sparklines, momentum/urgency badges, agent reasoning |
 | `/signals` | Full signal feed with market filters (Mento/Forex/Crypto/Commodities) |
 | `/trades` | All executed swaps with stats (volume, success rate, P&L) |
 | `/premium` | x402-gated premium alpha report ($0.10 per unlock) |
 | `/agent` | ERC-8004 agent profile, reputation, execution timeline |
-| `/vault` | Capital vault for depositors |
 | `/developers` | Integration guide: MCP, A2A, REST API, x402 with live "Try it" demos |
 | `/security` | Security & Trust: agent policy, decision hashing, TEE, auditability |
 
@@ -163,16 +185,22 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-### Environment Variables
+### Environment Variables (core)
 
 ```
-NEXT_PUBLIC_WC_PROJECT_ID=       # WalletConnect project ID
-NEXT_PUBLIC_AGENT_ID=10          # ERC-8004 agent ID
-ANTHROPIC_API_KEY=               # Claude API key
-AGENT_PRIVATE_KEY=               # Agent wallet private key (for auto-execution)
-AGENT_WALLET_ADDRESS=            # Wallet address for x402 payments
-THIRDWEB_SECRET_KEY=             # thirdweb x402 facilitator key
-CRON_SECRET=                     # Vercel cron authentication
+NEXT_PUBLIC_WC_PROJECT_ID=        # WalletConnect project ID
+NEXT_PUBLIC_AGENT_ID=10           # ERC-8004 agent id
+NEXT_PUBLIC_THIRDWEB_CLIENT_ID=   # thirdweb client id for frontend
+ANTHROPIC_API_KEY=                # Claude API key
+AGENT_PRIVATE_KEY=                # Primary execution wallet key
+VAULT_CUSTODY_PRIVATE_KEY=        # Optional dedicated vault custody key (preferred for /api/vault)
+USER_AGENT_WALLET_SECRET=         # Deterministic per-user wallet derivation secret
+AGENT_API_SECRET=                 # HMAC/bearer secret for agent API mode
+AGENT_API_ALLOW_BEARER=           # Optional 'true' to allow bearer auth fallback
+UPSTASH_REDIS_REST_URL=           # Optional shared nonce store (recommended in production)
+UPSTASH_REDIS_REST_TOKEN=         # Optional shared nonce store token
+THIRDWEB_SECRET_KEY=              # x402 facilitator/private backend operations
+CRON_SECRET=                      # Vercel cron authentication
 ```
 
 ## Why This Matters

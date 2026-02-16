@@ -6,6 +6,7 @@ import { buildSwapTx, buildTransferTx, TOKENS, type MentoToken } from "@/lib/men
 import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 import { recoverMessageAddress } from "viem";
 import { deriveUserAgentWallet } from "@/lib/user-agent-wallet";
+import { consumeEoaNonce } from "@/lib/eoa-nonce";
 
 const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
 const FORNO = "https://forno.celo.org";
@@ -22,6 +23,7 @@ type ExecuteBody = {
   requester?: string;
   signature?: string;
   timestamp?: number;
+  nonce?: string;
 };
 
 const erc20BalanceAbi = [
@@ -90,10 +92,12 @@ export async function POST(request: Request) {
   } else {
     const signature = body.signature;
     const timestamp = Number(body.timestamp);
+    const nonce = body.nonce?.trim();
     const requesterRaw = body.requester?.trim().toLowerCase();
 
     if (
       !signature ||
+      !nonce ||
       !requesterRaw ||
       !isAddress(requesterRaw) ||
       !Number.isFinite(timestamp) ||
@@ -103,6 +107,9 @@ export async function POST(request: Request) {
         { error: "Unauthorized. Provide wallet signature or agent API auth." },
         { status: 401 }
       );
+    }
+    if (!(await consumeEoaNonce({ scope: "remittance-execute", signer: requesterRaw, nonce, timestamp }))) {
+      return NextResponse.json({ error: "Expired or replayed signature nonce" }, { status: 401 });
     }
 
     const recipientInput = recipientAddress.trim().toLowerCase();
@@ -114,6 +121,7 @@ export async function POST(request: Request) {
       `toToken:${toToken}`,
       `amount:${amount}`,
       `corridor:${corridor ?? `${fromToken} -> ${toToken}`}`,
+      `nonce:${nonce}`,
       `timestamp:${timestamp}`,
     ].join("\n");
 

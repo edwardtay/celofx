@@ -9,16 +9,19 @@ import {
 } from "@/lib/vault-store";
 import { getTrades } from "@/lib/trade-store";
 import { getAttestation, getTeeHeaders } from "@/lib/tee";
-import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, encodeFunctionData } from "viem";
+import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, encodeFunctionData, decodeEventLog } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { MENTO_TOKENS } from "@/config/contracts";
 import type { VaultDeposit } from "@/lib/types";
 import { hasAgentSecret, requireSignedAuth, unauthorizedResponse, missingSecretResponse } from "@/lib/auth";
 import { isAddress, recoverMessageAddress } from "viem";
+import { consumeEoaNonce } from "@/lib/eoa-nonce";
 
 const AGENT_ADDRESS = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
+const CUSD_ADDRESS = MENTO_TOKENS.cUSD as `0x${string}`;
 const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const VAULT_CUSTODY_KEY_ENV = "VAULT_CUSTODY_PRIVATE_KEY";
 
 const erc20TransferAbi = [
   {
@@ -32,6 +35,96 @@ const erc20TransferAbi = [
     stateMutability: "nonpayable",
   },
 ] as const;
+
+const erc20TransferEventAbi = [
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { indexed: true, name: "from", type: "address" },
+      { indexed: true, name: "to", type: "address" },
+      { indexed: false, name: "value", type: "uint256" },
+    ],
+  },
+] as const;
+
+function normalizeAmountInput(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return trimmed;
+  }
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return String(value);
+  }
+  return null;
+}
+
+async function verifyCusdDepositTx(params: {
+  depositor: `0x${string}`;
+  txHash: `0x${string}`;
+  amount: string;
+}): Promise<{ ok: true; amountFloat: number } | { ok: false; error: string }> {
+  let amountWei: bigint;
+  let amountFloat: number;
+  try {
+    amountWei = parseUnits(params.amount, 18);
+    amountFloat = Number(params.amount);
+  } catch {
+    return { ok: false, error: "Invalid deposit amount format" };
+  }
+  if (!Number.isFinite(amountFloat) || amountFloat <= 0) {
+    return { ok: false, error: "Invalid deposit amount" };
+  }
+
+  const client = createPublicClient({
+    chain: celo,
+    transport: http("https://forno.celo.org"),
+  });
+
+  const [receipt, tx] = await Promise.all([
+    client.getTransactionReceipt({ hash: params.txHash }),
+    client.getTransaction({ hash: params.txHash }),
+  ]);
+
+  if (receipt.status !== "success") {
+    return { ok: false, error: "Deposit transaction is not confirmed" };
+  }
+  if (tx.from.toLowerCase() !== params.depositor.toLowerCase()) {
+    return { ok: false, error: "Transaction sender does not match depositor" };
+  }
+
+  const hasMatchingTransfer = receipt.logs.some((log) => {
+    if (log.address.toLowerCase() !== CUSD_ADDRESS.toLowerCase()) return false;
+    try {
+      const decoded = decodeEventLog({
+        abi: erc20TransferEventAbi,
+        data: log.data,
+        topics: log.topics,
+      });
+      if (decoded.eventName !== "Transfer") return false;
+      const from = (decoded.args.from as string).toLowerCase();
+      const to = (decoded.args.to as string).toLowerCase();
+      const value = decoded.args.value as bigint;
+      return (
+        from === params.depositor.toLowerCase() &&
+        to === AGENT_ADDRESS.toLowerCase() &&
+        value === amountWei
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  if (!hasMatchingTransfer) {
+    return {
+      ok: false,
+      error: "No matching on-chain cUSD transfer to vault wallet found in tx",
+    };
+  }
+
+  return { ok: true, amountFloat };
+}
 
 export async function GET(request: NextRequest) {
   const teeAttestation = await getAttestation();
@@ -85,18 +178,23 @@ export async function POST(request: NextRequest) {
   if (!authorized && isUserAction) {
     const signature = body.signature as string | undefined;
     const timestamp = Number(body.timestamp);
-    if (signature && Number.isFinite(timestamp) && Math.abs(Date.now() - timestamp) <= MAX_CLOCK_SKEW_MS) {
+    const nonce = (body.nonce as string | undefined)?.trim();
+    if (signature && nonce && Number.isFinite(timestamp) && Math.abs(Date.now() - timestamp) <= MAX_CLOCK_SKEW_MS) {
       try {
         if (action === "deposit") {
           const depositor = (body.depositor as string | undefined)?.toLowerCase();
-          const amount = body.amount as number | undefined;
+          const amountInput = normalizeAmountInput(body.amount);
           const txHash = body.txHash as string | undefined;
-          if (depositor && isAddress(depositor) && amount && txHash) {
+          if (depositor && isAddress(depositor) && amountInput && txHash) {
+            if (!(await consumeEoaNonce({ scope: "vault-deposit", signer: depositor, nonce, timestamp }))) {
+              return NextResponse.json({ error: "Expired or replayed signature nonce" }, { status: 401 });
+            }
             const message = [
               "CeloFX Vault Deposit",
               `depositor:${depositor}`,
-              `amount:${amount}`,
+              `amount:${amountInput}`,
               `txHash:${txHash}`,
+              `nonce:${nonce}`,
               `timestamp:${timestamp}`,
             ].join("\n");
             const recovered = await recoverMessageAddress({ message, signature: signature as `0x${string}` });
@@ -106,10 +204,14 @@ export async function POST(request: NextRequest) {
           const depositor = (body.depositor as string | undefined)?.toLowerCase();
           const depositId = body.depositId as string | undefined;
           if (depositor && isAddress(depositor) && depositId) {
+            if (!(await consumeEoaNonce({ scope: "vault-withdraw", signer: depositor, nonce, timestamp }))) {
+              return NextResponse.json({ error: "Expired or replayed signature nonce" }, { status: 401 });
+            }
             const message = [
               "CeloFX Vault Withdraw",
               `depositor:${depositor}`,
               `depositId:${depositId}`,
+              `nonce:${nonce}`,
               `timestamp:${timestamp}`,
             ].join("\n");
             const recovered = await recoverMessageAddress({ message, signature: signature as `0x${string}` });
@@ -128,18 +230,25 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "deposit") {
-    const { depositor, amount, txHash } = body as {
+    const { depositor, txHash } = body as {
       action: string;
       depositor: string;
-      amount: number;
+      amount: string | number;
       txHash: string;
     };
+    const normalizedAmount = normalizeAmountInput(body.amount);
 
-    if (!depositor || !amount || !txHash) {
+    if (!depositor || !normalizedAmount || !txHash) {
       return NextResponse.json(
         { error: "Missing depositor, amount, or txHash" },
         { status: 400 }
       );
+    }
+    if (!isAddress(depositor)) {
+      return NextResponse.json({ error: "Invalid depositor address" }, { status: 400 });
+    }
+    if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+      return NextResponse.json({ error: "Invalid txHash format" }, { status: 400 });
     }
 
     const existing = getDeposits().find(
@@ -155,8 +264,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const verified = await verifyCusdDepositTx({
+      depositor: depositor as `0x${string}`,
+      txHash: txHash as `0x${string}`,
+      amount: normalizedAmount,
+    });
+    if (!verified.ok) {
+      return NextResponse.json({ error: verified.error }, { status: 400 });
+    }
+
     const trades = getTrades();
     const metrics = getVaultMetrics(trades);
+    const amount = verified.amountFloat;
     const sharesIssued = amount / metrics.sharePrice;
 
     const deposit: VaultDeposit = {
@@ -214,10 +333,11 @@ export async function POST(request: NextRequest) {
     const withdrawalAmount = deposit.sharesIssued * metrics.sharePrice;
 
     // Send cUSD from agent wallet to depositor
-    const privateKey = process.env.AGENT_PRIVATE_KEY;
+    const privateKey =
+      process.env[VAULT_CUSTODY_KEY_ENV] ?? process.env.AGENT_PRIVATE_KEY;
     if (!privateKey) {
       return NextResponse.json(
-        { error: "AGENT_PRIVATE_KEY not configured" },
+        { error: `${VAULT_CUSTODY_KEY_ENV} (or AGENT_PRIVATE_KEY) not configured` },
         { status: 503 }
       );
     }
@@ -227,6 +347,16 @@ export async function POST(request: NextRequest) {
         privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`
       ) as `0x${string}`;
       const account = privateKeyToAccount(normalizedKey);
+      if (account.address.toLowerCase() !== AGENT_ADDRESS.toLowerCase()) {
+        return NextResponse.json(
+          {
+            error: "Vault custody key does not match configured vault wallet address",
+            expectedWallet: AGENT_ADDRESS,
+            configuredWallet: account.address,
+          },
+          { status: 500 }
+        );
+      }
       const wallet = createWalletClient({
         account,
         chain: celo,

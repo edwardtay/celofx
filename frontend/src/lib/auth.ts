@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
+import { consumeNonce } from "@/lib/nonce-store";
 
 const AUTH_HEADER = "authorization";
 const SIGNATURE_HEADER = "x-agent-signature";
 const TIMESTAMP_HEADER = "x-agent-timestamp";
 const NONCE_HEADER = "x-agent-nonce";
 const MAX_SKEW_MS = 5 * 60 * 1000;
-const NONCE_TTL_MS = 10 * 60 * 1000;
-const nonceCache = new Map<string, number>();
 
 export function hasAgentSecret(): boolean {
   return Boolean(process.env.AGENT_API_SECRET);
@@ -18,13 +17,6 @@ export function verifyBearerAuth(request: Request): boolean {
   if (!secret) return false;
   const auth = request.headers.get(AUTH_HEADER);
   return auth === `Bearer ${secret}`;
-}
-
-function cleanupNonces(now: number) {
-  if (nonceCache.size < 1000) return;
-  for (const [nonce, ts] of nonceCache) {
-    if (now - ts > NONCE_TTL_MS) nonceCache.delete(nonce);
-  }
 }
 
 export async function verifyHmacSignature(request: Request): Promise<boolean> {
@@ -41,10 +33,6 @@ export async function verifyHmacSignature(request: Request): Promise<boolean> {
   const now = Date.now();
   if (Math.abs(now - timestamp) > MAX_SKEW_MS) return false;
 
-  cleanupNonces(now);
-  const lastSeen = nonceCache.get(nonce);
-  if (lastSeen && now - lastSeen < NONCE_TTL_MS) return false;
-
   const url = new URL(request.url);
   const method = request.method.toUpperCase();
   const body = await request.clone().text();
@@ -55,9 +43,14 @@ export async function verifyHmacSignature(request: Request): Promise<boolean> {
   const digBuf = Buffer.from(digest, "hex");
   if (sigBuf.length !== digBuf.length) return false;
   const ok = timingSafeEqual(sigBuf, digBuf);
-  if (ok) {
-    nonceCache.set(nonce, now);
-  }
+  if (!ok) return false;
+  const nonceKey = `${method}:${url.pathname}:${nonce}`;
+  const fresh = await consumeNonce({
+    scope: "agent-hmac",
+    key: nonceKey,
+    timestamp,
+  });
+  if (!fresh) return false;
   return ok;
 }
 

@@ -267,6 +267,7 @@ export default function RemittancePage() {
     try {
       const requester = address.toLowerCase();
       const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
       const recipient = recipientAddress.trim().toLowerCase();
       const message = [
         "CeloFX Remittance Execute",
@@ -276,6 +277,7 @@ export default function RemittancePage() {
         `toToken:${result.parsed.toToken}`,
         `amount:${String(result.parsed.amount)}`,
         `corridor:${result.parsed.corridor}`,
+        `nonce:${nonce}`,
         `timestamp:${timestamp}`,
       ].join("\n");
       const signature = await signMessageAsync({ message });
@@ -292,6 +294,7 @@ export default function RemittancePage() {
           slippage: 1,
           requester,
           signature,
+          nonce,
           timestamp,
         }),
       });
@@ -335,16 +338,18 @@ export default function RemittancePage() {
     try {
       const requester = address.toLowerCase();
       const timestamp = Date.now();
+      const nonce = crypto.randomUUID();
       const message = [
         "CeloFX Agent Wallet Access",
         `requester:${requester}`,
+        `nonce:${nonce}`,
         `timestamp:${timestamp}`,
       ].join("\n");
       const signature = await signMessageAsync({ message });
       const res = await fetch("/api/agent-wallet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requester, signature, timestamp }),
+        body: JSON.stringify({ requester, signature, nonce, timestamp }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Failed to create wallet");
