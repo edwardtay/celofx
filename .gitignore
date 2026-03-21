@@ -43,6 +43,11 @@ private/
 .playwright-mcp/
 .cache/
 
+# Claude Code / AI agent configs (private)
+.claude/
+CLAUDE.md
+.skills/
+
 # Misc
 *.tsbuildinfo
 .vercel
