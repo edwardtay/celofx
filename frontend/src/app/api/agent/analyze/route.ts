@@ -129,7 +129,15 @@ export async function POST(request: Request) {
         provider: "Phala Cloud",
       });
 
-      const client = new OpenAI({ apiKey, baseURL: "https://api.moonshot.ai/v1" });
+      // Multi-model support: CeloFX works with any OpenAI-compatible API
+      // Primary: Kimi K2.5 (api.moonshot.ai) — current production model
+      // Fallback: Venice AI (api.venice.ai) — privacy-preserving inference
+      // Config: Set KIMI_API_KEY for Moonshot, or VENICE_API_KEY for Venice
+      const modelConfig = process.env.VENICE_API_KEY
+        ? { apiKey: process.env.VENICE_API_KEY, baseURL: "https://api.venice.ai/api/v1", model: "llama-3.3-70b" }
+        : { apiKey, baseURL: "https://api.moonshot.ai/v1", model: "kimi-k2.5" };
+
+      const client = new OpenAI({ apiKey: modelConfig.apiKey, baseURL: modelConfig.baseURL });
       let signalCount = 0;
       const swapTxs: Array<{ fromToken: string; toToken: string; amount: string; rate: number; expectedOut: string }> = [];
       const toolCallLog: Array<{ tool: string; summary: string }> = [];
@@ -152,7 +160,7 @@ export async function POST(request: Request) {
           send("iteration", { iteration: iterations });
 
           const response = await client.chat.completions.create({
-            model: "kimi-k2.5",
+            model: modelConfig.model,
             max_tokens: 4096,
             messages: [
               { role: "system", content: AGENT_SYSTEM_PROMPT },

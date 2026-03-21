@@ -347,6 +347,10 @@ const MCP_TOOLS = [
   { name: "get_agent_policy", description: "Get agent Standing Intent policy: allowed tokens, protocols, spending limits, decision framework.", inputSchema: { type: "object", properties: {} } },
   { name: "get_decision_log", description: "Get keccak256-hashed decision audit trail for verifiable decision auditability.", inputSchema: { type: "object", properties: {} } },
   { name: "get_defi_yields", description: "Get live Celo stablecoin DeFi yields from Aave V3, Uniswap V3, Moola via DeFiLlama.", inputSchema: { type: "object", properties: {} } },
+  { name: "moonpay_buy_crypto", description: "Buy crypto with fiat via MoonPay checkout. Returns a checkout URL for card/bank payment.", inputSchema: { type: "object", properties: { token: { type: "string" }, amount: { type: "number" }, wallet: { type: "string" } } } },
+  { name: "moonpay_bridge_to_celo", description: "Bridge stablecoins from Ethereum/Base/Polygon to Celo via MoonPay.", inputSchema: { type: "object", properties: { fromChain: { type: "string" }, amount: { type: "number" } } } },
+  { name: "moonpay_check_balances", description: "Check token balances on any EVM chain via Blockscout.", inputSchema: { type: "object", properties: { wallet: { type: "string" }, chain: { type: "string" } } } },
+  { name: "moonpay_create_onramp", description: "Create a fiat-to-stablecoin on-ramp via MoonPay Virtual Account.", inputSchema: { type: "object", properties: { fiat: { type: "string" }, stablecoin: { type: "string" }, chain: { type: "string" } } } },
 ];
 const MCP_PROMPTS = [
   {
