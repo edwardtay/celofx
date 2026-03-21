@@ -1,11 +1,10 @@
 import type { FxOrder, OrderStatus } from "./types";
-import { seedOrders } from "./seed-orders";
 import { loadJsonSync, writeJson } from "./persist";
 
 const orders = new Map<string, FxOrder>();
 
 const persisted = loadJsonSync<FxOrder[]>("orders.json", []);
-const initialOrders = persisted.length > 0 ? persisted : seedOrders;
+const initialOrders = persisted.length > 0 ? persisted : [];
 for (const order of initialOrders) {
   orders.set(order.id, order);
 }

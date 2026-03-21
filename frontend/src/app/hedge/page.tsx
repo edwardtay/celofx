@@ -247,7 +247,7 @@ export default function HedgePage() {
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1"><Vault className="size-2.5" />APY</div>
-              <p className="text-lg font-mono font-bold text-emerald-600">{metrics.apyEstimate.toFixed(1)}%</p>
+              <p className="text-lg font-mono font-bold text-muted-foreground">{metrics.tvl < 100 ? "—" : metrics.apyEstimate > 100 ? ">100%" : `${metrics.apyEstimate.toFixed(1)}%`}</p>
             </div>
             <div className="rounded-lg border p-3">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1"><Users className="size-2.5" />Users</div>

@@ -47,7 +47,7 @@ export function Navbar() {
 
   return (
     <header className="border-b border-border bg-card">
-      <div className="flex items-center justify-between px-6 py-3">
+      <div className="mx-auto w-full max-w-6xl flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-2 font-display text-xl tracking-tight">
             <Image
@@ -77,7 +77,7 @@ export function Navbar() {
         </div>
       </div>
       {mobileOpen && (
-        <nav className="md:hidden px-6 pb-3 flex flex-col gap-1">
+        <nav className="md:hidden mx-auto w-full max-w-6xl px-6 pb-3 flex flex-col gap-1">
           {allLinks.map((link) => (
             <Link
               key={link.href}

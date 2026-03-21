@@ -40,5 +40,5 @@ export function formatAddress(address: string): string {
 
 /** Base URL for the app — portable across Vercel, Phala CVM, local dev */
 export function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || "https://celofx.vercel.app";
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.APP_BASE_URL || process.env.APP_URL || "https://celofx.web3wagmi.com";
 }

@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
   const teeAttestation = await getAttestation();
 
   try {
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    const baseUrl = process.env.APP_URL
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+      || "http://localhost:3000";
 
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     const agentSecret = process.env.AGENT_API_SECRET;

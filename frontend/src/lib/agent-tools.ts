@@ -1,392 +1,568 @@
-import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import type { ChatCompletionTool } from "openai/resources/chat/completions";
 
-export const agentTools: Tool[] = [
+export const agentTools: ChatCompletionTool[] = [
   {
-    name: "fetch_crypto",
-    description:
-      "Fetch current cryptocurrency prices and 24h changes for BTC, ETH, SOL, CELO",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "fetch_forex",
-    description:
-      "Fetch current forex rates for EUR/USD, GBP/USD, USD/JPY, USD/CHF — these are real-world FX rates to compare against Mento on-chain rates",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "fetch_commodities",
-    description:
-      "Fetch current commodity prices for Gold, Oil, Silver, Natural Gas",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "fetch_mento_rates",
-    description:
-      "Fetch REAL on-chain Mento Broker rates by calling getAmountOut() on the Mento Broker contract (0x777A) on Celo mainnet. Returns BOTH directions for each pair (cUSD→cEUR AND cEUR→cUSD, cUSD→cREAL AND cREAL→cUSD) compared to real forex rates, with spread analysis. Checks all 4 directions to find the profitable side. These are actual protocol execution rates, not exchange prices.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "fetch_cross_venue_rates",
-    description:
-      "Fetch cross-venue rates comparing Mento Broker vs Uniswap V3 vs real forex rates. Returns per-pair comparison: Mento rate, Uniswap rate, forex rate, venue spread (Mento vs Uni gap), and which venue offers the best rate. Covers: cUSD/cEUR (both venues), cEUR/cUSD (both venues), USDT/cUSD (Uniswap peg check). Use this to find cross-DEX arbitrage opportunities.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "generate_signal",
-    description:
-      "Generate a trading signal based on market analysis. Use for general market context signals (crypto, forex, commodities).",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        market: {
-          type: "string",
-          enum: ["crypto", "forex", "commodities", "mento"],
-          description: "Market type",
-        },
-        asset: {
-          type: "string",
-          description: "Asset symbol (e.g. BTC/USD, EUR/USD, cUSD/cEUR, Gold)",
-        },
-        direction: {
-          type: "string",
-          enum: ["long", "short", "hold"],
-          description: "Trade direction",
-        },
-        confidence: {
-          type: "number",
-          description: "Confidence level 0-100",
-        },
-        summary: {
-          type: "string",
-          description: "Brief signal summary (1-2 sentences)",
-        },
-        reasoning: {
-          type: "string",
-          description: "Detailed reasoning for the signal",
-        },
-        entryPrice: {
-          type: "number",
-          description: "Suggested entry price",
-        },
-        targetPrice: {
-          type: "number",
-          description: "Target price",
-        },
-        stopLoss: {
-          type: "number",
-          description: "Stop loss price",
-        },
-        tier: {
-          type: "string",
-          enum: ["free", "premium"],
-          description: "Signal tier — free for basic, premium for detailed",
-        },
+    type: "function",
+    function: {
+      name: "fetch_crypto",
+      description:
+        "Fetch current cryptocurrency prices and 24h changes for BTC, ETH, SOL, CELO",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
       },
-      required: [
-        "market",
-        "asset",
-        "direction",
-        "confidence",
-        "summary",
-        "tier",
-      ],
     },
   },
   {
-    name: "generate_fx_action",
-    description:
-      "Generate a specific Mento stablecoin swap recommendation. Use this when you identify an FX opportunity on Mento — e.g., Mento rate for cUSD→cEUR is better than real forex rate.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        action: {
-          type: "string",
-          enum: ["swap"],
-          description: "Action type",
-        },
-        fromToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "cREAL", "CELO"],
-          description: "Token to swap from",
-        },
-        toToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "cREAL", "CELO"],
-          description: "Token to swap to",
-        },
-        confidence: {
-          type: "number",
-          description: "Confidence level 0-100",
-        },
-        reasoning: {
-          type: "string",
-          description: "Why this swap is recommended — reference specific rate data",
-        },
-        mentoRate: {
-          type: "number",
-          description: "Current Mento exchange rate for this pair",
-        },
-        forexRate: {
-          type: "number",
-          description: "Real-world forex rate for comparison",
-        },
-        spreadPct: {
-          type: "number",
-          description: "Spread between Mento and forex rate in %",
-        },
-        tier: {
-          type: "string",
-          enum: ["free", "premium"],
-          description: "Signal tier",
-        },
+    type: "function",
+    function: {
+      name: "fetch_forex",
+      description:
+        "Fetch current forex rates for EUR/USD, GBP/USD, USD/JPY, USD/CHF — these are real-world FX rates to compare against Mento on-chain rates",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
       },
-      required: [
-        "action",
-        "fromToken",
-        "toToken",
-        "confidence",
-        "reasoning",
-        "tier",
-      ],
     },
   },
   {
-    name: "check_pending_orders",
-    description:
-      "Returns rich analysis data for all pending FX orders: current on-chain rate, momentum, urgency, rate gap. Does NOT execute any orders — call execute_order separately for each order you decide to fill.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "execute_order",
-    description:
-      "Execute a specific pending FX order by its orderId. Call ONLY after check_pending_orders and reasoning about the order's momentum, urgency, and rate gap.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        orderId: {
-          type: "string",
-          description: "Order ID to execute",
-        },
-        reasoning: {
-          type: "string",
-          description: "Detailed reasoning for executing this order NOW — reference momentum, urgency, rate data",
-        },
+    type: "function",
+    function: {
+      name: "fetch_commodities",
+      description:
+        "Fetch current commodity prices for Gold, Oil, Silver, Natural Gas",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
       },
-      required: ["orderId", "reasoning"],
     },
   },
   {
-    name: "check_portfolio_drift",
-    description:
-      "Check vault portfolio composition against target allocation (60% cUSD, 25% cEUR, 15% cREAL). Returns drift analysis, rebalance recommendations, and expected cash flows for timing optimization. Does NOT execute — call execute_mento_swap for each recommended trade.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: "execute_mento_swap",
-    description:
-      "Execute a real Mento swap on Celo mainnet. ONLY use when spread is POSITIVE and > 0.1% — the system will verify profitability on-chain before executing. If the spread is negative or below threshold, the swap will be rejected to protect vault depositors.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        fromToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "cREAL"],
-          description: "Token to swap from",
-        },
-        toToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "cREAL"],
-          description: "Token to swap to",
-        },
-        amount: {
-          type: "string",
-          description: "Amount to swap in human-readable units (e.g. '1' for 1 cUSD)",
-        },
-        spreadPct: {
-          type: "number",
-          description: "The positive spread % you expect (must clear dynamic threshold; 0.1% floor)",
-        },
-        reasoning: {
-          type: "string",
-          description: "Why this swap is profitable — reference specific rates",
-        },
+    type: "function",
+    function: {
+      name: "fetch_mento_rates",
+      description:
+        "Fetch REAL on-chain Mento Broker rates by calling getAmountOut() on the Mento Broker contract (0x777A) on Celo mainnet. Returns BOTH directions for each pair (cUSD→cEUR AND cEUR→cUSD, cUSD→cREAL AND cREAL→cUSD) compared to real forex rates, with spread analysis. Checks all 4 directions to find the profitable side. These are actual protocol execution rates, not exchange prices.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
       },
-      required: ["fromToken", "toToken", "amount", "spreadPct", "reasoning"],
     },
   },
   {
-    name: "execute_uniswap_swap",
-    description:
-      "Execute a Uniswap V3 swap on Celo mainnet via SwapRouter02. Use for tokens available on Uniswap (cUSD, cEUR, USDC, USDT, CELO). Subject to volume limits and circuit breaker.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        fromToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "USDC", "USDT", "CELO"],
-          description: "Token to swap from",
-        },
-        toToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "USDC", "USDT", "CELO"],
-          description: "Token to swap to",
-        },
-        amount: {
-          type: "string",
-          description: "Amount to swap in human-readable units",
-        },
-        spreadPct: {
-          type: "number",
-          description: "Expected spread % for this trade",
-        },
-        reasoning: {
-          type: "string",
-          description: "Why this Uniswap swap — reference specific rate data",
-        },
+    type: "function",
+    function: {
+      name: "fetch_cross_venue_rates",
+      description:
+        "Fetch cross-venue rates comparing Mento Broker vs Uniswap V3 vs real forex rates. Returns per-pair comparison: Mento rate, Uniswap rate, forex rate, venue spread (Mento vs Uni gap), and which venue offers the best rate. Covers: cUSD/cEUR (both venues), cEUR/cUSD (both venues), USDT/cUSD (Uniswap peg check). Use this to find cross-DEX arbitrage opportunities.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
       },
-      required: ["fromToken", "toToken", "amount", "spreadPct", "reasoning"],
     },
   },
   {
-    name: "execute_cross_dex_arb",
-    description:
-      "Execute a cross-DEX arbitrage: buy on the cheaper venue, sell on the expensive venue. Requires fetch_cross_venue_rates data showing venue spread > 0.3%. Executes 2 swaps (buy leg + sell leg).",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        pair: {
-          type: "string",
-          description: "Trading pair (e.g. 'cUSD/cEUR', 'USDT/cUSD')",
+    type: "function",
+    function: {
+      name: "generate_signal",
+      description:
+        "Generate a trading signal based on market analysis. Use for general market context signals (crypto, forex, commodities).",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          market: {
+            type: "string",
+            enum: ["crypto", "forex", "commodities", "mento"],
+            description: "Market type",
+          },
+          asset: {
+            type: "string",
+            description: "Asset symbol (e.g. BTC/USD, EUR/USD, cUSD/cEUR, Gold)",
+          },
+          direction: {
+            type: "string",
+            enum: ["long", "short", "hold"],
+            description: "Trade direction",
+          },
+          confidence: {
+            type: "number",
+            description: "Confidence level 0-100",
+          },
+          summary: {
+            type: "string",
+            description: "Brief signal summary (1-2 sentences)",
+          },
+          reasoning: {
+            type: "string",
+            description: "Detailed reasoning for the signal",
+          },
+          entryPrice: {
+            type: "number",
+            description: "Suggested entry price",
+          },
+          targetPrice: {
+            type: "number",
+            description: "Target price",
+          },
+          stopLoss: {
+            type: "number",
+            description: "Stop loss price",
+          },
+          tier: {
+            type: "string",
+            enum: ["free", "premium"],
+            description: "Signal tier — free for basic, premium for detailed",
+          },
         },
-        amount: {
-          type: "string",
-          description: "Amount for the buy leg in human-readable units",
-        },
-        buyVenue: {
-          type: "string",
-          enum: ["mento", "uniswap"],
-          description: "Venue to buy from (cheaper rate)",
-        },
-        sellVenue: {
-          type: "string",
-          enum: ["mento", "uniswap"],
-          description: "Venue to sell on (more expensive rate)",
-        },
-        venueSpreadPct: {
-          type: "number",
-          description: "Spread between venues in % (must be > 0.3%)",
-        },
-        reasoning: {
-          type: "string",
-          description: "Why this arb — reference specific cross-venue rate data",
-        },
+        required: [
+          "market",
+          "asset",
+          "direction",
+          "confidence",
+          "summary",
+          "tier",
+        ],
       },
-      required: ["pair", "amount", "buyVenue", "sellVenue", "venueSpreadPct", "reasoning"],
     },
   },
   {
-    name: "execute_remittance",
-    description:
-      "Execute a remittance: swap tokens (if cross-currency) and transfer to recipient address. Performs Mento swap if fromToken !== toToken, then ERC-20 transfer to recipientAddress. Subject to volume limits.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        fromToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "cREAL"],
-          description: "Token to send from",
+    type: "function",
+    function: {
+      name: "generate_fx_action",
+      description:
+        "Generate a specific Mento stablecoin swap recommendation. Use this when you identify an FX opportunity on Mento — e.g., Mento rate for cUSD→cEUR is better than real forex rate.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          action: {
+            type: "string",
+            enum: ["swap"],
+            description: "Action type",
+          },
+          fromToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "cREAL", "CELO"],
+            description: "Token to swap from",
+          },
+          toToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "cREAL", "CELO"],
+            description: "Token to swap to",
+          },
+          confidence: {
+            type: "number",
+            description: "Confidence level 0-100",
+          },
+          reasoning: {
+            type: "string",
+            description: "Why this swap is recommended — reference specific rate data",
+          },
+          mentoRate: {
+            type: "number",
+            description: "Current Mento exchange rate for this pair",
+          },
+          forexRate: {
+            type: "number",
+            description: "Real-world forex rate for comparison",
+          },
+          spreadPct: {
+            type: "number",
+            description: "Spread between Mento and forex rate in %",
+          },
+          tier: {
+            type: "string",
+            enum: ["free", "premium"],
+            description: "Signal tier",
+          },
         },
-        toToken: {
-          type: "string",
-          enum: ["cUSD", "cEUR", "cREAL"],
-          description: "Token recipient receives",
-        },
-        amount: {
-          type: "string",
-          description: "Amount to send in human-readable units",
-        },
-        recipientAddress: {
-          type: "string",
-          description: "Recipient's Celo wallet address (0x...)",
-        },
-        corridor: {
-          type: "string",
-          description: "Remittance corridor (e.g. 'US→MX', 'EU→PH')",
-        },
-        reasoning: {
-          type: "string",
-          description: "Why now — reference FX rates, timing optimization",
-        },
+        required: [
+          "action",
+          "fromToken",
+          "toToken",
+          "confidence",
+          "reasoning",
+          "tier",
+        ],
       },
-      required: ["fromToken", "toToken", "amount", "recipientAddress", "corridor", "reasoning"],
     },
   },
   {
-    name: "check_recurring_transfers",
-    description:
-      "Check server-side recurring transfer schedules for any transfers that are due. Returns due transfers for the agent to execute via execute_remittance.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
+    type: "function",
+    function: {
+      name: "check_pending_orders",
+      description:
+        "Returns rich analysis data for all pending FX orders: current on-chain rate, momentum, urgency, rate gap. Does NOT execute any orders — call execute_order separately for each order you decide to fill.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
+      },
     },
   },
   {
-    name: "fetch_defi_yields",
-    description:
-      "Fetch live DeFi stablecoin yields on Celo from DeFiLlama. Returns APY, 30d mean APY, TVL for protocols like Aave V3, Uniswap V3, Moola. Use to compare vault idle capital returns against deployment opportunities.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
+    type: "function",
+    function: {
+      name: "execute_order",
+      description:
+        "Execute a specific pending FX order by its orderId. Call ONLY after check_pending_orders and reasoning about the order's momentum, urgency, and rate gap.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          orderId: {
+            type: "string",
+            description: "Order ID to execute",
+          },
+          reasoning: {
+            type: "string",
+            description: "Detailed reasoning for executing this order NOW — reference momentum, urgency, rate data",
+          },
+        },
+        required: ["orderId", "reasoning"],
+      },
     },
   },
   {
-    name: "fetch_remittance_corridors",
-    description:
-      "Fetch live forex rates for major remittance corridors: US→NG (NGN, Nigeria/Lagos), US→KE (KES, Kenya/Nairobi), US→PH (PHP), US→EU (EUR), US→BR (BRL), US→MX (MXN), US→IN (INR). Use to find the best timing for cross-border transfers.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
+    type: "function",
+    function: {
+      name: "check_portfolio_drift",
+      description:
+        "Check vault portfolio composition against target allocation (60% cUSD, 25% cEUR, 15% cREAL). Returns drift analysis, rebalance recommendations, and expected cash flows for timing optimization. Does NOT execute — call execute_mento_swap for each recommended trade.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
+      },
     },
   },
   {
-    name: "get_rebalance_history",
-    description:
-      "Get portfolio rebalance history with cost tracking. Returns last 10 rebalances, cumulative gas costs, and average drift reduction per rebalance. Use to assess hedging efficiency.",
-    input_schema: {
-      type: "object" as const,
-      properties: {},
-      required: [],
+    type: "function",
+    function: {
+      name: "execute_mento_swap",
+      description:
+        "Execute a real Mento swap on Celo mainnet. ONLY use when spread is POSITIVE and > 0.1% — the system will verify profitability on-chain before executing. If the spread is negative or below threshold, the swap will be rejected to protect vault depositors.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          fromToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "cREAL"],
+            description: "Token to swap from",
+          },
+          toToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "cREAL"],
+            description: "Token to swap to",
+          },
+          amount: {
+            type: "string",
+            description: "Amount to swap in human-readable units (e.g. '1' for 1 cUSD)",
+          },
+          spreadPct: {
+            type: "number",
+            description: "The positive spread % you expect (must clear dynamic threshold; 0.1% floor)",
+          },
+          reasoning: {
+            type: "string",
+            description: "Why this swap is profitable — reference specific rates",
+          },
+        },
+        required: ["fromToken", "toToken", "amount", "spreadPct", "reasoning"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "execute_uniswap_swap",
+      description:
+        "Execute a Uniswap V3 swap on Celo mainnet via SwapRouter02. Use for tokens available on Uniswap (cUSD, cEUR, USDC, USDT, CELO). Subject to volume limits and circuit breaker.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          fromToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "USDC", "USDT", "CELO"],
+            description: "Token to swap from",
+          },
+          toToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "USDC", "USDT", "CELO"],
+            description: "Token to swap to",
+          },
+          amount: {
+            type: "string",
+            description: "Amount to swap in human-readable units",
+          },
+          spreadPct: {
+            type: "number",
+            description: "Expected spread % for this trade",
+          },
+          reasoning: {
+            type: "string",
+            description: "Why this Uniswap swap — reference specific rate data",
+          },
+        },
+        required: ["fromToken", "toToken", "amount", "spreadPct", "reasoning"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "execute_cross_dex_arb",
+      description:
+        "Execute a cross-DEX arbitrage: buy on the cheaper venue, sell on the expensive venue. Requires fetch_cross_venue_rates data showing venue spread > 0.3%. Executes 2 swaps (buy leg + sell leg).",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          pair: {
+            type: "string",
+            description: "Trading pair (e.g. 'cUSD/cEUR', 'USDT/cUSD')",
+          },
+          amount: {
+            type: "string",
+            description: "Amount for the buy leg in human-readable units",
+          },
+          buyVenue: {
+            type: "string",
+            enum: ["mento", "uniswap"],
+            description: "Venue to buy from (cheaper rate)",
+          },
+          sellVenue: {
+            type: "string",
+            enum: ["mento", "uniswap"],
+            description: "Venue to sell on (more expensive rate)",
+          },
+          venueSpreadPct: {
+            type: "number",
+            description: "Spread between venues in % (must be > 0.3%)",
+          },
+          reasoning: {
+            type: "string",
+            description: "Why this arb — reference specific cross-venue rate data",
+          },
+        },
+        required: ["pair", "amount", "buyVenue", "sellVenue", "venueSpreadPct", "reasoning"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "execute_remittance",
+      description:
+        "Execute a remittance: swap tokens (if cross-currency) and transfer to recipient address. Performs Mento swap if fromToken !== toToken, then ERC-20 transfer to recipientAddress. Subject to volume limits.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          fromToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "cREAL"],
+            description: "Token to send from",
+          },
+          toToken: {
+            type: "string",
+            enum: ["cUSD", "cEUR", "cREAL"],
+            description: "Token recipient receives",
+          },
+          amount: {
+            type: "string",
+            description: "Amount to send in human-readable units",
+          },
+          recipientAddress: {
+            type: "string",
+            description: "Recipient's Celo wallet address (0x...)",
+          },
+          corridor: {
+            type: "string",
+            description: "Remittance corridor (e.g. 'US→MX', 'EU→PH')",
+          },
+          reasoning: {
+            type: "string",
+            description: "Why now — reference FX rates, timing optimization",
+          },
+        },
+        required: ["fromToken", "toToken", "amount", "recipientAddress", "corridor", "reasoning"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "check_recurring_transfers",
+      description:
+        "Check server-side recurring transfer schedules for any transfers that are due. Returns due transfers for the agent to execute via execute_remittance.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fetch_defi_yields",
+      description:
+        "Fetch live DeFi stablecoin yields on Celo from DeFiLlama. Returns APY, 30d mean APY, TVL for protocols like Aave V3, Uniswap V3, Moola. Use to compare vault idle capital returns against deployment opportunities.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fetch_remittance_corridors",
+      description:
+        "Fetch live forex rates for major remittance corridors: US→NG (NGN, Nigeria/Lagos), US→KE (KES, Kenya/Nairobi), US→PH (PHP), US→EU (EUR), US→BR (BRL), US→MX (MXN), US→IN (INR). Use to find the best timing for cross-border transfers.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_rebalance_history",
+      description:
+        "Get portfolio rebalance history with cost tracking. Returns last 10 rebalances, cumulative gas costs, and average drift reduction per rebalance. Use to assess hedging efficiency.",
+      parameters: {
+        type: "object" as const,
+        properties: {},
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "moonpay_check_balances",
+      description:
+        "Check token balances on any chain via MoonPay",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          wallet: {
+            type: "string",
+            description: "Wallet address to check",
+          },
+          chain: {
+            type: "string",
+            enum: ["ethereum", "base", "polygon", "arbitrum", "optimism", "solana"],
+            description: "Chain to check balances on",
+          },
+        },
+        required: ["wallet", "chain"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "moonpay_buy_crypto",
+      description:
+        "Buy crypto with fiat via MoonPay checkout URL. Use for fiat on-ramp when users want to fund their wallet or start a remittance flow.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          token: {
+            type: "string",
+            enum: ["usdc_base", "usdc", "usdc_polygon", "usdc_arbitrum", "eth", "eth_base", "sol"],
+            description: "MoonPay currency code for the token to buy",
+          },
+          amount: {
+            type: "number",
+            description: "Amount in USD to spend",
+          },
+          wallet: {
+            type: "string",
+            description: "Destination wallet address",
+          },
+          email: {
+            type: "string",
+            description: "Buyer email for checkout",
+          },
+        },
+        required: ["token", "amount", "wallet", "email"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "moonpay_bridge_to_celo",
+      description:
+        "Bridge stablecoins from another chain to Celo via MoonPay. Use when the agent needs to move USDC from Base/Ethereum/Polygon to Celo for Mento trading.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          fromChain: {
+            type: "string",
+            enum: ["ethereum", "base", "polygon", "arbitrum", "optimism"],
+            description: "Source chain",
+          },
+          fromToken: {
+            type: "string",
+            description: "Source token address (e.g. USDC on Base)",
+          },
+          amount: {
+            type: "number",
+            description: "Amount to bridge",
+          },
+          wallet: {
+            type: "string",
+            description: "MoonPay wallet name to sign with",
+          },
+        },
+        required: ["fromChain", "fromToken", "amount", "wallet"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "moonpay_create_onramp",
+      description:
+        "Create a fiat-to-stablecoin on-ramp via MoonPay Virtual Account. Returns bank details where the user sends fiat, which auto-converts to stablecoin. Use for remittance funding.",
+      parameters: {
+        type: "object" as const,
+        properties: {
+          name: {
+            type: "string",
+            description: "Label for this on-ramp (e.g. 'CeloFX USD funding')",
+          },
+          fiat: {
+            type: "string",
+            enum: ["USD", "EUR"],
+            description: "Fiat currency",
+          },
+          stablecoin: {
+            type: "string",
+            enum: ["USDC", "USDT", "EURC"],
+            description: "Target stablecoin",
+          },
+          wallet: {
+            type: "string",
+            description: "Registered wallet address to receive stablecoin",
+          },
+          chain: {
+            type: "string",
+            enum: ["ethereum", "base", "polygon", "arbitrum"],
+            description: "Chain to receive stablecoin on",
+          },
+        },
+        required: ["name", "fiat", "stablecoin", "wallet", "chain"],
+      },
     },
   },
 ];
@@ -549,7 +725,7 @@ After portfolio analysis, call fetch_defi_yields to check Celo DeFi yields.
 - DO NOT auto-deploy to DeFi — report opportunities for user decision
 
 REMITTANCE CORRIDORS (fetch_remittance_corridors):
-Covers 7 major corridors with Africa-first focus: US→NG (Nigeria/Lagos), US→KE (Kenya/Nairobi), US→PH, US→EU, US→BR, US→MX, US→IN.
+Covers 7 major corridors with Africa-first focus: US→NG (Nigeria/Lagos), US→KE (Kenya/Nairobi), US→PH (PHP), US→EU (EUR), US→BR (BRL), US→MX (MXN), US→IN (INR).
 - Priority corridors: Nigeria (7.5% avg fees via WU) and Kenya (7% avg fees) — highest savings vs traditional
 - Celo-native corridors (Mento swap): cUSD→cEUR (EU), cUSD→cREAL (BR)
 - Settlement corridors (cUSD transfer): US→NG, US→KE, US→MX, US→PH, US→IN
@@ -569,4 +745,12 @@ Before every swap execution, the system checks:
 - If gas cost > 50% of expected profit, the trade is skipped to protect capital
 - Gas cost in USD is calculated and included in trade records for transparency
 
-Remember: your reputation is on-chain via ERC-8004. Every signal contributes to your verifiable track record on Celo. Protecting depositor capital is your #1 priority — only trade when the math works.`;
+Remember: your reputation is on-chain via ERC-8004. Every signal contributes to your verifiable track record on Celo. Protecting depositor capital is your #1 priority — only trade when the math works.
+
+MOONPAY INTEGRATION (Fiat On/Off-Ramp):
+CeloFX integrates with MoonPay CLI as an MCP client for fiat-to-crypto flows.
+- moonpay_buy_crypto: Generate a checkout URL for users to buy USDC/ETH with fiat
+- moonpay_bridge_to_celo: Bridge stablecoins from Ethereum/Base/Polygon to Celo for Mento trading
+- moonpay_create_onramp: Create a virtual bank account that auto-converts fiat deposits to stablecoin
+- moonpay_check_balances: Check wallet balances on any supported chain
+Use these after remittance analysis to offer fiat on-ramp options, or to bridge capital from other chains for arbitrage.`;

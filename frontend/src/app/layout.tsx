@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Roboto_Mono } from "next/font/google";
 import { Providers } from "./providers";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const instrumentSerif = localFont({
-  src: "../../public/fonts/instrument-serif-400.woff2",
-  weight: "400",
-  variable: "--font-display",
-  display: "swap",
-});
-
-const outfit = localFont({
-  src: "../../public/fonts/outfit-variable.woff2",
-  variable: "--font-sans",
-  display: "swap",
-});
-
-const jetbrainsMono = localFont({
-  src: "../../public/fonts/jetbrains-mono-variable.woff2",
-  variable: "--font-mono",
+const robotoMono = Roboto_Mono({
+  subsets: ["latin"],
+  variable: "--font-roboto-mono",
   display: "swap",
 });
 
@@ -47,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${instrumentSerif.variable} ${outfit.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+        className={`${robotoMono.variable} font-mono antialiased`}
         suppressHydrationWarning
       >
         <Providers>{children}</Providers>

@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { hasAgentSecret, requireSignedAuth } from "@/lib/auth";
 import { agentTools, AGENT_SYSTEM_PROMPT } from "@/lib/agent-tools";
 import {
@@ -101,10 +101,10 @@ export async function POST(request: Request) {
     if (Array.isArray(body?.cashFlows)) cashFlows = body.cashFlows;
   } catch { /* no body */ }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.KIMI_API_KEY;
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: "API key not configured. Set ANTHROPIC_API_KEY in environment." }),
+      JSON.stringify({ error: "API key not configured. Set KIMI_API_KEY in environment." }),
       { status: 503, headers: { "Content-Type": "application/json", ...rateLimitHeaders } }
     );
   }
@@ -129,14 +129,14 @@ export async function POST(request: Request) {
         provider: "Phala Cloud",
       });
 
-      const client = new Anthropic({ apiKey });
+      const client = new OpenAI({ apiKey, baseURL: "https://api.moonshot.ai/v1" });
       let signalCount = 0;
       const swapTxs: Array<{ fromToken: string; toToken: string; amount: string; rate: number; expectedOut: string }> = [];
       const toolCallLog: Array<{ tool: string; summary: string }> = [];
       const allSignals: Signal[] = [];
 
       try {
-        const messages: Anthropic.MessageParam[] = [
+        const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
           {
             role: "user",
             content:
@@ -151,26 +151,30 @@ export async function POST(request: Request) {
           iterations++;
           send("iteration", { iteration: iterations });
 
-          const response = await client.messages.create({
-            model: "claude-sonnet-4-5-20250929",
+          const response = await client.chat.completions.create({
+            model: "kimi-k2.5",
             max_tokens: 4096,
-            system: AGENT_SYSTEM_PROMPT,
+            messages: [
+              { role: "system", content: AGENT_SYSTEM_PROMPT },
+              ...messages,
+            ],
             tools: agentTools,
-            messages,
           });
 
-          const toolUseBlocks = response.content.filter(
-            (block): block is Anthropic.ContentBlock & { type: "tool_use" } =>
-              block.type === "tool_use"
+          const choice = response.choices[0];
+          const toolCalls = (choice.message.tool_calls || []).filter(
+            (tc): tc is OpenAI.Chat.Completions.ChatCompletionMessageToolCall & { type: "function" } =>
+              tc.type === "function"
           );
 
-          if (toolUseBlocks.length === 0) break;
+          if (toolCalls.length === 0) break;
 
-          messages.push({ role: "assistant", content: response.content });
+          messages.push(choice.message as OpenAI.Chat.ChatCompletionMessageParam);
 
-          const toolResults: Anthropic.ToolResultBlockParam[] = [];
+          const toolResultMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 
-          for (const toolUse of toolUseBlocks) {
+          for (const toolCall of toolCalls) {
+            const toolUse = { id: toolCall.id, name: toolCall.function.name, input: JSON.parse(toolCall.function.arguments || "{}") };
             let result: string;
 
             if (
@@ -185,9 +189,9 @@ export async function POST(request: Request) {
                 readOnly: true,
                 blockedTool: toolUse.name,
               });
-              toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolUse.id,
+              toolResultMessages.push({
+                role: "tool",
+                tool_call_id: toolUse.id,
                 content: result,
               });
               continue;
@@ -1626,20 +1630,128 @@ export async function POST(request: Request) {
                 }
                 break;
               }
+              case "moonpay_check_balances": {
+                const input = toolUse.input as Record<string, unknown>;
+                try {
+                  const { callMoonPayTool, extractMcpText } = await import("@/lib/moonpay-mcp");
+                  const mpResult = await callMoonPayTool("token_balance_list", {
+                    wallet: input.wallet,
+                    chain: input.chain,
+                  });
+                  result = extractMcpText(mpResult);
+                  const tcEntry = { tool: "moonpay_check_balances", summary: `Checked ${input.chain} balances for ${(input.wallet as string).slice(0, 10)}...` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                } catch (err) {
+                  result = JSON.stringify({ error: `MoonPay balance check failed: ${err instanceof Error ? err.message : "unknown"}` });
+                  const tcEntry = { tool: "moonpay_check_balances", summary: `Error: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                }
+                break;
+              }
+              case "moonpay_buy_crypto": {
+                const input = toolUse.input as Record<string, unknown>;
+                try {
+                  const { callMoonPayTool, extractMcpText } = await import("@/lib/moonpay-mcp");
+                  const mpResult = await callMoonPayTool("buy", {
+                    token: input.token,
+                    amount: input.amount,
+                    wallet: input.wallet,
+                    email: input.email || null,
+                  });
+                  const text = extractMcpText(mpResult);
+                  result = text;
+                  const tcEntry = { tool: "moonpay_buy_crypto", summary: `MoonPay checkout: $${input.amount} → ${input.token}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  send("moonpay_action", { type: "buy", token: input.token, amount: input.amount });
+                } catch (err) {
+                  result = JSON.stringify({ error: `MoonPay buy failed: ${err instanceof Error ? err.message : "unknown"}` });
+                  const tcEntry = { tool: "moonpay_buy_crypto", summary: `Error: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                }
+                break;
+              }
+              case "moonpay_bridge_to_celo": {
+                const input = toolUse.input as Record<string, unknown>;
+                if (!canExecute) {
+                  const tcEntry = { tool: "moonpay_bridge_to_celo", summary: "Blocked in read-only mode" };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  result = JSON.stringify({ error: "Read-only mode. Bridge requires authenticated agent runtime.", readOnly: true });
+                  break;
+                }
+                try {
+                  const { callMoonPayTool, extractMcpText } = await import("@/lib/moonpay-mcp");
+                  const mpResult = await callMoonPayTool("token_bridge", {
+                    from: {
+                      wallet: input.wallet,
+                      chain: input.fromChain,
+                      token: input.fromToken,
+                      amount: input.amount,
+                    },
+                    to: {
+                      wallet: null,
+                      chain: "celo",
+                      token: "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+                      amount: null,
+                    },
+                  });
+                  const text = extractMcpText(mpResult);
+                  result = text;
+                  const tcEntry = { tool: "moonpay_bridge_to_celo", summary: `Bridge ${input.amount} from ${input.fromChain} → Celo` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  send("moonpay_action", { type: "bridge", fromChain: input.fromChain, amount: input.amount });
+                } catch (err) {
+                  result = JSON.stringify({ error: `MoonPay bridge failed: ${err instanceof Error ? err.message : "unknown"}` });
+                  const tcEntry = { tool: "moonpay_bridge_to_celo", summary: `Error: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                }
+                break;
+              }
+              case "moonpay_create_onramp": {
+                const input = toolUse.input as Record<string, unknown>;
+                try {
+                  const { callMoonPayTool, extractMcpText } = await import("@/lib/moonpay-mcp");
+                  const mpResult = await callMoonPayTool("virtual-account_onramp_create", {
+                    name: input.name,
+                    fiat: input.fiat,
+                    stablecoin: input.stablecoin,
+                    wallet: input.wallet,
+                    chain: input.chain,
+                  });
+                  const text = extractMcpText(mpResult);
+                  result = text;
+                  const tcEntry = { tool: "moonpay_create_onramp", summary: `On-ramp: ${input.fiat} → ${input.stablecoin} on ${input.chain}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                  send("moonpay_action", { type: "onramp", fiat: input.fiat, stablecoin: input.stablecoin });
+                } catch (err) {
+                  result = JSON.stringify({ error: `MoonPay on-ramp failed: ${err instanceof Error ? err.message : "unknown"}` });
+                  const tcEntry = { tool: "moonpay_create_onramp", summary: `Error: ${err instanceof Error ? err.message : "unknown"}` };
+                  toolCallLog.push(tcEntry);
+                  send("tool_call", tcEntry);
+                }
+                break;
+              }
               default:
                 result = JSON.stringify({ error: `Unknown tool: ${toolUse.name}` });
             }
 
-            toolResults.push({
-              type: "tool_result",
-              tool_use_id: toolUse.id,
+            toolResultMessages.push({
+              role: "tool",
+              tool_call_id: toolUse.id,
               content: result,
             });
           }
 
-          messages.push({ role: "user", content: toolResults });
+          messages.push(...toolResultMessages);
 
-          if (response.stop_reason === "end_turn") break;
+          if (choice.finish_reason === "stop") break;
         }
 
         // Return complete data as final event

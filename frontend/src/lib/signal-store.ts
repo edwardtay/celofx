@@ -1,11 +1,10 @@
 import type { Signal, SignalTier, MarketType } from "./types";
-import { seedSignals } from "./seed-signals";
 import { loadJsonSync, writeJson } from "./persist";
 
 const signals = new Map<string, Signal>();
 
 const persisted = loadJsonSync<Signal[]>("signals.json", []);
-const initialSignals = persisted.length > 0 ? persisted : seedSignals;
+const initialSignals = persisted.length > 0 ? persisted : [];
 for (const signal of initialSignals) {
   signals.set(signal.id, signal);
 }

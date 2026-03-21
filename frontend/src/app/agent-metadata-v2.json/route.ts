@@ -45,7 +45,7 @@ export async function GET() {
       type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
       name: "CeloFX",
       description:
-        "Autonomous FX arbitrage agent on Celo. Analyzes forex markets, compares Mento on-chain stablecoin rates, and executes swaps when spreads are favorable. Powered by Claude AI.",
+        "Autonomous FX arbitrage agent on Celo. Monitors Mento Broker and Uniswap V3 rates versus real forex references, identifies profitable stablecoin spreads, and executes swaps when policy and risk checks pass. Multi-protocol: MCP, A2A, x402, ERC-8004, OASF.",
       image: `${base}/celofx-logo.png`,
       agent_url: base,
       version: "1.1.0",
@@ -64,7 +64,15 @@ export async function GET() {
         "on_chain_execution",
         "policy_checked_trading",
         "cross_venue_rate_comparison",
+        "moonpay_fiat_onramp",
+        "moonpay_fiat_offramp",
+        "moonpay_cross_chain_bridge",
       ],
+      moonpay: {
+        integration: "MCP client — CeloFX connects to MoonPay CLI MCP server for fiat on/off-ramp, cross-chain bridging, and token swaps",
+        mcpConfig: { command: "mp", args: ["mcp"] },
+        capabilities: ["fiat_onramp", "fiat_offramp", "token_swap", "token_bridge", "virtual_accounts", "x402_payments"],
+      },
       endpoints: {
         web: base,
         mcp: `${base}/api/mcp`,
@@ -90,10 +98,10 @@ export async function GET() {
         },
       ],
       services: [
-        { name: "web", endpoint: base },
-        { name: "discovery", endpoint: `${base}/.well-known/agent.json` },
+        { type: "web", endpoint: base },
+        { type: "discovery", endpoint: `${base}/.well-known/agent.json` },
         {
-          name: "mcp",
+          type: "mcp",
           endpoint: `${base}/api/mcp`,
           version: "2025-06-18",
           protocolVersion: "2025-06-18",
@@ -107,7 +115,7 @@ export async function GET() {
           resources_count: mcpResources.length,
         },
         {
-          name: "a2a",
+          type: "a2a",
           endpoint:
             `${base}/.well-known/agent-card.json`,
           version: "0.3.0",
@@ -157,7 +165,7 @@ export async function GET() {
           ],
         },
         {
-          name: "x402",
+          type: "x402",
           endpoint: `${base}/api/premium-signals`,
           version: "1.0.0",
           supported: true,
@@ -168,15 +176,15 @@ export async function GET() {
           standard: "EIP-712",
         },
         {
-          name: "TEE",
+          type: "TEE",
           endpoint: `${base}/api/tee/attestation`,
           version: "dstack-dev-0.5.6",
           status: tee.status,
           verified: tee.verified,
-          infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
+          infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "CapRover (Hetzner)",
         },
         {
-          name: "OASF",
+          type: "OASF",
           endpoint: `${base}/.well-known/oasf.json`,
           version: "0.8.0",
           skills: [
@@ -201,6 +209,10 @@ export async function GET() {
             "portfolio_hedging",
             "gas_optimization",
           ],
+        },
+        {
+          type: "agentWallet",
+          endpoint: "eip155:42220:0x6652AcDc623b7CCd52E115161d84b949bAf3a303",
         },
       ],
       health: {
@@ -252,7 +264,7 @@ export async function GET() {
       tee: {
         status: tee.status,
         verified: tee.verified,
-        infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "Vercel",
+        infrastructure: tee.verified ? "Intel TDX (Phala Cloud)" : "CapRover (Hetzner)",
         attestationEndpoint: `${base}/api/tee/attestation`,
       },
     },

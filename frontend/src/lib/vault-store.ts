@@ -45,7 +45,7 @@ export function getVaultMetrics(trades: Trade[]): VaultMetrics {
     totalShares: parseFloat(totalShares.toFixed(4)),
     sharePrice: parseFloat(sharePrice.toFixed(6)),
     depositors,
-    apyEstimate: parseFloat(Math.min(apyEstimate, 999).toFixed(2)),
+    apyEstimate: tvl < 100 || daysActive < 7 ? 0 : parseFloat(Math.min(apyEstimate, 100).toFixed(2)),
     cumulativePnl: parseFloat(pnlAbsolute.toFixed(4)),
   };
 }
