@@ -60,7 +60,7 @@ export default function ArbitragePage() {
           <MentoSpreads />
         </section>
 
-        <details className="rounded-xl border bg-card">
+        <details open className="rounded-xl border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
             Top signals
             <ChevronDown className="size-4 text-muted-foreground" />
@@ -70,7 +70,7 @@ export default function ArbitragePage() {
           </div>
         </details>
 
-        <details className="rounded-xl border bg-card">
+        <details open className="rounded-xl border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
             Agent status
             <ChevronDown className="size-4 text-muted-foreground" />
@@ -80,7 +80,7 @@ export default function ArbitragePage() {
           </div>
         </details>
 
-        <details className="rounded-xl border bg-card">
+        <details open className="rounded-xl border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
             Diagnostics
             <ChevronDown className="size-4 text-muted-foreground" />

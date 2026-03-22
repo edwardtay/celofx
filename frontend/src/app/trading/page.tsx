@@ -407,7 +407,7 @@ export default function TradingPage() {
           </CardContent>
         </Card>
 
-        <details className="rounded-lg border bg-card">
+        <details open className="rounded-lg border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
             Market activity
             <ChevronDown className="size-4 text-muted-foreground" />

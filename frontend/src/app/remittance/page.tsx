@@ -701,7 +701,7 @@ export default function RemittancePage() {
           </div>
         )}
 
-        <details className="rounded-lg border bg-card">
+        <details open className="rounded-lg border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
             Spending limits
             <ChevronDown className="size-4 text-muted-foreground" />
@@ -709,7 +709,7 @@ export default function RemittancePage() {
           <div className="px-2 pb-2"><SpendingLimitsCard refreshKey={refreshKey} /></div>
         </details>
 
-        <details className="rounded-lg border bg-card">
+        <details open className="rounded-lg border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
             Recurring transfers
             <ChevronDown className="size-4 text-muted-foreground" />
@@ -733,7 +733,7 @@ export default function RemittancePage() {
           </div>
         </details>
 
-        <details className="rounded-lg border bg-card">
+        <details open className="rounded-lg border bg-card">
           <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium">
             Transfer history
             <ChevronDown className="size-4 text-muted-foreground" />
