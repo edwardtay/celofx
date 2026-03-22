@@ -19,7 +19,6 @@ import {
   Send,
   TrendingDown,
   ChevronDown,
-  Copy,
 } from "lucide-react";
 import {
   addRemittanceTransaction,
@@ -268,8 +267,11 @@ export default function RemittancePage() {
       return;
     }
     if (!agentWallet) {
-      setExecError("Create your agent wallet first.");
-      return;
+      const created = await handleCreateAgentWallet();
+      if (!created) {
+        setExecError("Failed to set up execution wallet. Please try again.");
+        return;
+      }
     }
     if (!isValidRecipient(recipientAddress)) {
       setExecError("Enter a valid recipient wallet (0x...) or ENS (.eth).");
@@ -356,8 +358,8 @@ export default function RemittancePage() {
     setReceiptTx(tx);
   }, []);
 
-  const handleCreateAgentWallet = async () => {
-    if (!isConnected || !address) return;
+  const handleCreateAgentWallet = async (): Promise<{ address: string; balances: { cUSD: string; CELO: string } } | null> => {
+    if (!isConnected || !address) return null;
     setAgentWalletLoading(true);
     setAgentWalletError(null);
     try {
@@ -378,12 +380,15 @@ export default function RemittancePage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Failed to create wallet");
-      setAgentWallet({
+      const wallet = {
         address: json.wallet.address,
         balances: json.balances,
-      });
+      };
+      setAgentWallet(wallet);
+      return wallet;
     } catch (err) {
       setAgentWalletError(err instanceof Error ? err.message : "Failed to create wallet");
+      return null;
     } finally {
       setAgentWalletLoading(false);
     }
@@ -398,88 +403,7 @@ export default function RemittancePage() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 px-4 py-5 sm:px-6">
-        <div>
-          <h1 className="text-2xl font-display tracking-tight">Send Money</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Fast one-time transfers on Celo. Enter amount, destination, then send.
-          </p>
-        </div>
-
-        <Card className="gap-0 py-0">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-sm">Fund with MoonPay</h3>
-                <p className="text-xs text-muted-foreground mt-1">Buy cUSD with card or bank transfer via MoonPay</p>
-              </div>
-              <a
-                href={`https://buy.moonpay.com?apiKey=pk_live_BT2OYpOuBti65FmHtwMn6ElIPk9YGuJ&currencyCode=usdc_base&baseCurrencyAmount=50&walletAddress=${address || "0x6652AcDc623b7CCd52E115161d84b949bAf3a303"}&colorCode=%23D4A843&theme=dark`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                Buy cUSD
-                <ExternalLink className="size-3" />
-              </a>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="gap-0 py-0">
-          <CardContent className="space-y-2 py-3">
-            <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="font-medium">Access mode</span>
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                EOA Signed
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              You authorize with wallet signature; CeloFX agent executes swap + transfer on Celo.
-            </p>
-            <div className="rounded-lg border px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium">Your Agent Wallet (thirdweb deterministic)</span>
-                <button
-                  onClick={handleCreateAgentWallet}
-                  disabled={!isConnected || agentWalletLoading}
-                  className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-50"
-                >
-                  {agentWalletLoading ? "Creating..." : agentWallet ? "Refresh" : "Create"}
-                </button>
-              </div>
-              {!isConnected && (
-                <p className="mt-1 text-[11px] text-muted-foreground">Connect wallet to create your execution wallet.</p>
-              )}
-              {agentWallet && (
-                <div className="mt-2 space-y-1 text-[11px]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono">{agentWallet.address.slice(0, 10)}...{agentWallet.address.slice(-8)}</span>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(agentWallet.address)}
-                      className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 hover:bg-accent"
-                    >
-                      <Copy className="size-3" /> Copy
-                    </button>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Balance: {Number(agentWallet.balances.cUSD).toFixed(4)} cUSD, {Number(agentWallet.balances.CELO).toFixed(4)} CELO
-                  </p>
-                  <p className="text-muted-foreground">
-                    Fund this wallet first; remittance executes from this wallet (not pooled treasury).
-                  </p>
-                </div>
-              )}
-              {agentWalletError && <p className="mt-1 text-[11px] text-red-600">{agentWalletError}</p>}
-            </div>
-            <details className="rounded-lg border px-3 py-2">
-              <summary className="cursor-pointer text-xs text-muted-foreground">Agent API mode</summary>
-              <p className="mt-2 text-xs text-muted-foreground">
-                For agent-to-agent use, call <code>/api/remittance/execute</code> with signed agent headers
-                (HMAC/Bearer) instead of wallet signature.
-              </p>
-            </details>
-          </CardContent>
-        </Card>
+        <h1 className="text-2xl font-display tracking-tight">Send Money</h1>
 
         <Card className="gap-0 py-0">
           <CardContent className="space-y-3 py-4">
@@ -540,9 +464,6 @@ export default function RemittancePage() {
               {loading ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
               Get Quote
             </button>
-            <p className="text-center text-[11px] text-muted-foreground">
-              Native execution path: Mento swap (if needed) + Celo transfer.
-            </p>
           </CardContent>
         </Card>
 
@@ -772,7 +693,6 @@ export default function RemittancePage() {
                       {isExecuting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                       {isExecuting ? "Sending transfer..." : "Send now"}
                     </button>
-                    <p className="text-center text-[11px] text-muted-foreground">Agentic mode: swap (if needed) + transfer in one flow.</p>
                     {execError && <p className="text-center text-sm text-red-600">{execError}</p>}
                   </>
                 )}
