@@ -8,14 +8,21 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Loader2, RefreshCw, ExternalLink, ArrowDown, ArrowUpRight } from "lucide-react";
 
 const CHAINS = [
-  { id: "ethereum", short: "ETH" },
+  { id: "celo", short: "CELO" },
   { id: "base", short: "BASE" },
+  { id: "ethereum", short: "ETH" },
   { id: "polygon", short: "POLY" },
   { id: "arbitrum", short: "ARB" },
-  { id: "optimism", short: "OP" },
 ];
 
 const TOKENS: Record<string, Array<{ symbol: string; address: string }>> = {
+  celo: [
+    { symbol: "cUSD", address: "0x765DE816845861e75A25fCA122bb6898B8B1282a" },
+    { symbol: "cEUR", address: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73" },
+    { symbol: "cREAL", address: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787" },
+    { symbol: "USDC", address: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" },
+    { symbol: "CELO", address: "0x471EcE3750Da237f93B8E339c536989b8978a438" },
+  ],
   ethereum: [
     { symbol: "USDC", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
     { symbol: "USDT", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
@@ -59,7 +66,7 @@ export default function PortfolioPage() {
   const [agentStats, setAgentStats] = useState({ trades: 0, successRate: 0, pnl: 0 });
   const [agentLoading, setAgentLoading] = useState(true);
 
-  const [chain, setChain] = useState("base");
+  const [chain, setChain] = useState("celo");
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loadingBal, setLoadingBal] = useState(false);
   const [tab, setTab] = useState<Tab>("buy");

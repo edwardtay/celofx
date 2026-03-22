@@ -145,6 +145,7 @@ async function callMoonPayViaHttp(
       const chain = args.chain as string;
       try {
         const chainEndpoints: Record<string, string> = {
+          celo: "https://celo.blockscout.com/api/v2/addresses",
           ethereum: "https://eth.blockscout.com/api/v2/addresses",
           base: "https://base.blockscout.com/api/v2/addresses",
           polygon: "https://polygon.blockscout.com/api/v2/addresses",
