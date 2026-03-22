@@ -2,26 +2,23 @@
 
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { Card, CardContent } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAccount } from "wagmi";
 import {
-  Wallet,
-  ArrowRightLeft,
-  ArrowDownToLine,
-  ExternalLink,
   Loader2,
   RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 
 const CHAINS = [
-  { id: "ethereum", name: "Ethereum", color: "#627EEA" },
-  { id: "base", name: "Base", color: "#0052FF" },
-  { id: "polygon", name: "Polygon", color: "#8247E5" },
-  { id: "arbitrum", name: "Arbitrum", color: "#28A0F0" },
-  { id: "optimism", name: "Optimism", color: "#FF0420" },
+  { id: "ethereum", name: "ETH" },
+  { id: "base", name: "Base" },
+  { id: "polygon", name: "Polygon" },
+  { id: "arbitrum", name: "Arbitrum" },
+  { id: "optimism", name: "OP" },
 ];
 
-const POPULAR_TOKENS: Record<string, Array<{ symbol: string; address: string }>> = {
+const TOKENS: Record<string, Array<{ symbol: string; address: string }>> = {
   ethereum: [
     { symbol: "USDC", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
     { symbol: "USDT", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
@@ -45,330 +42,216 @@ const POPULAR_TOKENS: Record<string, Array<{ symbol: string; address: string }>>
   ],
 };
 
-interface Balance {
-  symbol: string;
-  balance: string;
-  valueUsd: string | null;
-}
+const BUY_TOKENS = [
+  { code: "usdc_base", label: "USDC (Base)" },
+  { code: "usdc", label: "USDC (ETH)" },
+  { code: "usdc_polygon", label: "USDC (Polygon)" },
+  { code: "eth", label: "ETH" },
+  { code: "eth_base", label: "ETH (Base)" },
+];
+
+interface Balance { symbol: string; balance: string; valueUsd: string | null }
 
 export default function PortfolioPage() {
-  const [wallet, setWallet] = useState("0x6652AcDc623b7CCd52E115161d84b949bAf3a303");
-  const [selectedChain, setSelectedChain] = useState("base");
-  const [balances, setBalances] = useState<Balance[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [buyAmount, setBuyAmount] = useState("50");
+  const { address } = useAccount();
+  const agentWallet = "0x6652AcDc623b7CCd52E115161d84b949bAf3a303";
+  const wallet = address || agentWallet;
+
+  const [chain, setChain] = useState("base");
+  const [balances, setBalances] = useState<Balance[]>([]);
+  const [loadingBal, setLoadingBal] = useState(false);
+
   const [buyToken, setBuyToken] = useState("usdc_base");
+  const [buyAmount, setBuyAmount] = useState("50");
+
   const [swapFrom, setSwapFrom] = useState("");
   const [swapTo, setSwapTo] = useState("");
-  const [swapAmount, setSwapAmount] = useState("10");
-  const [swapResult, setSwapResult] = useState<string | null>(null);
-  const [bridgeFrom, setBridgeFrom] = useState("base");
-  const [bridgeToken, setBridgeToken] = useState("");
-  const [bridgeAmount, setBridgeAmount] = useState("10");
-  const [bridgeResult, setBridgeResult] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [swapAmt, setSwapAmt] = useState("10");
+  const [swapping, setSwapping] = useState(false);
+  const [swapRes, setSwapRes] = useState<Record<string, unknown> | null>(null);
 
-  const checkBalances = async () => {
-    setLoading(true);
+  const [bridgeChain, setBridgeChain] = useState("base");
+  const [bridgeToken, setBridgeToken] = useState("");
+  const [bridgeAmt, setBridgeAmt] = useState("10");
+  const [bridging, setBridging] = useState(false);
+  const [bridgeRes, setBridgeRes] = useState<Record<string, unknown> | null>(null);
+
+  const fetchBalances = async () => {
+    setLoadingBal(true);
     try {
-      const res = await fetch(`/api/moonpay/balances?wallet=${wallet}&chain=${selectedChain}`);
+      const res = await fetch(`/api/moonpay/balances?wallet=${wallet}&chain=${chain}`);
       const data = await res.json();
       setBalances(data.balances || []);
-    } catch {
-      setBalances([]);
-    }
-    setLoading(false);
+    } catch { setBalances([]); }
+    setLoadingBal(false);
   };
 
-  const executeBuy = () => {
-    const url = `https://buy.moonpay.com?apiKey=pk_live_BT2OYpOuBti65FmHtwMn6ElIPk9YGuJ&currencyCode=${buyToken}&baseCurrencyAmount=${buyAmount}&walletAddress=${wallet}&theme=dark`;
-    window.open(url, "_blank");
-  };
+  useEffect(() => { fetchBalances(); }, [chain, wallet]);
 
-  const executeSwap = async () => {
-    setActionLoading("swap");
+  const doSwap = async () => {
+    if (!swapFrom || !swapTo) return;
+    setSwapping(true);
+    setSwapRes(null);
     try {
       const res = await fetch("/api/moonpay/swap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chain: selectedChain,
-          fromToken: swapFrom,
-          toToken: swapTo,
-          amount: parseFloat(swapAmount),
-          wallet: "celofx",
-        }),
+        body: JSON.stringify({ chain, fromToken: swapFrom, toToken: swapTo, amount: parseFloat(swapAmt), wallet: "celofx" }),
       });
-      const data = await res.json();
-      setSwapResult(JSON.stringify(data, null, 2));
-    } catch (err) {
-      setSwapResult(`Error: ${err instanceof Error ? err.message : "unknown"}`);
-    }
-    setActionLoading(null);
+      setSwapRes(await res.json());
+    } catch (e) { setSwapRes({ error: e instanceof Error ? e.message : "Failed" }); }
+    setSwapping(false);
   };
 
-  const executeBridge = async () => {
-    setActionLoading("bridge");
+  const doBridge = async () => {
+    if (!bridgeToken) return;
+    setBridging(true);
+    setBridgeRes(null);
     try {
       const res = await fetch("/api/moonpay/bridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fromChain: bridgeFrom,
-          fromToken: bridgeToken,
-          amount: parseFloat(bridgeAmount),
-          toChain: "celo",
-        }),
+        body: JSON.stringify({ fromChain: bridgeChain, fromToken: bridgeToken, amount: parseFloat(bridgeAmt), toChain: "celo" }),
       });
-      const data = await res.json();
-      setBridgeResult(JSON.stringify(data, null, 2));
-    } catch (err) {
-      setBridgeResult(`Error: ${err instanceof Error ? err.message : "unknown"}`);
-    }
-    setActionLoading(null);
+      setBridgeRes(await res.json());
+    } catch (e) { setBridgeRes({ error: e instanceof Error ? e.message : "Failed" }); }
+    setBridging(false);
+  };
+
+  const openBuy = () => {
+    window.open(
+      `https://buy.moonpay.com?apiKey=pk_live_BT2OYpOuBti65FmHtwMn6ElIPk9YGuJ&currencyCode=${buyToken}&baseCurrencyAmount=${buyAmount}&walletAddress=${wallet}&theme=dark`,
+      "_blank"
+    );
   };
 
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 space-y-6">
-        <div>
-          <h1 className="text-2xl font-display tracking-tight">Multi-Chain Portfolio</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Powered by MoonPay CLI MCP Server — check balances, buy, swap, and bridge across chains
-          </p>
-        </div>
+        <h1 className="text-2xl font-display tracking-tight">Portfolio</h1>
 
-        {/* Wallet Input */}
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <label className="text-xs font-medium text-muted-foreground">Wallet Address</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={wallet}
-                onChange={(e) => setWallet(e.target.value)}
-                className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm font-mono"
-                placeholder="0x..."
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Chain Selector + Balances */}
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Wallet className="size-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Balances via MoonPay</span>
-              </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
-                moonpay-cli-mcp
-              </span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {CHAINS.map((chain) => (
+        {/* Chain tabs + Balances */}
+        <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1">
+              {CHAINS.map((c) => (
                 <button
-                  key={chain.id}
-                  onClick={() => { setSelectedChain(chain.id); setBalances(null); }}
+                  key={c.id}
+                  onClick={() => setChain(c.id)}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                    selectedChain === chain.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
+                    chain === c.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                   }`}
                 >
-                  {chain.name}
+                  {c.name}
                 </button>
               ))}
             </div>
-            <button
-              onClick={checkBalances}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="size-3 animate-spin" /> : <RefreshCw className="size-3" />}
-              Check Balances
+            <button onClick={fetchBalances} disabled={loadingBal} className="p-1.5 rounded-md hover:bg-accent">
+              {loadingBal ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5 text-muted-foreground" />}
             </button>
-            {balances !== null && (
-              <div className="rounded-md border p-3 space-y-1">
-                {balances.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No tokens found on {selectedChain}</p>
-                ) : (
-                  balances.map((b, i) => (
-                    <div key={i} className="flex justify-between text-xs font-mono">
-                      <span>{b.symbol}</span>
-                      <span>{b.balance} {b.valueUsd ? `($${b.valueUsd})` : ""}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Buy */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <ArrowDownToLine className="size-4 text-emerald-500" />
-                <span className="text-sm font-medium">Buy Crypto</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Fiat on-ramp via MoonPay checkout</p>
-              <select
-                value={buyToken}
-                onChange={(e) => setBuyToken(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-xs"
-              >
-                <option value="usdc_base">USDC on Base</option>
-                <option value="usdc">USDC on Ethereum</option>
-                <option value="usdc_polygon">USDC on Polygon</option>
-                <option value="usdc_arbitrum">USDC on Arbitrum</option>
-                <option value="eth">ETH</option>
-                <option value="eth_base">ETH on Base</option>
-                <option value="sol">SOL</option>
-              </select>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={buyAmount}
-                  onChange={(e) => setBuyAmount(e.target.value)}
-                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-xs font-mono"
-                  placeholder="USD amount"
-                />
-                <button
-                  onClick={executeBuy}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
-                >
-                  Buy <ExternalLink className="size-3" />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="text-xs font-mono text-muted-foreground truncate">{wallet}</div>
 
-          {/* Swap */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="size-4 text-blue-500" />
-                <span className="text-sm font-medium">Swap</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Swap tokens on {selectedChain} via MoonPay</p>
-              <select
-                value={swapFrom}
-                onChange={(e) => setSwapFrom(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-xs"
-              >
-                <option value="">From token...</option>
-                {(POPULAR_TOKENS[selectedChain] || []).map((t) => (
-                  <option key={t.address} value={t.address}>{t.symbol}</option>
-                ))}
-              </select>
-              <select
-                value={swapTo}
-                onChange={(e) => setSwapTo(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-xs"
-              >
-                <option value="">To token...</option>
-                {(POPULAR_TOKENS[selectedChain] || []).map((t) => (
-                  <option key={t.address} value={t.address}>{t.symbol}</option>
-                ))}
-              </select>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={swapAmount}
-                  onChange={(e) => setSwapAmount(e.target.value)}
-                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-xs font-mono"
-                  placeholder="Amount"
-                />
-                <button
-                  onClick={executeSwap}
-                  disabled={!swapFrom || !swapTo || actionLoading === "swap"}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {actionLoading === "swap" ? <Loader2 className="size-3 animate-spin" /> : "Swap"}
-                </button>
-              </div>
-              {swapResult && (
-                <pre className="text-[10px] font-mono bg-muted rounded p-2 overflow-auto max-h-32">{swapResult}</pre>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Bridge */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <ArrowDownToLine className="size-4 text-purple-500 rotate-90" />
-                <span className="text-sm font-medium">Bridge to Celo</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Move stablecoins to Celo for trading</p>
-              <select
-                value={bridgeFrom}
-                onChange={(e) => setBridgeFrom(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-xs"
-              >
-                {CHAINS.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              <select
-                value={bridgeToken}
-                onChange={(e) => setBridgeToken(e.target.value)}
-                className="w-full rounded-md border bg-background px-3 py-1.5 text-xs"
-              >
-                <option value="">Select token...</option>
-                {(POPULAR_TOKENS[bridgeFrom] || []).map((t) => (
-                  <option key={t.address} value={t.address}>{t.symbol}</option>
-                ))}
-              </select>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={bridgeAmount}
-                  onChange={(e) => setBridgeAmount(e.target.value)}
-                  className="flex-1 rounded-md border bg-background px-3 py-1.5 text-xs font-mono"
-                  placeholder="Amount"
-                />
-                <button
-                  onClick={executeBridge}
-                  disabled={!bridgeToken || actionLoading === "bridge"}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
-                >
-                  {actionLoading === "bridge" ? <Loader2 className="size-3 animate-spin" /> : "Bridge"}
-                </button>
-              </div>
-              {bridgeResult && (
-                <pre className="text-[10px] font-mono bg-muted rounded p-2 overflow-auto max-h-32">{bridgeResult}</pre>
-              )}
-            </CardContent>
-          </Card>
+          {loadingBal ? (
+            <div className="py-4 text-center text-xs text-muted-foreground">Loading...</div>
+          ) : balances.length === 0 ? (
+            <div className="py-4 text-center text-xs text-muted-foreground">No tokens on {chain}</div>
+          ) : (
+            <div className="space-y-1">
+              {balances.map((b, i) => (
+                <div key={i} className="flex justify-between py-1.5 border-b border-border/50 last:border-0">
+                  <span className="text-sm font-medium">{b.symbol}</span>
+                  <div className="text-right">
+                    <span className="text-sm font-mono">{b.balance}</span>
+                    {b.valueUsd && <span className="text-xs text-muted-foreground ml-2">${b.valueUsd}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* MoonPay CLI Info */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium">MoonPay CLI MCP Server Integration</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  All actions route through MoonPay CLI tools: token_balance_list, buy, token_swap, token_bridge.
-                  CLI-first architecture with HTTP fallback for Docker environments.
-                </p>
+        {/* Actions grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Buy */}
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold">Buy</h3>
+            <select value={buyToken} onChange={(e) => setBuyToken(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-xs">
+              {BUY_TOKENS.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                <input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)}
+                  className="w-full rounded-md border bg-background pl-6 pr-3 py-1.5 text-xs font-mono" />
               </div>
-              <a
-                href="https://www.npmjs.com/package/@moonpay/cli"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-              >
-                @moonpay/cli <ExternalLink className="size-3" />
-              </a>
+              <button onClick={openBuy}
+                className="px-4 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 inline-flex items-center gap-1">
+                Buy <ExternalLink className="size-3" />
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Swap */}
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold">Swap on {CHAINS.find(c => c.id === chain)?.name}</h3>
+            <select value={swapFrom} onChange={(e) => setSwapFrom(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-xs">
+              <option value="">From...</option>
+              {(TOKENS[chain] || []).map((t) => <option key={t.address} value={t.address}>{t.symbol}</option>)}
+            </select>
+            <select value={swapTo} onChange={(e) => setSwapTo(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-xs">
+              <option value="">To...</option>
+              {(TOKENS[chain] || []).map((t) => <option key={t.address} value={t.address}>{t.symbol}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <input type="number" value={swapAmt} onChange={(e) => setSwapAmt(e.target.value)}
+                className="flex-1 rounded-md border bg-background px-3 py-1.5 text-xs font-mono" />
+              <button onClick={doSwap} disabled={!swapFrom || !swapTo || swapping}
+                className="px-4 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 inline-flex items-center gap-1">
+                {swapping ? <Loader2 className="size-3 animate-spin" /> : "Swap"}
+              </button>
+            </div>
+            {swapRes && (
+              <div className={`rounded-md p-2 text-[10px] font-mono ${swapRes.error ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-700"}`}>
+                {swapRes.error ? String(swapRes.error) : `Status: ${swapRes.status || "ready"}`}
+              </div>
+            )}
+          </div>
+
+          {/* Bridge to Celo */}
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold">Bridge → Celo</h3>
+            <select value={bridgeChain} onChange={(e) => setBridgeChain(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-xs">
+              {CHAINS.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <select value={bridgeToken} onChange={(e) => setBridgeToken(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-xs">
+              <option value="">Token...</option>
+              {(TOKENS[bridgeChain] || []).map((t) => <option key={t.address} value={t.address}>{t.symbol}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <input type="number" value={bridgeAmt} onChange={(e) => setBridgeAmt(e.target.value)}
+                className="flex-1 rounded-md border bg-background px-3 py-1.5 text-xs font-mono" />
+              <button onClick={doBridge} disabled={!bridgeToken || bridging}
+                className="px-4 py-1.5 text-xs font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 inline-flex items-center gap-1">
+                {bridging ? <Loader2 className="size-3 animate-spin" /> : "Bridge"}
+              </button>
+            </div>
+            {bridgeRes && (
+              <div className={`rounded-md p-2 text-[10px] font-mono ${bridgeRes.error ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-700"}`}>
+                {bridgeRes.error ? String(bridgeRes.error) : bridgeRes.status === "quote_unavailable"
+                  ? "Bridge requires MoonPay CLI wallet. Install: npm i -g @moonpay/cli"
+                  : `Status: ${bridgeRes.status || "ready"}`}
+              </div>
+            )}
+          </div>
+        </div>
       </main>
       <Footer />
     </div>
