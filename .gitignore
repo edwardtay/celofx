@@ -47,6 +47,14 @@ private/
 .claude/
 CLAUDE.md
 .skills/
+.mcp.json
+frontend/.mcp.json
+
+# Deployment configs (private)
+captain-definition
+frontend/captain-definition
+docker-compose*.yml
+frontend/docker-compose*.yml
 
 # Misc
 *.tsbuildinfo
