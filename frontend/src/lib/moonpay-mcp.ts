@@ -69,7 +69,7 @@ export async function callMoonPayTool(
       const email = args.email as string | null;
       // Generate MoonPay checkout URL
       const params = new URLSearchParams({
-        apiKey: "pk_live_j75GIyb0XhROmgv6kNjXkWcBRmslbs",
+        apiKey: "pk_test_123",
         currencyCode: token,
         baseCurrencyAmount: String(amount),
         walletAddress: wallet,

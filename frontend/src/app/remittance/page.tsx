@@ -413,7 +413,7 @@ export default function RemittancePage() {
                 <p className="text-xs text-muted-foreground mt-1">Buy cUSD with card or bank transfer via MoonPay</p>
               </div>
               <a
-                href={`https://buy.moonpay.com?apiKey=pk_live_j75GIyb0XhROmgv6kNjXkWcBRmslbs&currencyCode=usdc_base&baseCurrencyAmount=50&walletAddress=${address || "0x6652AcDc623b7CCd52E115161d84b949bAf3a303"}&colorCode=%23D4A843&theme=dark`}
+                href={`https://buy.moonpay.com?apiKey=pk_test_123&currencyCode=usdc_base&baseCurrencyAmount=50&walletAddress=${address || "0x6652AcDc623b7CCd52E115161d84b949bAf3a303"}&colorCode=%23D4A843&theme=dark`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"

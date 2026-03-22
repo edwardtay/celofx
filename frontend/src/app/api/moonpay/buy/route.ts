@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const email = params.get("email");
 
   const checkoutParams = new URLSearchParams({
-    apiKey: "pk_live_j75GIyb0XhROmgv6kNjXkWcBRmslbs",
+    apiKey: "pk_test_123",
     currencyCode: token,
     baseCurrencyAmount: amount,
     walletAddress: wallet,
