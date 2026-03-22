@@ -41,6 +41,8 @@ export async function GET() {
       a2a: { status: "up", skills: 4 },
       mcp: { status: "up", tools: 13, protocolVersion: "2025-06-18" },
       x402: { status: "up", price: "$0.10", currency: "cUSD" },
+      venice: { status: process.env.VENICE_API_KEY ? "up" : "not configured", model: "llama-3.3-70b", privacy: "zero-retention" },
+      moonpay: { status: "up", endpoints: 5 },
       web: { status: "up" },
     },
     stats: {
