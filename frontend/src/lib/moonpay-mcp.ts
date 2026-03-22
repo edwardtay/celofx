@@ -200,7 +200,7 @@ async function callMoonPayViaHttp(
       const wallet = args.wallet as string;
       const email = args.email as string | null;
       const params = new URLSearchParams({
-        apiKey: "pk_test_123",
+        apiKey: "pk_live_BT2OYpOuBti65FmHtwMn6ElIPk9YGuJ",
         currencyCode: token,
         baseCurrencyAmount: String(amount),
         walletAddress: wallet,
