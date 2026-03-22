@@ -20,7 +20,6 @@ const primaryLinks: NavLink[] = [
   { href: "/hedge", label: "Hedging" },
   { href: "/remittance", label: "Remittance" },
   { href: "/portfolio", label: "Portfolio" },
-  { href: "/premium", label: "x402 Premium" },
   { href: "/developers", label: "Developers" },
 ];
 

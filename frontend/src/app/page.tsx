@@ -25,9 +25,9 @@ const modules = [
     summary: "Stablecoin transfers with recipient controls, history, and recurring payment flows.",
   },
   {
-    title: "x402 Premium",
-    href: "/premium",
-    summary: "Pay-per-request premium signal endpoint with HTTP 402 payment flow.",
+    title: "Portfolio",
+    href: "/portfolio",
+    summary: "Multi-chain portfolio manager powered by MoonPay CLI. Buy, swap, and bridge across chains.",
   },
   {
     title: "Developers",
