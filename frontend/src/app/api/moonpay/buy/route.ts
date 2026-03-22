@@ -36,3 +36,17 @@ export async function GET(request: NextRequest) {
     moonpayIntegration: "MoonPay CLI MCP Server (97 tools)",
   });
 }
+
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { token, amount, wallet, email } = body;
+
+  const { callMoonPayTool, extractMcpText } = await import("@/lib/moonpay-mcp");
+  const result = await callMoonPayTool("buy", { token, amount, wallet, email });
+  const text = extractMcpText(result);
+
+  return NextResponse.json({
+    ...JSON.parse(text),
+    via: "moonpay-cli-mcp",
+  });
+}
