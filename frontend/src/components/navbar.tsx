@@ -20,6 +20,7 @@ const primaryLinks: NavLink[] = [
   { href: "/trading", label: "Trading" },
   { href: "/hedge", label: "Hedging" },
   { href: "/remittance", label: "Remittance" },
+  { href: "/about", label: "About" },
 ];
 
 const allLinks = [...primaryLinks];
