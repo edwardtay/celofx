@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { getOnChainQuote } from "@/lib/mento-sdk";
 
 const SYSTEM_PROMPT = `You parse remittance requests into structured data. You understand English, Spanish, Portuguese, and French.
@@ -273,7 +273,7 @@ const STRINGS: Record<string, { saving: string; via: string; instantly: string }
 };
 
 export async function POST(request: Request) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.VENICE_API_KEY || process.env.KIMI_API_KEY;
 
   let body: {
     message?: string;
@@ -337,16 +337,20 @@ export async function POST(request: Request) {
 
     if (apiKey) {
       try {
-        const client = new Anthropic({ apiKey });
-        const response = await client.messages.create({
-          model: "claude-haiku-4-5-20251001",
+        const aiConfig = process.env.VENICE_API_KEY
+          ? { baseURL: "https://api.venice.ai/api/v1", model: "llama-3.3-70b" }
+          : { baseURL: "https://api.moonshot.ai/v1", model: "kimi-k2.5" };
+        const client = new OpenAI({ apiKey, baseURL: aiConfig.baseURL });
+        const response = await client.chat.completions.create({
+          model: aiConfig.model,
           max_tokens: 256,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: message.trim() }],
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: message.trim() },
+          ],
         });
 
-        const text =
-          response.content[0].type === "text" ? response.content[0].text : "";
+        const text = response.choices[0]?.message?.content ?? "";
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) raw = JSON.parse(jsonMatch[0]);
       } catch {
@@ -504,6 +508,12 @@ export async function POST(request: Request) {
     warnings.push("Local-fiat estimate uses static reference data. On-chain Mento settlement is unaffected.");
   }
 
+  const venues = {
+    mento: "Mento Broker (cUSD/cEUR/cREAL native pairs)",
+    uniswapV3: "Uniswap V3 SwapRouter02 (USDC/USDT/CELO pairs)",
+    moonpay: "MoonPay (fiat on-ramp → stablecoin)",
+  };
+
   const routeOptions = [
     { provider: "CeloFX", fee: celofxFee, receive: celofxReceive, etaHours: estimatedHoursFromText(TRANSFER_TIMES.celofx), onchain: true },
     { provider: "Wise", fee: wiseFee, receive: wiseReceive, etaHours: estimatedHoursFromText(TRANSFER_TIMES.wise), onchain: false },
@@ -582,6 +592,7 @@ export async function POST(request: Request) {
       vs: worstProvider,
     },
     strings,
+    venues,
     lastMile,
     meta: {
       quoteQuality,

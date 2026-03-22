@@ -323,6 +323,17 @@ export default function HedgePage() {
                 )}
               </>
             )}
+            <p className="text-xs text-muted-foreground mt-2">
+              Or{" "}
+              <a
+                href={`https://buy.moonpay.com?apiKey=pk_live_j75GIyb0XhROmgv6kNjXkWcBRmslbs&currencyCode=usdc_base&baseCurrencyAmount=50&walletAddress=${address || "0x6652AcDc623b7CCd52E115161d84b949bAf3a303"}&colorCode=%23D4A843&theme=dark`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline hover:no-underline"
+              >
+                buy cUSD with MoonPay
+              </a>
+            </p>
           </CardContent>
         </Card>
 

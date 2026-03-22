@@ -406,6 +406,26 @@ export default function RemittancePage() {
         </div>
 
         <Card className="gap-0 py-0">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-sm">Fund with MoonPay</h3>
+                <p className="text-xs text-muted-foreground mt-1">Buy cUSD with card or bank transfer via MoonPay</p>
+              </div>
+              <a
+                href={`https://buy.moonpay.com?apiKey=pk_live_j75GIyb0XhROmgv6kNjXkWcBRmslbs&currencyCode=usdc_base&baseCurrencyAmount=50&walletAddress=${address || "0x6652AcDc623b7CCd52E115161d84b949bAf3a303"}&colorCode=%23D4A843&theme=dark`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Buy cUSD
+                <ExternalLink className="size-3" />
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="gap-0 py-0">
           <CardContent className="space-y-2 py-3">
             <div className="flex items-center justify-between gap-2 text-sm">
               <span className="font-medium">Access mode</span>
